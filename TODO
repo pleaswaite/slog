@@ -1,0 +1,8 @@
+DB -
+   - add unique ID column, make it the key
+   - add table for tracking uploads to LOTW and eSQL
+   - move confirmation information to another table
+
+UI -
+   - remember frequency from one QSO to the next (easy if you're calling CQ on one freq)
+   - add info to Add dialog for whether you've worked this band-country and got confirmation yet

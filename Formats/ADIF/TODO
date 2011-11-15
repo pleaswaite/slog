@@ -1,0 +1,17 @@
+Parser --
+   - finish stringToField
+   - handle user-defined
+   - probably want other parse methods, but what?
+
+Types --
+   - finish Field, make it do its own Read and Show
+   - Location needs to do its own Read
+
+Writer --
+   - merge renderField with Show from Field
+   - handle user-defined
+
+overall --
+   - extensive test suite
+   - auto-generate thousands of records and see how fast things are
+   - haskell-style documentation

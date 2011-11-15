@@ -1,0 +1,28 @@
+- ADIF
+   - convert between ADIF-formatted strings and an in-memory representation
+   - uses:  MissingH, parsec
+- Database
+   - create new databases and tables; populate with columns
+   - store new QSLs in the database
+   - search and dump all existing QSLs
+   - import from different file formats (ADIF, etc.) and export to different
+     file formats (ADIF, etc.)
+   - uses: HDBC, sqlite3
+- Report
+   - drop-in modules for each type of award and report required (includes DB
+     query to run, perhaps UI blob for display)
+- Lookup
+   - search hamqth.com for a call sign and return data
+   - uses:  HTTP-4000, xml something something
+- Upload
+   - sign ADIF files and report to LOTW
+- UI
+   - read in .glade file
+   - provide dialogs for creating and editing QSOs
+   - menu options for create/delete/edit QSOs; view different kinds of reports;
+     create new databases; import/export
+   - automatically fill in as much as possible for a new QSO
+   - default overview is just a list of all (recent?) QSOs
+   - at-a-glance determine whether a call is needed for an award/band/etc.
+   - minimal configuration
+   - uses: gtk
