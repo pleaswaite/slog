@@ -68,7 +68,7 @@ prepDB dbh = do
 -- an error if no such QSO exists, so be prepared to handle that.
 findQSOByDateTime :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> IO Integer
 findQSOByDateTime dbh date time = do
-    ndxs <- quickQuery' dbh "SELECT qsoid FROM qsos WHERE date = ?, time = ?"
+    ndxs <- quickQuery' dbh "SELECT qsoid FROM qsos WHERE date = ? and time = ?"
                         [toSql $ date, toSql $ time]
 
     -- There really better be only one result.
