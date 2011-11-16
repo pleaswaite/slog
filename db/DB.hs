@@ -30,7 +30,7 @@ prepDB dbh = do
                 \qsoid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
                 \freq REAL NOT NULL, rx_freq REAL,\
-                \mode TEXT,\
+                \mode TEXT NOT NULL,\
                 \dxcc TEXT,\
                 \grid TEXT,\
                 \state TEXT,\
