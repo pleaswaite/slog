@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 module DB(connect,
           findQSOByDateTime,
           addQSO,
@@ -73,7 +74,7 @@ findQSOByDateTime dbh date time = do
     -- There really better be only one result.
     case ndxs of
         [[ndx]] -> return $ fromSql ndx
-        err     -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
+        _       -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
 
 -- Add a QSO object into the database.  Returns the new row's qsoid.
 addQSO :: IConnection conn => conn -> QSO -> IO Integer
@@ -88,14 +89,14 @@ addQSO dbh qso = handleSql errorHandler $ do
     commit dbh
     return qsoid
  where
-    addToQSOTable dbh qso = run dbh "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
-                                                      \grid, state, name, notes, xc_in, xc_out,\
-                                                      \rst_rcvd, rst_sent, iota, itu, waz_zone,\
-                                                      \call, sat_name, sat_mode)\
-                                    \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                                (qsoToSql qso)
-    addToConfTable dbh ndx = run dbh "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
-    addToUpTable dbh ndx   = run dbh "INSERT INTO uploads (qsoid) VALUES (?)" [ndx]
+    addToQSOTable db q = run db "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
+                                                  \grid, state, name, notes, xc_in, xc_out,\
+                                                  \rst_rcvd, rst_sent, iota, itu, waz_zone,\
+                                                  \call, sat_name, sat_mode)\
+                                \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                            (qsoToSql q)
+    addToConfTable db ndx = run db "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
+    addToUpTable db ndx   = run db "INSERT INTO uploads (qsoid) VALUES (?)" [ndx]
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
@@ -153,3 +154,4 @@ sqlToQSO [date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in
          qXcIn = fromSql xc_in, qXcOut = fromSql xc_out, qRST_Rcvd = fromSql rst_rcvd, qRST_Sent = fromSql rst_sent,
          qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz_zone,
          qCall = fromSql call, qSatName = fromSql sat_name, qSatMode = fromSql sat_mode}
+sqlToQSO _ = error $ "sqlToQSO got an unexpected length of list.  How did this happen?"

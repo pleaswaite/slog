@@ -3,7 +3,6 @@ module Lookup.Lookup(RadioAmateur(..),
                      lookupCall, login)
  where
 
-import Control.Monad.Trans(liftIO)
 import Data.Char(toUpper)
 import Data.Maybe(catMaybes, isJust)
 import Network.HTTP
@@ -11,7 +10,7 @@ import System.IO.Error(try)
 import Text.XML.Light(unqual)
 import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
-import Text.XML.Light.Types(Element, elName, qName)
+import Text.XML.Light.Types(Element, QName, elName, qName)
 
 data RadioAmateur = RadioAmateur {
     raCall :: Maybe String,
@@ -50,9 +49,11 @@ data RAUses = Yes | No | Unknown
 
 type SessionID = String
 
+stringToInteger :: String -> Integer
 stringToInteger "" = 0
 stringToInteger s  = fst $ (reads s :: [(Integer, String)]) !! 0
 
+stringToRAUses :: String -> RAUses
 stringToRAUses s = case uppercase s of
     "Y" -> Yes
     "N" -> No
@@ -94,11 +95,12 @@ xmlToRadioAmateur xml = Just $
                    raWeb         = xml <?> "web",
                    raPicture     = xml <?> "picture" }
  where
-    xml <?> ele = maybe Nothing Just (getElementValue ele xml)
+    x <?> e = maybe Nothing Just (getElementValue e x)
 
 -- We can't just use a straight-up == on QNames here because qURI is set and
 -- the default comparison takes that into account, so anything made with unqual
 -- above will fail.
+elementHasName :: Text.XML.Light.Types.QName -> Element -> Bool
 elementHasName qn ele = qName qn == (qName . elName) ele
 
 -- Given a URL, fetch and return the body.  This will raise an IO exception on
@@ -130,16 +132,16 @@ lookupCall call sid = do
     result <- try $ getXML url
 
     case result of
-        Left err  -> return Nothing
         Right s   -> return $ parseXMLDoc s >>= responseIsValid >>= xmlToRadioAmateur
+        _         -> return Nothing
 
 -- Given a user name and password, login to http://www.hamqth.com and return the
 -- returned session ID.  This operation may fail.  Be prepared.
 login :: String -> String -> IO (Maybe SessionID)
-login username password = do
-    let url = "http://www.hamqth.com/xml.php?u=" ++ username ++ "&p=" ++ password
+login username pass = do
+    let url = "http://www.hamqth.com/xml.php?u=" ++ username ++ "&p=" ++ pass
     result <- try $ getXML url
 
     case result of
-        Left err  -> return Nothing
         Right xml -> return $ parseXMLDoc xml >>= getElementValue "session_id"
+        _         -> return Nothing

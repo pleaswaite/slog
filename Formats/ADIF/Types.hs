@@ -213,7 +213,10 @@ data AntennaPath = GrayLine
                  | Other
  deriving (Eq, Ord)
 
+antennaPathMap :: [(AntennaPath, String)]
 antennaPathMap = [(GrayLine, "G"), (ShortPath, "S"), (LongPath, "L"), (Other, "O")]
+
+antennaPathMap' :: [(String, AntennaPath)]
 antennaPathMap' = invert antennaPathMap
 
 instance Show AntennaPath where
@@ -241,6 +244,7 @@ data Band = Band2190M | Band560M | Band160M | Band80M | Band60M | Band40M
           | Band6MM | Band4MM | Band2Point5MM | Band2MM | Band1MM
  deriving (Eq)
 
+bandMap :: [(Band, String)]
 bandMap = [(Band2190M, "2190M"), (Band560M, "560M"), (Band160M, "160M"), (Band80M, "80M"),
            (Band60M, "60M"), (Band40M, "40M"), (Band30M, "30M"), (Band20M, "20M"),
            (Band17M, "17M"), (Band15M, "15M"), (Band12M, "12M"), (Band10M, "10M"),
@@ -249,6 +253,8 @@ bandMap = [(Band2190M, "2190M"), (Band560M, "560M"), (Band160M, "160M"), (Band80
            (Band9CM, "9CM"), (Band6CM, "6CM"), (Band3CM, "3CM"), (Band1Point25CM, "1.25CM"),
            (Band6MM, "6MM"), (Band4MM, "4MM"), (Band2Point5MM, "2.5MM"), (Band2MM, "2MM"),
            (Band1MM, "1MM")]
+
+bandMap' :: [(String, Band)]
 bandMap' = invert bandMap
 
 
@@ -264,7 +270,10 @@ instance Read Band where
 data Complete = CYes | CNo | CNil | CUnknown
  deriving (Eq)
 
+completeMap :: [(Complete, String)]
 completeMap = [(CYes, "Y"), (CNo, "N"), (CNil, "NIL"), (CUnknown, "?")]
+
+completeMap' :: [(String, Complete)]
 completeMap' = invert completeMap
 
 instance Show Complete where
@@ -306,8 +315,11 @@ data Propagation = AUR | AUE | BS | ECH | EME | ES | FAI | F2 | INTERNET |
 data ReceivedStatus = RYes | RNo | RRequested | RInvalid | RValidated
  deriving (Eq)
 
+receivedStatusMap :: [(ReceivedStatus, String)]
 receivedStatusMap = [(RYes, "Y"), (RNo, "N"), (RRequested, "R"),
                      (RInvalid, "I"), (RValidated, "V")]
+
+receivedStatusMap' :: [(String, ReceivedStatus)]
 receivedStatusMap' = invert receivedStatusMap
 
 instance Show ReceivedStatus where
@@ -319,7 +331,10 @@ instance Read ReceivedStatus where
 data SentStatus = SYes | SNo | SRequested | SQueued | SInvalid
  deriving (Eq)
 
+sentStatusMap :: [(SentStatus, String)]
 sentStatusMap = [(SYes, "Y"), (SNo, "N"), (SRequested, "R"), (SQueued, "Q"), (SInvalid, "I")]
+
+sentStatusMap' :: [(String, SentStatus)]
 sentStatusMap' = invert sentStatusMap
 
 instance Show SentStatus where
@@ -334,7 +349,10 @@ instance Read SentStatus where
 data SentVia = Bureau | Direct | Electronic | Manager
  deriving (Eq)
 
+sentViaMap :: [(SentVia, String)]
 sentViaMap = [(Bureau, "B"), (Direct, "D"), (Electronic, "E"), (Manager, "M")]
+
+sentViaMap' :: [(String, SentVia)]
 sentViaMap' = invert sentViaMap
 
 instance Show SentVia where
