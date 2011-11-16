@@ -83,7 +83,10 @@ addQSO dbh qso = handleSql errorHandler $ do
 
     -- Get the qsoid assigned by the database so we can create the other tables.
     qsoid <- findQSOByDateTime dbh (qDate qso) (qTime qso)
-    addToConfTable dbh (toSql qsoid) >> addToUpTable dbh (toSql qsoid) >> return qsoid
+    addToConfTable dbh (toSql qsoid)
+    addToUpTable dbh (toSql qsoid)
+    commit dbh
+    return qsoid
  where
     addToQSOTable dbh qso = run dbh "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
                                                       \grid, state, name, notes, xc_in, xc_out,\
@@ -110,6 +113,7 @@ updateQSO dbh qsoid qso = do
     -- upload the new information later.
     run dbh "UPDATE uploads SET lotw_uploaded = 0, eqsl_uploaded = 0 WHERE qsoid = ?"
             [toSql qsoid]
+    commit dbh
     return ()
 
 -- Look up the QSO given by the supplied qsoid (which should have first been obtained
@@ -119,6 +123,7 @@ removeQSO dbh qsoid = do
     run dbh "DELETE FROM qsos WHERE qsoid = ?" [toSql qsoid]
     run dbh "DELETE FROM confirmations WHERE qsoid = ?" [toSql qsoid]
     run dbh "DELETE FROM uploads WHERE qsoid = ?" [toSql qsoid]
+    commit dbh
     return ()
 
 -- Return a list of all QSOs in the database.
