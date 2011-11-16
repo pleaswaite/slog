@@ -1,9 +1,11 @@
-module Lookup(RadioAmateur(..),
-              lookupCall, login)  where
+module Lookup.Lookup(RadioAmateur(..),
+                     SessionID,
+                     lookupCall, login)
+ where
 
 import Control.Monad.Trans(liftIO)
 import Data.Char(toUpper)
-import Data.Maybe(isJust)
+import Data.Maybe(catMaybes, isJust)
 import Network.HTTP
 import System.IO.Error(try)
 import Text.XML.Light(unqual)
@@ -12,29 +14,35 @@ import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, elName, qName)
 
 data RadioAmateur = RadioAmateur {
-    raCall :: String,
-    raNick :: String,
-    raQTH :: String,
-    raCountry :: String,
-    raITU :: Integer,
-    raWAZ :: Integer,
-    raGrid :: String,
-    raAddrName :: String,
-    raAddrStreet :: String,
-    raAddrCity :: String,
-    raAddrZip :: String,
-    raAddrCountry :: String,
-    raDistrict :: String,
-    raLOTW :: RAUses,
-    raQSL :: RAUses,
-    raEQSL :: RAUses,
-    raEMail :: String,
-    raJabber :: String,
-    raSkype :: String,
-    raBirthYear :: Integer,
-    raLicenseYear :: Integer,
-    raWeb :: String,
-    raPicture :: String }
+    raCall :: Maybe String,
+    raNick :: Maybe String,
+    raQTH :: Maybe String,
+    raCountry :: Maybe String,
+    raITU :: Maybe Integer,
+    raWAZ :: Maybe Integer,
+    raGrid :: Maybe String,
+    raAddrName :: Maybe String,
+    raAddrStreet :: [String],
+    raAddrCity :: Maybe String,
+    raAddrZip :: Maybe String,
+    raAddrCountry :: Maybe String,
+    raDistrict :: Maybe String,
+    raUSState :: Maybe String,
+    raUSCounty :: Maybe String,
+    raOblast :: Maybe String,
+    raDOK :: Maybe Integer,
+    raLOTW :: Maybe RAUses,
+    raIOTA :: Maybe String,
+    raQSLVia :: Maybe String,
+    raQSL :: Maybe RAUses,
+    raEQSL :: Maybe RAUses,
+    raEMail :: Maybe String,
+    raJabber :: Maybe String,
+    raSkype :: Maybe String,
+    raBirthYear :: Maybe Integer,
+    raLicenseYear :: Maybe Integer,
+    raWeb :: Maybe String,
+    raPicture :: Maybe String }
  deriving(Show)
 
 data RAUses = Yes | No | Unknown
@@ -58,27 +66,35 @@ xmlToRadioAmateur xml = Just $
                    raNick        = xml <?> "nick",
                    raQTH         = xml <?> "qth",
                    raCountry     = xml <?> "country",
-                   raITU         = stringToInteger $ xml <?> "itu",
-                   raWAZ         = stringToInteger $ xml <?> "cq",
+                   raITU         = maybe Nothing (Just . stringToInteger) (xml <?> "itu"),
+                   raWAZ         = maybe Nothing (Just . stringToInteger) (xml <?> "cq"),
                    raGrid        = xml <?> "grid",
                    raAddrName    = xml <?> "adr_name",
-                   raAddrStreet  = xml <?> "adr_street",
+                   raAddrStreet  = catMaybes [xml <?> "adr_street1",
+                                              xml <?> "adr_street2",
+                                              xml <?> "adr_street3"],
                    raAddrCity    = xml <?> "adr_city",
                    raAddrZip     = xml <?> "adr_zip",
                    raAddrCountry = xml <?> "adr_country",
                    raDistrict    = xml <?> "district",
-                   raLOTW        = stringToRAUses $ xml <?> "lotw",
-                   raQSL         = stringToRAUses $ xml <?> "qsl",
-                   raEQSL        = stringToRAUses $ "eqsl",
+                   raUSState     = xml <?> "us_state",
+                   raUSCounty    = xml <?> "us_county",
+                   raOblast      = xml <?> "oblast",
+                   raDOK         = maybe Nothing (Just . stringToInteger) (xml <?> "dok"),
+                   raIOTA        = xml <?> "iota",
+                   raQSLVia      = xml <?> "qsl_via",
+                   raLOTW        = maybe Nothing (Just . stringToRAUses) (xml <?> "lotw"),
+                   raQSL         = maybe Nothing (Just . stringToRAUses) (xml <?> "qsl"),
+                   raEQSL        = maybe Nothing (Just . stringToRAUses) (xml <?> "eqsl"),
                    raEMail       = xml <?> "email",
                    raJabber      = xml <?> "jabber",
                    raSkype       = xml <?> "skype",
-                   raBirthYear   = stringToInteger $ xml <?> "birth_year",
-                   raLicenseYear = stringToInteger $ xml <?> "lic_year",
+                   raBirthYear   = maybe Nothing (Just . stringToInteger) (xml <?> "birth_year"),
+                   raLicenseYear = maybe Nothing (Just . stringToInteger) (xml <?> "lic_year"),
                    raWeb         = xml <?> "web",
                    raPicture     = xml <?> "picture" }
  where
-    xml <?> ele = maybe "" id (getElementValue ele xml)
+    xml <?> ele = maybe Nothing Just (getElementValue ele xml)
 
 -- We can't just use a straight-up == on QNames here because qURI is set and
 -- the default comparison takes that into account, so anything made with unqual
@@ -108,8 +124,8 @@ responseIsValid xml | gotError xml = Nothing
 -- Given a session ID and a call sign, do a lookup at http://www.hamqth.com.  Return
 -- a RadioAmateur record if successful.  Note:  you need to call login first or this
 -- will not succeed.
-lookupCall :: SessionID -> String -> IO (Maybe RadioAmateur)
-lookupCall sid call = do
+lookupCall :: String -> SessionID -> IO (Maybe RadioAmateur)
+lookupCall call sid = do
     let url = "http://www.hamqth.com/xml.php?id=" ++ sid ++ "&callsign=" ++ call ++ "&prg=slog"
     result <- try $ getXML url
 
