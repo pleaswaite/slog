@@ -1,4 +1,10 @@
-module DB where
+module DB(connect,
+          findQSOByDateTime,
+          addQSO,
+          updateQSO,
+          removeQSO,
+          getAllQSOs)
+ where
 
 import Database.HDBC
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
@@ -23,19 +29,13 @@ prepDB dbh = do
         run dbh "CREATE TABLE qsos (\
                 \qsoid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
-                \freq REAL NOT NULL,\
-                \rx_freq REAL,\
+                \freq REAL NOT NULL, rx_freq REAL,\
                 \mode TEXT,\
                 \dxcc TEXT,\
                 \grid TEXT,\
                 \state TEXT,\
                 \name TEXT,\
-                \qsl_rdate TEXT, qsl_sdate TEXT,\
-                \qsl_rcvd TEXT, qsl_rcvd_via TEXT,\
-                \qsl_sent TEXT, qsl_sent_via TEXT,\
                 \notes TEXT,\
-                \lotw_rdate TEXT, lotw_sdate TEXT,\
-                \lotw_rcvd TEXT, lotw_sent TEXT,\
                 \xc_in TEXT, xc_out TEXT,\
                 \rst_rcvd TEXT, rst_sent TEXT,\
                 \iota TEXT,\
@@ -44,39 +44,78 @@ prepDB dbh = do
                 \call TEXT NOT NULL,\
                 \sat_name TEXT, sat_mode TEXT)" []
         return ()
+    when (not ("confirmations" `elem` tables)) $ do
+        run dbh "CREATE TABLE confirmations (\
+                \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
+                \qsoid INTEGER NOT NULL UNIQUE,\
+                \qsl_rdate TEXT, qsl_sdate TEXT,\
+                \qsl_rcvd TEXT, qsl_rcvd_via TEXT,\
+                \qsl_sent TEXT, qsl_sent_via TEXT,\
+                \lotw_rdate TEXT, lotw_sdate TEXT,\
+                \lotw_rcvd TEXT, lotw_sent TEXT)" []
+        return ()
+    when (not ("uploads" `elem` tables)) $ do
+        run dbh "CREATE TABLE uploads (\
+                \uploadid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
+                \qsoid INTEGER NOT NULL UNIQUE,\
+                \lotw_uploaded INTEGER NOT NULL DEFAULT 0,\
+                \eqsl_uploaded INTEGER NOT NULL DEFAULT 0)" []
+        return ()
     commit dbh
 
--- Add a QSO object into the database, raising an IO exception with error
--- message if a QSO with the same date and time already exists.
-addQSO :: IConnection conn => conn -> QSO -> IO ()
+-- Given a QSO date and time, return its unique ID from the qsos table.  Raises
+-- an error if no such QSO exists, so be prepared to handle that.
+findQSOByDateTime :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> IO Integer
+findQSOByDateTime dbh date time = do
+    ndxs <- quickQuery' dbh "SELECT qsoid FROM qsos WHERE date = ?, time = ?"
+                        [toSql $ date, toSql $ time]
+
+    -- There really better be only one result.
+    case ndxs of
+        [[ndx]] -> return $ fromSql ndx
+        err     -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
+
+-- Add a QSO object into the database.  Returns the new row's qsoid.
+addQSO :: IConnection conn => conn -> QSO -> IO Integer
 addQSO dbh qso = handleSql errorHandler $ do
-    run dbh "INSERT INTO qsos VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,\
-                                     \?, ?, ?, ?, ?, ?, ?, ?, ?, ?,\
-                                     \?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-            (qsoToSql qso)
-    return ()
+    -- First, add the new QSO to the qsos table.
+    addToQSOTable dbh qso
+
+    -- Get the qsoid assigned by the database so we can create the other tables.
+    qsoid <- findQSOByDateTime dbh (qDate qso) (qTime qso)
+    addToConfTable dbh (toSql qsoid) >> addToUpTable dbh (toSql qsoid) >> return qsoid
  where
+    addToQSOTable dbh qso = run dbh "INSERT INTO qsos VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,\
+                                                             \?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                (qsoToSql qso)
+    addToConfTable dbh ndx = run dbh "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
+    addToUpTable dbh ndx   = run dbh "INSERT INTO uploads (qsoid) VALUES (?)" [ndx]
+
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
--- Look up the QSO given by the supplied date and time, and update it with the
--- values out of the provided new QSO.
-updateQSO :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> QSO -> IO ()
-updateQSO dbh date time qso =
+-- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
+-- update it with the values out of the provided new QSO.
+updateQSO :: IConnection conn => conn -> Integer -> QSO -> IO ()
+updateQSO dbh qsoid qso = do
     run dbh "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
-            \dxcc = ?, grid = ?, state = ?, name = ?, qsl_rdate = ?, qsl_sdate = ?\
-            \qsl_rcvd = ?, qsl_rcvd_via = ?, qsl_sent = ?, qsl_sent_via = ?\
-            \notes = ?, lotw_rdate = ?, lotw_sdate = ?, lotw_rcvd = ?, lotw_sent = ?\
+            \dxcc = ?, grid = ?, state = ?, name = ?, notes = ?,\
             \xc_in = ?, xc_out = ?, rst_rcvd = ?, rst_sent = ?, iota = ?, itu = ?\
             \waz_zone = ?, call = ?, sat_name = ?, sat_mode = ?\
-            \WHERE date = ?, time = ?"
-            (qsoToSql qso ++ [toSql date, toSql time]) >>
+            \WHERE qsoid = ?"
+            (qsoToSql qso ++ [toSql qsoid])
+    -- Then, we need to zero out this QSO's row in the uploads table so we'll know to
+    -- upload the new information later.
+    run dbh "UPDATE uploads SET lotw_uploaded = 0, eqsl_uploaded = 0 WHERE qsoid = ?"
+            [toSql qsoid]
     return ()
 
--- Look up the QSO given by the supplied date and time, and remove it from the database.
-removeQSO :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> IO ()
-removeQSO dbh date time = do
-    run dbh "DELETE FROM qsos WHERE date = ?, time = ?"
-            [toSql date, toSql time]
+-- Look up the QSO given by the supplied qsoid (which should have first been obtained
+-- by calling findQSOByDateTime), and remove it from the database.
+removeQSO :: IConnection conn => conn -> Integer -> IO ()
+removeQSO dbh qsoid = do
+    run dbh "DELETE FROM qsos WHERE qsoid = ?" [toSql qsoid]
+    run dbh "DELETE FROM confirmations WHERE qsoid = ?" [toSql qsoid]
+    run dbh "DELETE FROM uploads WHERE qsoid = ?" [toSql qsoid]
     return ()
 
 -- Return a list of all QSOs in the database.
@@ -93,26 +132,16 @@ getAllQSOs dbh = do
 qsoToSql :: QSO -> [SqlValue]
 qsoToSql qso =
     [toSql $ qDate qso, toSql $ qTime qso, toSql $ qFreq qso, toSql $ qRxFreq qso, toSql $ show $ qMode qso,
-     toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qQSL_RDate qso,
-     toSql $ qQSL_SDate qso, toSql $ show $ qQSL_Rcvd qso, toSql $ show $ qQSL_Sent qso, toSql $ show $ qQSL_SentVia qso,
-     toSql $ qNotes qso, toSql $ qLOTW_RDate qso, toSql $ qLOTW_SDate qso, toSql $ show $ qLOTW_Rcvd qso, toSql $ show $ qLOTW_Sent qso,
+     toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qNotes qso,
      toSql $ qXcIn qso, toSql $ qXcOut qso, toSql $ qRST_Rcvd qso, toSql $ qRST_Sent qso, toSql $ qIOTA qso,
      toSql $ qITU qso, toSql $ qWAZ qso, toSql $ qCall qso, toSql $ qSatName qso, toSql $ qSatMode qso]
 
 sqlToQSO :: [SqlValue] -> QSO
-sqlToQSO [date, time, freq, rx_freq, mode, dxcc, grid, state, name, qsl_rdate, qsl_sdate,
-          qsl_rcvd, qsl_rcvd_via, qsl_sent, qsl_sent_via, notes, lotw_rdate, lotw_sdate,
-          lotw_rcvd, lotw_sent, xc_in, xc_out, rst_rcvd, rst_sent, iota, itu, waz_zone,
-          call, sat_name, sat_mode] =
+sqlToQSO [date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
+          xc_out, rst_rcvd, rst_sent, iota, itu, waz_zone, call, sat_name, sat_mode] =
     QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
          qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,
-         qName = fromSql name, qQSL_RDate = fromSql qsl_rdate, qQSL_SDate = fromSql qsl_sdate,
-         qQSL_Rcvd = read (fromSql qsl_rcvd) :: ADIF.ReceivedStatus,
-         qQSL_RcvdVia = read (fromSql qsl_rcvd_via) :: ADIF.SentVia,
-         qQSL_Sent = read (fromSql qsl_sent) :: ADIF.SentStatus,
-         qQSL_SentVia = read (fromSql qsl_sent_via ) :: ADIF.SentVia, qNotes = fromSql notes,
-         qLOTW_RDate = fromSql lotw_rdate, qLOTW_SDate = fromSql lotw_sdate,
-         qLOTW_Rcvd = read (fromSql lotw_rcvd) :: ADIF.ReceivedStatus, qLOTW_Sent = read (fromSql lotw_sent) :: ADIF.SentStatus,
+         qName = fromSql name, qNotes = fromSql notes,
          qXcIn = fromSql xc_in, qXcOut = fromSql xc_out, qRST_Rcvd = fromSql rst_rcvd, qRST_Sent = fromSql rst_sent,
          qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz_zone,
          qCall = fromSql call, qSatName = fromSql sat_name, qSatMode = fromSql sat_mode}
