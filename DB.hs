@@ -37,7 +37,7 @@ prepDB dbh = do
                 \name TEXT,\
                 \notes TEXT,\
                 \xc_in TEXT, xc_out TEXT,\
-                \rst_rcvd TEXT, rst_sent TEXT,\
+                \rst_rcvd TEXT NOT NULL, rst_sent TEXT NOT NULL,\
                 \iota TEXT,\
                 \itu INTEGER,\
                 \waz_zone INTEGER,\
