@@ -85,8 +85,11 @@ addQSO dbh qso = handleSql errorHandler $ do
     qsoid <- findQSOByDateTime dbh (qDate qso) (qTime qso)
     addToConfTable dbh (toSql qsoid) >> addToUpTable dbh (toSql qsoid) >> return qsoid
  where
-    addToQSOTable dbh qso = run dbh "INSERT INTO qsos VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?,\
-                                                             \?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    addToQSOTable dbh qso = run dbh "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
+                                                      \grid, state, name, notes, xc_in, xc_out,\
+                                                      \rst_rcvd, rst_sent, iota, itu, waz_zone,\
+                                                      \call, sat_name, sat_mode)\
+                                    \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                                 (qsoToSql qso)
     addToConfTable dbh ndx = run dbh "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
     addToUpTable dbh ndx   = run dbh "INSERT INTO uploads (qsoid) VALUES (?)" [ndx]
