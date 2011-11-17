@@ -1,4 +1,4 @@
-module Sign(sign) where
+module LOTW(sign) where
 
 import System.Cmd(system)
 import System.Directory(doesFileExist)
