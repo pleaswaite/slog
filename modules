@@ -10,7 +10,7 @@
    - drop-in modules for each type of award and report required (includes DB
      query to run, perhaps UI blob for display)
 - Upload
-   - sign ADIF files and report to LOTW
+   - report to LOTW
 - UI
    - read in .glade file
    - provide dialogs for creating and editing QSOs
