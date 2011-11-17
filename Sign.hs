@@ -18,6 +18,6 @@ sign file qth = do
         rc <- system $ "tqsl -d -l " ++ qth ++ " " ++ file ++ " -x"
         case rc of
             ExitSuccess     -> return ()
-            ExitFailure _   -> error "Signing failed."
+            ExitFailure _   -> fail "Signing failed."
     else
-        error "File does not exist."
+        fail "File does not exist."

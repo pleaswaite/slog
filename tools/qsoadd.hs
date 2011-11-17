@@ -33,7 +33,7 @@ readConfigFile f = do
                         confQTHPass = qthPass }
 
     case config of
-        Left cperr  -> error $ show cperr
+        Left cperr  -> fail $ show cperr
         Right c     -> return c
 
 --
