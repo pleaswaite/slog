@@ -147,8 +147,8 @@ data Field = Address          [String]
            | RST_Received     String
            | RST_Sent         String
            | RxPower          Integer
-           | Satellite_Mode   String
-           | Satellite_Name   String
+           | SatelliteMode    String
+           | SatelliteName    String
            | SFI              Double
            | SIG              String
            | SIG_Info         String

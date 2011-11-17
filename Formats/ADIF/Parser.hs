@@ -105,8 +105,8 @@ stringToField (name, length, ty) datum = case name of
     "RST_RCVD"          -> RST_Received datum
     "RST_SENT"          -> RST_Sent datum
     "RX_PWR"            -> RxPower (read datum :: Integer)
-    "SAT_MODE"          -> Satellite_Mode datum
-    "SAT_NAME"          -> Satellite_Name datum
+    "SAT_MODE"          -> SatelliteMode datum
+    "SAT_NAME"          -> SatelliteName datum
     "SFI"               -> SFI (read datum :: Double)
     "SIG"               -> SIG datum
     "SIG_INFO"          -> SIG_Info datum

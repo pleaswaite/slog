@@ -114,8 +114,8 @@ renderField f = case f of
     RST_Received x      -> "<RST_RCVD" ++ renderString x
     RST_Sent x          -> "<RST_SENT" ++ renderString x
     RxPower x           -> "<RX_PWR" ++ (renderString $ show x)
-    Satellite_Mode x    -> "<SAT_MODE" ++ renderString x
-    Satellite_Name x    -> "<SAT_NAME" ++ renderString x
+    SatelliteMode x     -> "<SAT_MODE" ++ renderString x
+    SatelliteName x     -> "<SAT_NAME" ++ renderString x
     SFI x               -> "<SFI" ++ (renderString $ show x)
     SIG x               -> "<SIG" ++ renderString x
     SIG_Info x          -> "<SIG_INFO" ++ renderString x
