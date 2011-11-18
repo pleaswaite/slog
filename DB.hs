@@ -146,7 +146,7 @@ qsoToSql qso =
      toSql $ qITU qso, toSql $ qWAZ qso, toSql $ qCall qso, toSql $ qSatName qso, toSql $ qSatMode qso]
 
 sqlToQSO :: [SqlValue] -> QSO
-sqlToQSO [date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
+sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
           xc_out, rst_rcvd, rst_sent, iota, itu, waz_zone, call, sat_name, sat_mode] =
     QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
          qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,
