@@ -178,23 +178,23 @@ buildQSO ra opt = QSO {
     qDate       = optDate opt <!> "You must specify a date of the form YYYY-MM-DD.",
     qTime       = optTime opt <!> "You must specify a time of the form HHMM.",
     qFreq       = optFreq opt <!> "You must specify a frequency.",
-    qRxFreq     = optRxFreq opt <?> 0,
+    qRxFreq     = optRxFreq opt <?> Nothing,
     qMode       = optMode opt <!> "You must specify a valid mode.",
-    qDXCC       = raCountry ra ||| optDXCC opt <?> "",
-    qGrid       = raGrid ra ||| optGrid opt <?> "",
-    qState      = raUSState ra ||| optState opt <?> "",
-    qName       = raNick ra ||| optName opt <?> "",
-    qNotes      = optNotes opt <?> "",
-    qXcIn       = optXcIn opt <?> "",
-    qXcOut      = optXcOut opt <?> "",
+    qDXCC       = raCountry ra ||| optDXCC opt <?> Nothing,
+    qGrid       = raGrid ra ||| optGrid opt <?> Nothing,
+    qState      = raUSState ra ||| optState opt <?> Nothing,
+    qName       = raNick ra ||| optName opt <?> Nothing,
+    qNotes      = optNotes opt <?> Nothing,
+    qXcIn       = optXcIn opt <?> Nothing,
+    qXcOut      = optXcOut opt <?> Nothing,
     qRST_Rcvd   = optRST_Rcvd opt <!> "You must specify a received signal report.",
     qRST_Sent   = optRST_Sent opt <!> "You must specify a sent signal report.",
-    qIOTA       = raIOTA ra ||| optIOTA opt <?> "",
-    qITU        = raITU ra ||| optITU opt <?> 0,
-    qWAZ        = raWAZ ra ||| optWAZ opt <?> 0,
+    qIOTA       = raIOTA ra ||| optIOTA opt <?> Nothing,
+    qITU        = raITU ra ||| optITU opt <?> Nothing,
+    qWAZ        = raWAZ ra ||| optWAZ opt <?> Nothing,
     qCall       = raCall ra ||| optCall opt <!> "You must specify a call sign.",
-    qSatName    = optSatName opt <?> "",
-    qSatMode    = optSatMode opt <?> "" }
+    qSatName    = optSatName opt <?> Nothing,
+    qSatMode    = optSatMode opt <?> Nothing }
  where
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v
@@ -202,7 +202,7 @@ buildQSO ra opt = QSO {
     Nothing ||| Nothing = Nothing
 
     -- Extract the value from a chain of ||| calls, or use the default.
-    Just v  <?> _   = v
+    Just v  <?> _   = Just v
     _       <?> v   = v
 
     -- Extract the value from a chain of ||| calls, or error.
