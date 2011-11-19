@@ -106,8 +106,8 @@ renderField f = case f of
     QSL_SVia x          -> "<QSL_SENT_VIA" ++ (renderString $ show x)
     QSL_Via x           -> "<QSL_VIA" ++ renderString x
     QSO_Complete x      -> "<QSO_COMPLETE" ++ (renderString $ show x)
-    QSO_Date x          -> "<QSO_DATE" ++ (renderString $ renderDate x)
-    QSO_DateOff x       -> "<QSO_DATE_OFF" ++ (renderString $ renderDate x)
+    QSO_Date x          -> "<QSO_DATE" ++ renderDate x
+    QSO_DateOff x       -> "<QSO_DATE_OFF" ++ renderDate x
     QSO_Random x        -> "<QSO_RANDOM" ++ (renderString $ renderBoolean x)
     QTH x               -> "<QTH" ++ renderString x
     Rig x               -> "<RIG" ++ (renderString $ condense x)
@@ -127,8 +127,8 @@ renderField f = case f of
     SerialString x      -> "<STX_STRING" ++ renderString x
     SWL x               -> "<SWL" ++ (renderString $ renderBoolean x)
     TenTen x            -> "<TEN_TEN" ++ (renderString $ show x)
-    TimeOff x           -> "<TIME_OFF" ++ (renderString $ renderTime x)
-    TimeOn x            -> "<TIME_ON" ++ (renderString $ renderTime x)
+    TimeOff x           -> "<TIME_OFF" ++ renderTime x
+    TimeOn x            -> "<TIME_ON" ++ renderTime x
     TxPower x           -> "<TX_PWR" ++ (renderString $ show x)
     Web x               -> "<WEB" ++ renderString x
     Appdef x            -> renderAppDefined x
