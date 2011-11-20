@@ -4,12 +4,15 @@ module DB(connect,
           addQSO,
           updateQSO,
           removeQSO,
-          getAllQSOs)
+          getAllQSOs,
+          getUnsentQSOs,
+          markQSOsAsSent)
  where
 
+import Control.Monad(when)
+import Data.Time.Clock
 import Database.HDBC
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
-import Control.Monad(when)
 
 import qualified Formats.ADIF.Types as ADIF
 import QSO
@@ -128,10 +131,34 @@ removeQSO dbh qsoid = do
     return ()
 
 -- Return a list of all QSOs in the database.
-getAllQSOs :: IConnection conn => conn -> IO ([QSO])
+getAllQSOs :: IConnection conn => conn -> IO [QSO]
 getAllQSOs dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date,time" []
     return $ map sqlToQSO results
+
+-- Return a list of all QSOs that have not been uploaded to LOTW.
+getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
+getUnsentQSOs dbh = do
+    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,uploads WHERE \
+                               \qsos.qsoid=uploads.qsoid and lotw_uploaded = 0;" []
+    return $ map sqlToQSO results
+
+-- Given a list of previously un-uploaded QSOs, mark them as sent.  It is expected
+-- that the input list will be the output of getUnsentQSOs, with this function called
+-- after that one and LOTW.upload.
+markQSOsAsSent :: IConnection conn => conn -> [QSO] -> IO ()
+markQSOsAsSent dbh qsos = do
+    today <- getCurrentTime
+    ids <- mapM (\qso -> findQSOByDateTime dbh (qDate qso) (qTime qso)) qsos
+
+    confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ?, \
+                            \lotw_sent = \"Y\" WHERE qsoid = ?"
+    upStmt <- prepare dbh "UPDATE uploads SET lotw_uploaded = 1 WHERE qsoid = ?"
+
+    executeMany confStmt (map (\x -> [toSql $ utctDay today, toSql x]) ids)
+    executeMany upStmt (map (\x -> [toSql x]) ids)
+    commit dbh
+    return ()
 
 --
 -- HELPER FUNCTIONS
