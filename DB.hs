@@ -58,13 +58,6 @@ prepDB dbh = do
                 \lotw_rdate TEXT, lotw_sdate TEXT,\
                 \lotw_rcvd TEXT, lotw_sent TEXT)" []
         return ()
-    when (not ("uploads" `elem` tables)) $ do
-        run dbh "CREATE TABLE uploads (\
-                \uploadid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
-                \qsoid INTEGER NOT NULL UNIQUE,\
-                \lotw_uploaded INTEGER NOT NULL DEFAULT 0,\
-                \eqsl_uploaded INTEGER NOT NULL DEFAULT 0)" []
-        return ()
     commit dbh
 
 -- Given a QSO date and time, return its unique ID from the qsos table.  Raises
@@ -88,7 +81,6 @@ addQSO dbh qso = handleSql errorHandler $ do
     -- Get the qsoid assigned by the database so we can create the other tables.
     qsoid <- findQSOByDateTime dbh (qDate qso) (qTime qso)
     addToConfTable dbh (toSql qsoid)
-    addToUpTable dbh (toSql qsoid)
     commit dbh
     return qsoid
  where
@@ -99,7 +91,6 @@ addQSO dbh qso = handleSql errorHandler $ do
                                 \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                             (qsoToSql q)
     addToConfTable db ndx = run db "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
-    addToUpTable db ndx   = run db "INSERT INTO uploads (qsoid) VALUES (?)" [ndx]
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
@@ -113,9 +104,9 @@ updateQSO dbh qsoid qso = do
             \waz_zone = ?, call = ?, sat_name = ?, sat_mode = ?\
             \WHERE qsoid = ?"
             (qsoToSql qso ++ [toSql qsoid])
-    -- Then, we need to zero out this QSO's row in the uploads table so we'll know to
-    -- upload the new information later.
-    run dbh "UPDATE uploads SET lotw_uploaded = 0, eqsl_uploaded = 0 WHERE qsoid = ?"
+    -- Then, we need to zero out this QSO's row in the confirmations table so we'll know
+    -- to upload the new information later.
+    run dbh "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", lotw_rcvd = \"\", lotw_sent = \"\" WHERE qsoid = ?"
             [toSql qsoid]
     commit dbh
     return ()
@@ -126,7 +117,6 @@ removeQSO :: IConnection conn => conn -> Integer -> IO ()
 removeQSO dbh qsoid = do
     run dbh "DELETE FROM qsos WHERE qsoid = ?" [toSql qsoid]
     run dbh "DELETE FROM confirmations WHERE qsoid = ?" [toSql qsoid]
-    run dbh "DELETE FROM uploads WHERE qsoid = ?" [toSql qsoid]
     commit dbh
     return ()
 
@@ -139,8 +129,8 @@ getAllQSOs dbh = do
 -- Return a list of all QSOs that have not been uploaded to LOTW.
 getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
 getUnsentQSOs dbh = do
-    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,uploads WHERE \
-                               \qsos.qsoid=uploads.qsoid and lotw_uploaded = 0;" []
+    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
+                               \qsos.qsoid=confirmations.qsoid AND lotw_sent IS NULL;" []
     return $ map sqlToQSO results
 
 -- Given a list of previously un-uploaded QSOs, mark them as sent.  It is expected
@@ -153,10 +143,8 @@ markQSOsAsSent dbh qsos = do
 
     confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ?, \
                             \lotw_sent = \"Y\" WHERE qsoid = ?"
-    upStmt <- prepare dbh "UPDATE uploads SET lotw_uploaded = 1 WHERE qsoid = ?"
 
     executeMany confStmt (map (\x -> [toSql $ utctDay today, toSql x]) ids)
-    executeMany upStmt (map (\x -> [toSql x]) ids)
     commit dbh
     return ()
 
