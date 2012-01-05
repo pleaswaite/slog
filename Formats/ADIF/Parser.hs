@@ -130,10 +130,14 @@ stringToField (name, length, ty) datum = case name of
                                                 appValue=datum}
 
 stringToHeaderField :: (String, Int, Maybe Char) -> String -> HeaderField
-stringToHeaderField (name, _, _) datum = case name of
+stringToHeaderField (name, length, ty) datum = case name of
     "ADIF_VER"          -> Version datum
     "PROGRAMID"         -> ProgramID datum
     "PROGRAMVERSION"    -> ProgramVersion datum
+    _                   -> HeaderAppdef $ AppDefined {appName=name,
+                                                      appLength=length,
+                                                      appType=ty,
+                                                      appValue=datum}
 
 --
 -- PARSER HELPER FUNCTIONS

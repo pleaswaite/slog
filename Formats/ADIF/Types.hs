@@ -54,6 +54,7 @@ data HeaderField = ProgramID        String
                  | ProgramVersion   String
                  | Userdef          UserDefined
                  | Version          String
+                 | HeaderAppdef     AppDefined
  deriving (Read, Show)
 
 -- The records can contain a very large variety of fields.
