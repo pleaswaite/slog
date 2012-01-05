@@ -94,15 +94,27 @@ opts :: [OptDescr OptAction]
 opts = [
     Option [] ["config"]        (ReqArg (\arg opt -> return opt { optConfigFile = arg }) "CONFIG")
            "the location of the config file",
-    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = Just $ arg }) "DXCC")
-           "their DXCC entity",
+
     Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
-           "date the QSO was made (in UTC)",
+           "date the QSO was made (in UTC) (REQUIRED)",
     Option ['f'] ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optFreq = maybe Nothing strToDouble (fst sp),
                                                                      optRxFreq = maybe Nothing strToDouble (snd sp) })
                                         "FREQ")
-           "frequency used (or freq:rxfreq for split mode)",
+           "frequency used (or freq:rxfreq for split mode) (REQUIRED)",
+    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
+           "their call sign (REQUIRED)",
+    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (map toUpper arg) :: ADIF.Mode) }) "MODE")
+           "mode used (REQUIRED)",
+    Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
+                                                        return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })
+                                        "RST")
+           "rst rcvd:rst sent (REQUIRED)",
+    Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
+           "time the QSO was made (in UTC) (REQUIRED)",
+
+    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = Just $ arg }) "DXCC")
+           "their DXCC entity",
     Option ['g'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
            "their grid square",
     Option ['h'] ["help"]       (NoArg  (\_ -> do
@@ -113,22 +125,12 @@ opts = [
            "their IOTA number",
     Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = strToInteger arg }) "ITU")
            "their ITU zone",
-    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
-           "their call sign",
-    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (map toUpper arg) :: ADIF.Mode) }) "MODE")
-           "mode used",
     Option ['n'] ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",
     Option ['o'] ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
            "notes",
-    Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })
-                                        "RST")
-           "rst rcvd:rst sent",
     Option ['s'] ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
            "their state",
-    Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
-           "time the QSO was made (in UTC)",
     Option ['w'] ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = strToInteger arg }) "WAZ")
            "their WAZ zone",
     Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
