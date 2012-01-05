@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 import Data.Char(toUpper)
 import Data.ConfigFile
+import Data.Maybe(fromMaybe)
 import Data.String.Utils(split)
 import System(ExitCode(..), exitWith)
 import System.Console.GetOpt
@@ -224,8 +225,6 @@ main = do
 
     case optCall cmdline of
         Just call   -> do ra <- doLookup call (confQTHUser conf) (confQTHPass conf)
-                          maybe (ioError $ userError "Looking up call sign failed.")
-                                (\ra' -> addQSO dbh $ buildQSO ra' cmdline)
-                                ra
+                          addQSO dbh $ buildQSO (fromMaybe emptyRadioAmateur ra) cmdline
                           return ()
         _           -> ioError (userError "You must specify a call sign.")

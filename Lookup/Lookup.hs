@@ -1,5 +1,6 @@
 module Lookup.Lookup(RadioAmateur(..),
                      SessionID,
+                     emptyRadioAmateur,
                      lookupCall, login)
  where
 
@@ -59,6 +60,38 @@ stringToRAUses s = case uppercase s of
     "N" -> No
     _   -> Unknown
  where uppercase = map toUpper
+
+emptyRadioAmateur :: RadioAmateur
+emptyRadioAmateur = RadioAmateur {
+    raCall           = Nothing,
+    raNick           = Nothing,
+    raQTH            = Nothing,
+    raCountry        = Nothing,
+    raITU            = Nothing,
+    raWAZ            = Nothing,
+    raGrid           = Nothing,
+    raAddrName       = Nothing,
+    raAddrStreet     = [],
+    raAddrCity       = Nothing,
+    raAddrZip        = Nothing,
+    raAddrCountry    = Nothing,
+    raDistrict       = Nothing,
+    raUSState        = Nothing,
+    raUSCounty       = Nothing,
+    raOblast         = Nothing,
+    raDOK            = Nothing,
+    raLOTW           = Nothing,
+    raIOTA           = Nothing,
+    raQSLVia         = Nothing,
+    raQSL            = Nothing,
+    raEQSL           = Nothing,
+    raEMail          = Nothing,
+    raJabber         = Nothing,
+    raSkype          = Nothing,
+    raBirthYear      = Nothing,
+    raLicenseYear    = Nothing,
+    raWeb            = Nothing,
+    raPicture        = Nothing}
 
 -- Given a parsed XML document, return a RadioAmateur record.
 xmlToRadioAmateur :: Element -> Maybe RadioAmateur
