@@ -3,6 +3,7 @@ module Formats.ADIF.Parser(parseString) where
 import Control.Applicative((<*), (*>))
 import Data.Char(toUpper)
 import Data.String.Utils(split)
+import qualified Data.Text as T
 import Text.ParserCombinators.Parsec
 
 import Formats.ADIF.Types
@@ -189,4 +190,11 @@ garbage     = noneOf "<"
 eoh         = string' "<EOH>"
 eor         = string' "<EOR>"
 
-parseString = parse file "<stdin>"
+-- Data fetched from LOTW has "<APP_LoTW_EOF>" at the end of the text, which
+-- looks totally out of spec as far as I can tell.  We need to strip it out
+-- before doing the parsing.
+parseString s = let
+    txt = T.strip $ T.pack s
+    s'  = maybe s T.unpack (T.stripSuffix (T.pack "<APP_LoTW_EOF>") txt)
+ in
+    parse file "<stdin>" s'
