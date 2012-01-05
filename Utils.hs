@@ -2,6 +2,36 @@ module Utils where
 
 import qualified Formats.ADIF.Types as ADIF
 
+-- Add dashes to an ADIF-formatted date, since that's what LOTW expects.
+dashifyDate :: String -> String
+dashifyDate [y1, y2, y3, y4, m1, m2, d1, d2] = [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2]
+dashifyDate s = s
+
+-- Remove dashes from a LOTW-formatted date, since that's what ADIF expects.
+undashifyDate :: String -> String
+undashifyDate [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2] = [y1, y2, y3, y4, m1, m2, d1, d2]
+undashifyDate s = s
+
+colonifyTime :: String -> String
+colonifyTime [h1, h2, m1, m2] = [h1, h2, ':', m1, m2]
+colonifyTime [h1, h2, m1, m2, s1, s2] = [h1, h2, ':', m1, m2, ':', s1, s2]
+colonifyTime s = s
+
+uncolonifyTime :: String -> String
+uncolonifyTime [h1, h2, ':', m1, m2] = [h1, h2, m1, m2]
+uncolonifyTime [h1, h2, ':', m1, m2, ':', s1, s2] = [h1, h2, m1, m2, s1, s2]
+uncolonifyTime s = s
+
+withoutSeconds :: String -> String
+withoutSeconds [h1, h2, m1, m2, _, _] = [h1, h2, m1, m2]
+withoutSeconds [h1, h2, ':', m1, m2, _, _, _] = [h1, h2, ':', m1, m2]
+withoutSeconds s = s
+
+withSeconds :: String -> String
+withSeconds [h1, h2, m1, m2] = [h1, h2, m1, m2, '0', '0']
+withSeconds [h1, h2, ':', m1, m2] = [h1, h1, ':', m1, m2, ':', '0', '0']
+withSeconds s = s
+
 freqToBand :: Double -> ADIF.Band
 freqToBand f | 0.1357 <= f && f <= 0.1378 = ADIF.Band2190M
              | 1.8 <= f && f <= 2.0 = ADIF.Band160M
