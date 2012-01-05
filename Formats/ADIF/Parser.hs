@@ -112,7 +112,7 @@ stringToField (name, length, ty) datum = case name of
     "SIG_INFO"          -> SIG_Info datum
     "SRX"               -> SRX (read datum :: Integer)
     "SRX_STRING"        -> SRX_String datum
-    "STATE"             -> Types.State datum
+    "STATE"             -> Formats.ADIF.Types.State datum
     "STATION_CALLSIGN"  -> StationCall datum
     "STX"               -> Serial (read datum :: Integer)
     "STX_STRING"        -> SerialString datum
@@ -121,7 +121,7 @@ stringToField (name, length, ty) datum = case name of
     "TIME_OFF"          -> TimeOff datum
     "TIME_ON"           -> TimeOn datum
     "TX_PWR"            -> TxPower (read datum :: Integer)
-    "VE_PROV"           -> Types.State datum
+    "VE_PROV"           -> Formats.ADIF.Types.State datum
     "WEB"               -> Web datum
     _                   -> Appdef $ AppDefined {appName=name,
                                                 appLength=length,
