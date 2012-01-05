@@ -1,4 +1,5 @@
 module LOTW(sign,
+            download,
             upload)
  where
 
@@ -7,6 +8,18 @@ import System.Directory(doesFileExist)
 import System.Exit(ExitCode(..))
 import System.FilePath(replaceExtension)
 import System.Process(readProcessWithExitCode)
+
+-- Download a list of verified, received QSLs from LOTW, starting with a
+-- provided date.  This can then be used to mark them as received in the
+-- database.  The resulting string is in ADIF format.
+download :: String -> String -> String -> IO String
+download date call password = do
+    -- Argh, Network.HTTP does not support HTTPS so we have to be all convoluted
+    -- here to get the results.  At least curl will spit the data out to stdout.
+    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" ["https://p1k.arrl.org/lotwuser/lotwreport.adi?qso_query=1&qso_withown=yes&qso_qslsince=" ++ date ++ "&qso_owncall=" ++ call ++ "&login=" ++ call ++ "&password=" ++ password] ""
+    case exitcode of
+        ExitSuccess     -> return stdout
+        ExitFailure _   -> fail $ "Fetching from LOTW failed: " ++ stderr
 
 -- Given a file path and a QTH, sign the file.  Note that you must have set
 -- everything up with tqsl first.
