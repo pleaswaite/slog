@@ -1,9 +1,7 @@
 import Control.Exception(finally)
 import Data.ConfigFile
 import List(intersperse)
-import System.Console.GetOpt
-import System.Directory(getTemporaryDirectory, removeFile)
-import System.Environment(getArgs)
+import System.Directory(getHomeDirectory, getTemporaryDirectory, removeFile)
 import System.IO
 import System.IO.Error(catch)
 
@@ -35,31 +33,6 @@ readConfigFile f = do
         Right c     -> return c
 
 --
--- OPTION PROCESSING CODE
---
-
-data Options = Options {
-    optConfigFile :: String }
-type OptAction = (Options -> IO Options)
-
-defaultOptions :: Options
-defaultOptions = Options {
-    optConfigFile = "slog.conf" }
-
-opts :: [OptDescr OptAction]
-opts = [
-    Option [] ["config"]        (ReqArg (\arg opt -> return opt { optConfigFile = arg }) "CONFIG")
-           "the location of the config file"
- ]
-
-handleOpts :: [String] -> IO ([OptAction], [String])
-handleOpts argv =
-    case getOpt RequireOrder opts argv of
-        (o, n, [])      -> return (o, n)
-        (_, _, errs)    -> ioError (userError (concat errs ++ usageInfo header opts))
-                           where header = "Usage: qsoupload [OPTIONS] file"
-
---
 -- THE MAIN PROGRAM
 --
 
@@ -80,12 +53,9 @@ writeAndUpload adifs signFunc uploadFunc tempname temph = do
 
 main :: IO ()
 main = do
-    -- Process command line arguments.
-    (actions, _) <- getArgs >>= handleOpts
-    cmdline <- foldl (>>=) (return defaultOptions) actions
-
     -- Read in the config file.
-    conf <- readConfigFile (optConfigFile cmdline)
+    homeDir <- getHomeDirectory
+    conf <- readConfigFile (homeDir ++ "/.slog")
 
     -- Open the database.  We do not have to close the database since that happens
     -- automatically.

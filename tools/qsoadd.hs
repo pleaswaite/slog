@@ -5,6 +5,7 @@ import Data.Maybe(fromMaybe)
 import Data.String.Utils(split)
 import System(ExitCode(..), exitWith)
 import System.Console.GetOpt
+import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 
 import DB(connect, addQSO)
@@ -42,7 +43,6 @@ readConfigFile f = do
 --
 
 data Options = Options {
-    optConfigFile :: String,
     optDate :: Maybe String,
     optTime :: Maybe String,
     optFreq :: Maybe Double,
@@ -68,7 +68,6 @@ type OptAction = (Options -> IO Options)
 
 defaultOptions :: Options
 defaultOptions = Options {
-    optConfigFile = "slog.conf",
     optDate = Nothing,
     optTime = Nothing,
     optFreq = Nothing,
@@ -92,9 +91,6 @@ defaultOptions = Options {
 
 opts :: [OptDescr OptAction]
 opts = [
-    Option [] ["config"]        (ReqArg (\arg opt -> return opt { optConfigFile = arg }) "CONFIG")
-           "the location of the config file",
-
     Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
            "date the QSO was made (in UTC) (REQUIRED)",
     Option ['f'] ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
@@ -219,7 +215,8 @@ main = do
     cmdline <- foldl (>>=) (return defaultOptions) actions
 
     -- Read in the config file.
-    conf <- readConfigFile (optConfigFile cmdline)
+    homeDir <- getHomeDirectory
+    conf <- readConfigFile (homeDir ++ "/.slog")
 
     -- Open the database.  We do not have to close the database since that happens
     -- automatically.
