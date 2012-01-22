@@ -5,6 +5,7 @@ module DB(connect,
           updateQSO,
           removeQSO,
           getAllQSOs,
+          getAllQSOs',
           getUnsentQSOs,
           markQSOsAsSent)
  where
@@ -124,6 +125,12 @@ removeQSO dbh qsoid = do
 getAllQSOs :: IConnection conn => conn -> IO [QSO]
 getAllQSOs dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date,time" []
+    return $ map sqlToQSO results
+
+-- Return a list of all QSOs in the database, sorted in reverse.
+getAllQSOs' :: IConnection conn => conn -> IO [QSO]
+getAllQSOs' dbh = do
+    results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date DESC, time DESC" []
     return $ map sqlToQSO results
 
 -- Return a list of all QSOs that have not been uploaded to LOTW.
