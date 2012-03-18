@@ -11,3 +11,4 @@ qsoconfirm -
 
 qsoadd -
    - shell script wrapper that can drive it from a CSV file
+   - don't allow dates with dashes or times with colons

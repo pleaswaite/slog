@@ -12,6 +12,7 @@ import DB(connect, addQSO)
 import qualified Formats.ADIF.Types as ADIF
 import Lookup.Lookup
 import QSO
+import Utils(uncolonifyTime, undashifyDate)
 
 --
 -- CONFIG FILE PROCESSING CODE
@@ -174,8 +175,8 @@ doLookup call user pass = do
 -- from looking up a call sign, from the command line, and what is required.
 buildQSO :: RadioAmateur -> Options -> QSO
 buildQSO ra opt = QSO {
-    qDate       = optDate opt <!> "You must specify a date of the form YYYY-MM-DD.",
-    qTime       = optTime opt <!> "You must specify a time of the form HHMM.",
+    qDate       = undashifyDate $ optDate opt <!> "You must specify a date of the form YYYY-MM-DD.",
+    qTime       = uncolonifyTime $ optTime opt <!> "You must specify a time of the form HHMM.",
     qFreq       = optFreq opt <!> "You must specify a frequency.",
     qRxFreq     = optRxFreq opt <?> Nothing,
     qMode       = optMode opt <!> "You must specify a valid mode.",

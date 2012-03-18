@@ -6,18 +6,21 @@ module DB(connect,
           removeQSO,
           getAllQSOs,
           getAllQSOs',
+          getUnconfirmedQSOs,
           getUnsentQSOs,
           markQSOsAsSent)
  where
 
 import Control.Monad(when)
 import Data.Char(toUpper)
+import Data.List(find)
 import Data.Time.Clock
 import Database.HDBC
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
 
 import qualified Formats.ADIF.Types as ADIF
 import QSO
+import Utils(undashifyDate)
 
 -- Connect to the database, create the tables if necessary, and return the
 -- database handle.
@@ -96,6 +99,10 @@ addQSO dbh qso = handleSql errorHandler $ do
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
+confirmQSO :: IConnection conn => conn -> [ADIF.Field] -> IO ()
+confirmQSO conn fields = do
+    return ()
+
 -- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
 -- update it with the values out of the provided new QSO.
 updateQSO :: IConnection conn => conn -> Integer -> QSO -> IO ()
@@ -134,6 +141,13 @@ getAllQSOs' dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date DESC, time DESC" []
     return $ map sqlToQSO results
 
+-- Return a list of all QSOs that have not been confirmed with LOTW.
+getUnconfirmedQSOs dbh = do
+    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
+                                \qsos.qsoid=confirmations.qsoid AND lotw_rcvd IS NULL \
+                                \ORDER BY lotw_sdate ASC;" []
+    return $ map sqlToQSO results
+
 -- Return a list of all QSOs that have not been uploaded to LOTW.
 getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
 getUnsentQSOs dbh = do
@@ -152,7 +166,7 @@ markQSOsAsSent dbh qsos = do
     confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ?, \
                             \lotw_sent = \"Y\" WHERE qsoid = ?"
 
-    executeMany confStmt (map (\x -> [toSql $ utctDay today, toSql x]) ids)
+    executeMany confStmt (map (\x -> [toSql $ undashifyDate $ show $ utctDay today, toSql x]) ids)
     commit dbh
     return ()
 
