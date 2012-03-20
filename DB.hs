@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
-module DB(connect,
+module DB(confirmQSO,
+          connect,
           findQSOByDateTime,
           addQSO,
           updateQSO,
@@ -99,8 +100,13 @@ addQSO dbh qso = handleSql errorHandler $ do
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
-confirmQSO :: IConnection conn => conn -> [ADIF.Field] -> IO ()
-confirmQSO conn fields = do
+-- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
+-- update the confirmations table.
+confirmQSO :: IConnection conn => conn -> Integer -> ADIF.Date -> IO ()
+confirmQSO dbh qsoid qsl_date = do
+    run dbh "UPDATE confirmations SET lotw_rdate = ?, lotw_rcvd=\"Y\" WHERE qsoid = ?"
+            [toSql qsl_date, toSql qsoid]
+    commit dbh
     return ()
 
 -- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
