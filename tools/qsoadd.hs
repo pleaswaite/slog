@@ -9,6 +9,7 @@ import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 
 import DB(connect, addQSO)
+import DXCC(DXCC(..), idFromName)
 import qualified Formats.ADIF.Types as ADIF
 import Lookup.Lookup
 import QSO
@@ -49,7 +50,7 @@ data Options = Options {
     optFreq :: Maybe Double,
     optRxFreq :: Maybe Double,
     optMode :: Maybe ADIF.Mode,
-    optDXCC :: Maybe String,
+    optDXCC :: Maybe Integer,
     optGrid :: Maybe String,
     optState :: Maybe String,
     optName :: Maybe String,
@@ -110,7 +111,7 @@ opts = [
     Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
            "time the QSO was made (in UTC) (REQUIRED)",
 
-    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = Just $ arg }) "DXCC")
+    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = strToInteger arg }) "DXCC")
            "their DXCC entity",
     Option ['g'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
            "their grid square",
@@ -180,7 +181,7 @@ buildQSO ra opt = QSO {
     qFreq       = optFreq opt <!> "You must specify a frequency.",
     qRxFreq     = optRxFreq opt <?> Nothing,
     qMode       = optMode opt <!> "You must specify a valid mode.",
-    qDXCC       = raCountry ra ||| optDXCC opt <?> Nothing,
+    qDXCC       = (raCountry ra >>= idFromName) ||| optDXCC opt <?> Nothing,
     qGrid       = raGrid ra ||| optGrid opt <?> Nothing,
     qState      = raUSState ra ||| optState opt <?> Nothing,
     qName       = raNick ra ||| optName opt <?> Nothing,

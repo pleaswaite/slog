@@ -41,7 +41,7 @@ prepDB dbh = do
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
                 \freq REAL NOT NULL, rx_freq REAL,\
                 \mode TEXT NOT NULL,\
-                \dxcc TEXT,\
+                \dxcc INTEGER,\
                 \grid TEXT,\
                 \state TEXT,\
                 \name TEXT,\

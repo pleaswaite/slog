@@ -13,7 +13,7 @@ data QSO = QSO {
     qFreq      :: Double,
     qRxFreq    :: Maybe Double,
     qMode      :: ADIF.Mode,
-    qDXCC      :: Maybe String,
+    qDXCC      :: Maybe Integer,
     qGrid      :: Maybe String,
     qState     :: Maybe String,
     qName      :: Maybe String,
@@ -60,7 +60,7 @@ qsoToADIF qso =
 
     -- And now we add in everything that could potentially be set.
     (catMaybes [qRxFreq qso >>= Just . ADIF.FreqRx,
-                qDXCC qso >>= Just . ADIF.Country,
+                qDXCC qso >>= Just . ADIF.Their_DXCC,
                 qGrid qso >>= Just . ADIF.Grid,
                 qState qso >>= Just . ADIF.State,
                 qName qso >>= Just . ADIF.Name,
