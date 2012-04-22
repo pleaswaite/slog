@@ -13,17 +13,23 @@ undashifyDate [y1, y2, y3, y4, '-', m1, m2, '-', d1, d2] = [y1, y2, y3, y4, m1, 
 undashifyDate s = s
 
 colonifyTime :: String -> String
+colonifyTime [h1, m1, m2] = ['0', h1, ':', m1, m2]
 colonifyTime [h1, h2, m1, m2] = [h1, h2, ':', m1, m2]
+colonifyTime [h1, m1, m2, s1, s2] = ['0', h1, ':', m1, m2, ':', s1, s2]
 colonifyTime [h1, h2, m1, m2, s1, s2] = [h1, h2, ':', m1, m2, ':', s1, s2]
 colonifyTime s = s
 
 uncolonifyTime :: String -> String
+uncolonifyTime [h1, ':', m1, m2] = ['0', h1, m1, m2]
 uncolonifyTime [h1, h2, ':', m1, m2] = [h1, h2, m1, m2]
+uncolonifyTime [h1, ':', m1, m2, ':', s1, s2] = ['0', h1, m1, m2, s1, s2]
 uncolonifyTime [h1, h2, ':', m1, m2, ':', s1, s2] = [h1, h2, m1, m2, s1, s2]
 uncolonifyTime s = s
 
 withoutSeconds :: String -> String
+withoutSeconds [h1, m1, m2, _, _] = ['0', h1, m1, m2]
 withoutSeconds [h1, h2, m1, m2, _, _] = [h1, h2, m1, m2]
+withoutSeconds [h1, ':', m1, m2, _, _, _] = ['0', h1, ':', m1, m2]
 withoutSeconds [h1, h2, ':', m1, m2, _, _, _] = [h1, h2, ':', m1, m2]
 withoutSeconds s = s
 
