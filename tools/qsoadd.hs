@@ -325,29 +325,39 @@ doLookup call user pass = do
 
 -- Construct a new QSO structure, taking into account the defaults we can get
 -- from looking up a call sign, from the command line, and what is required.
-buildQSO :: RadioAmateur -> Options -> QSO
-buildQSO ra opt = QSO {
-    qDate       = undashifyDate $ optDate opt <!> "You must specify a date of the form YYYY-MM-DD.",
-    qTime       = uncolonifyTime $ optTime opt <!> "You must specify a time of the form HHMM.",
-    qFreq       = optFreq opt <!> "You must specify a frequency.",
-    qRxFreq     = optRxFreq opt <?> Nothing,
-    qMode       = optMode opt <!> "You must specify a valid mode.",
-    qDXCC       = (raCountry ra >>= idFromName) ||| optDXCC opt <?> Nothing,
-    qGrid       = raGrid ra ||| optGrid opt <?> Nothing,
-    qState      = raUSState ra ||| optState opt <?> Nothing,
-    qName       = raNick ra ||| optName opt <?> Nothing,
-    qNotes      = optNotes opt <?> Nothing,
-    qXcIn       = optXcIn opt <?> Nothing,
-    qXcOut      = optXcOut opt <?> Nothing,
-    qRST_Rcvd   = optRST_Rcvd opt <!> "You must specify a received signal report.",
-    qRST_Sent   = optRST_Sent opt <!> "You must specify a sent signal report.",
-    qIOTA       = raIOTA ra ||| optIOTA opt <?> Nothing,
-    qITU        = raITU ra ||| optITU opt <?> Nothing,
-    qWAZ        = raWAZ ra ||| optWAZ opt <?> Nothing,
-    qCall       = raCall ra ||| optCall opt <!> "You must specify a call sign.",
-    qSatName    = optSatName opt <?> Nothing,
-    qSatMode    = optSatMode opt <?> Nothing }
+buildQSO :: RadioAmateur -> Options -> Either String QSO
+buildQSO ra opt = do
+    date <- optDate opt <!> "You must specify a date of the form YYYY-MM-DD."
+    time <- optTime opt <!> "You must specify a time of the form HH:MM."
+    freq <- optFreq opt <!> "You must specify a frequency."
+    mode <- optMode opt <!> "You must specify a valid mode."
+    rstR <- optRST_Rcvd opt <!> "You must specify a received signal report."
+    rstS <- optRST_Sent opt <!> "You must specify a sent signal report."
+    call <- raCall ra ||| optCall opt <!> "You must specify a call sign."
+    Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call)
  where
+    doBuildQSO (date, time, freq, mode, rstR, rstS, call) =
+        QSO { qDate     = undashifyDate date,
+              qTime     = uncolonifyTime time,
+              qFreq     = freq,
+              qRxFreq   = optRxFreq opt <?> Nothing,
+              qMode     = mode,
+              qDXCC     = (raCountry ra >>= idFromName) ||| optDXCC opt <?> Nothing,
+              qGrid     = raGrid ra ||| optGrid opt <?> Nothing,
+              qState    = raUSState ra ||| optState opt <?> Nothing,
+              qName     = raNick ra ||| optName opt <?> Nothing,
+              qNotes    = optNotes opt <?> Nothing,
+              qXcIn     = optXcIn opt <?> Nothing,
+              qXcOut    = optXcOut opt <?> Nothing,
+              qRST_Rcvd = rstR,
+              qRST_Sent = rstS,
+              qIOTA     = raIOTA ra ||| optIOTA opt <?> Nothing,
+              qITU      = raITU ra ||| optITU opt <?> Nothing,
+              qWAZ      = raWAZ ra ||| optWAZ opt <?> Nothing,
+              qCall     = call,
+              qSatName  = optSatName opt <?> Nothing,
+              qSatMode  = optSatMode opt <?> Nothing }
+
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v
     Nothing ||| Just v  = Just v
@@ -358,8 +368,8 @@ buildQSO ra opt = QSO {
     _       <?> v   = v
 
     -- Extract the value from a chain of ||| calls, or error.
-    Just v <!> _    = v
-    _ <!> msg       = error msg
+    Just v <!> _    = Right v
+    _ <!> msg       = Left msg
 
 main :: IO ()
 main = do
@@ -378,7 +388,9 @@ main = do
     -- Are we running in graphical mode or cmdline mode?
     if optGraphical cmdline then runGUI
     else case optCall cmdline of
-                  Just call   -> do ra <- doLookup call (confQTHUser conf) (confQTHPass conf)
-                                    addQSO dbh $ buildQSO (fromMaybe emptyRadioAmateur ra) cmdline
-                                    return ()
-                  _           -> ioError (userError "You must specify a call sign.")
+             Just call   -> do ra <- doLookup call (confQTHUser conf) (confQTHPass conf)
+                               case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
+                                   Left err  -> ioError (userError err)
+                                   Right qso -> addQSO dbh qso
+                               return ()
+             _           -> ioError (userError "You must specify a call sign.")
