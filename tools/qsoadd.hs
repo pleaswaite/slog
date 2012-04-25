@@ -2,10 +2,11 @@
 import Control.Monad(liftM)
 import Data.Char(toUpper)
 import Data.ConfigFile
-import Data.Maybe(fromMaybe)
+import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
+import Database.HDBC(IConnection)
 import Graphics.UI.Gtk hiding (get, set)
 import Graphics.UI.Gtk.Builder
 import System.Exit(ExitCode(..), exitWith)
@@ -136,7 +137,7 @@ opts = [
            "their name",
     Option ['o'] ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
            "notes",
-    Option ['r'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
+    Option ['q'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
            "their grid square",
     Option ['s'] ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
            "their state",
@@ -173,6 +174,10 @@ splitArg s =
     else (Just $ eles !! 0, Just $ eles !! 1)
  where
     eles = split ":" s
+
+processArgs argsFunc = do
+    (actions, _) <- argsFunc
+    foldl (>>=) (return defaultOptions) actions
 
 --
 -- UI CODE
@@ -243,36 +248,50 @@ buildArgList w = do
                              getTwoEntries pwExchangeRcvd pwExchangeSent "-x",
                              getOneEntry pwFrequency "-f",
                              getOneEntry pwDate "-d",
-                             getOneEntry pwTime "-t"]
+                             getOneEntry pwTime "-t",
+                             getCombo pwModeCombo "-m"]
  where
     getEntryText f = do
         entryGetText (f w)
+
     getOneEntry f optName = do
         s <- getEntryText f
         if s == "" then return [] else return [optName, s]
+
     getTwoEntries f1 f2 optName = do
         [s1, s2] <- mapM getEntryText [f1, f2]
         if s1 == "" then return [] else
             if s2 == "" then return [optName, s1] else return [optName, s1 ++ ":" ++ s2]
 
+    getCombo f optName = do
+        text <- comboBoxGetActiveText (f w)
+        if isJust text then return [optName, fromJust text] else return []
+
 -- This function is called when the Add button is clicked in order to add a
 -- QSO into the database.
-addQSOFromUI :: ProgramWidgets -> IO ()
-addQSOFromUI w = do
+addQSOFromUI :: ProgramWidgets -> (Options -> IO (Either String Integer)) -> IO ()
+addQSOFromUI w addFunc = do
     -- Convert the UI elements into a list of command line arguments, like the program
     -- would normally take.  This is a little lame, but it avoids having to come up with
     -- all that validation code again.
-    args <- buildArgList w
+    cmdline <- processArgs (buildArgList w >>= handleOpts)
 
-    -- TODO:  INPUT VALIDATION HERE
+    case optCall cmdline of
+        Just call   -> doAdd addFunc call cmdline
+        _           -> showErrorDialog "You must specify a call sign."
+ where
+    doAdd addFunc call cmdline = do
+        result <- addFunc cmdline
+        case result of
+            Left err    -> showErrorDialog err
+            _           -> do clearUI w
+                              statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
+                              return ()
 
-    -- Clear out the UI for next time.
-    clearUI w
-
-    -- And update the status bar so the user knows what got added.
-    statusbarPush (pwStatus w) 0 ("QSO added to database.")
-
-    putStrLn $ show args
+    showErrorDialog msg = do
+        dlg <- messageDialogNew Nothing [DialogModal] MessageError ButtonsOk msg
+        _ <- dialogRun dlg
+        widgetDestroy dlg
 
 loadWidgets :: Builder -> IO ProgramWidgets
 loadWidgets builder = do
@@ -290,8 +309,8 @@ loadWidgets builder = do
  where
     getO cast = builderGetObject builder cast
 
-runGUI :: IO ()
-runGUI = do
+runGUI :: IConnection conn => conn -> Config -> IO ()
+runGUI dbh conf = do
     initGUI
 
     -- Load the glade file.
@@ -308,7 +327,7 @@ runGUI = do
     onDestroy window mainQuit
 
     onClicked (pwCancel widgets) $ clearUI widgets
-    onClicked (pwAdd widgets) $ addQSOFromUI widgets
+    onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO dbh conf)
 
     -- And away we go!
     widgetShowAll window
@@ -371,11 +390,25 @@ buildQSO ra opt = do
     Just v <!> _    = Right v
     _ <!> msg       = Left msg
 
+-- FIXME:  Give a type signature.
+lookupAndAddQSO :: IConnection conn => conn -> Config -> Options -> IO (Either String Integer)
+lookupAndAddQSO dbh conf cmdline = do
+    ra <- doLookup call user password
+    case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
+        Left err  -> return $ Left err
+--        Right qso -> return $ Right $ addQSO dbh qso
+        Right qso -> return $ Right 0
+ where
+    -- We don't have to worry about call being Nothing here.  That's checked before
+    -- this function is even called.
+    call = fromJust $ optCall cmdline
+    user = confQTHUser conf
+    password = confQTHPass conf
+
 main :: IO ()
 main = do
     -- Process command line arguments.
-    (actions, _) <- getArgs >>= handleOpts
-    cmdline <- foldl (>>=) (return defaultOptions) actions
+    cmdline <- processArgs (getArgs >>= handleOpts)
 
     -- Read in the config file.
     homeDir <- getHomeDirectory
@@ -386,11 +419,8 @@ main = do
     dbh <- connect $ confDB conf
 
     -- Are we running in graphical mode or cmdline mode?
-    if optGraphical cmdline then runGUI
-    else case optCall cmdline of
-             Just call   -> do ra <- doLookup call (confQTHUser conf) (confQTHPass conf)
-                               case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
-                                   Left err  -> ioError (userError err)
-                                   Right qso -> addQSO dbh qso
-                               return ()
-             _           -> ioError (userError "You must specify a call sign.")
+    if optGraphical cmdline then runGUI dbh conf
+    else do result <- lookupAndAddQSO dbh conf cmdline
+            case result of
+                Left err   -> ioError (userError err)
+                Right _    -> return ()
