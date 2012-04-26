@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+import Control.Exception(bracket)
 import Control.Monad(liftM)
 import Data.Char(toUpper)
 import Data.ConfigFile
@@ -247,7 +248,8 @@ initUI w = do
     -- Populate the mode combo box with our valid modes.  We don't want to
     -- support all billion that ADIF does, since that'd be very unwieldy.
     let combo = pwModeCombo w
-    store <- comboBoxSetModelText combo
+
+    comboBoxSetModelText combo
     mapM_ (comboBoxAppendText combo) ["AM", "CW", "FM", "SSB"]
     setDefaultMode combo
 
@@ -323,10 +325,10 @@ addQSOFromUI w addFunc = do
                               statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
                               return ()
 
-    showErrorDialog msg = do
-        dlg <- messageDialogNew Nothing [DialogModal] MessageError ButtonsOk msg
-        _ <- dialogRun dlg
-        widgetDestroy dlg
+    showErrorDialog msg =
+        bracket (messageDialogNew Nothing [DialogModal] MessageError ButtonsOk msg)
+                (widgetDestroy)
+                (\dlg -> dialogRun dlg >> return ())
 
 loadWidgets :: Builder -> IO ProgramWidgets
 loadWidgets builder = do
@@ -434,8 +436,8 @@ lookupAndAddQSO dbh conf cmdline = do
     ra <- doLookup call user password
     case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
         Left err  -> return $ Left err
---        Right qso -> return $ Right $ addQSO dbh qso
-        Right qso -> return $ Right 0
+        Right qso -> do ndx <- addQSO dbh qso
+                        return $ Right ndx
  where
     -- We don't have to worry about call being Nothing here.  That's checked before
     -- this function is even called.
