@@ -193,6 +193,8 @@ data ProgramWidgets = ProgramWidgets {
     pwDate :: Entry,
     pwTime :: Entry,
 
+    pwCurrentDT :: CheckButton,
+
     pwModeCombo :: ComboBox,
 
     pwStatus :: Statusbar,
@@ -200,12 +202,19 @@ data ProgramWidgets = ProgramWidgets {
     pwCancel :: Button,
     pwAdd :: Button }
 
-setDateTime w = do
-    -- Store the current UTC date and time in the appropriate entries.
-    currentUTC <- getCurrentTime
+formatDateTime :: String -> UTCTime -> IO String
+formatDateTime spec utc = return $ formatTime defaultTimeLocale spec utc
 
-    entrySetText (pwDate w) (formatTime defaultTimeLocale "%F" currentUTC)
-    entrySetText (pwTime w) (formatTime defaultTimeLocale "%R" currentUTC)
+theTime :: IO String
+theTime = getCurrentTime >>= formatDateTime "%R"
+
+theDate :: IO String
+theDate = getCurrentTime >>= formatDateTime "%F"
+
+setDateTime :: ProgramWidgets -> IO ()
+setDateTime w = do
+    theDate >>= entrySetText (pwDate w)
+    theTime >>= entrySetText (pwTime w)
 
 setDefaultMode combo = comboBoxSetActive combo 3
 
@@ -222,6 +231,9 @@ clearUI w = do
 
     -- Set the mode combo back to SSB.
     setDefaultMode (pwModeCombo w)
+
+    -- Set the current date/time checkbox back to active.
+    toggleButtonSetActive (pwCurrentDT w) True
 
     -- Remove the status bar message.
     statusbarRemoveAll (pwStatus w) 0
@@ -241,16 +253,39 @@ initUI w = do
 
     setDateTime w
 
+currentDTActive :: ProgramWidgets -> IO Bool
+currentDTActive w = toggleButtonGetActive (pwCurrentDT w)
+
+-- If the checkbox is active, the individual date and time entries are not.  This
+-- is how we decide which way to get the time for the QSO.
+setDateTimeSensitivity :: ProgramWidgets -> IO ()
+setDateTimeSensitivity w = do
+    active <- currentDTActive w
+    widgetSetSensitive (pwDate w) (not active)
+    widgetSetSensitive (pwTime w) (not active)
+
 buildArgList :: ProgramWidgets -> IO [String]
 buildArgList w = do
     liftM concat $ sequence [getOneEntry pwCall "-l",
                              getTwoEntries pwRSTRcvd pwRSTSent "-r",
                              getTwoEntries pwExchangeRcvd pwExchangeSent "-x",
                              getOneEntry pwFrequency "-f",
-                             getOneEntry pwDate "-d",
-                             getOneEntry pwTime "-t",
+                             getDate,
+                             getTime,
                              getCombo pwModeCombo "-m"]
  where
+    getDate = do
+        active <- currentDTActive w
+        if active then do d <- theDate
+                          return ["-d", d]
+        else getOneEntry pwDate "-d"
+
+    getTime = do
+        active <- currentDTActive w
+        if active then do t <- theTime
+                          return ["-t", t]
+        else getOneEntry pwTime "-t"
+
     getEntryText f = do
         entryGetText (f w)
 
@@ -300,12 +335,14 @@ loadWidgets builder = do
                              ["callEntry", "rstRcvdEntry", "rstSentEntry", "exchangeRcvdEntry",
                               "exchangeSentEntry", "frequencyEntry", "dateEntry", "timeEntry"]
 
+    [pwCurrentDT] <- mapM (getO castToCheckButton) ["currentDateTimeCheckbox"]
     [pwModeCombo] <- mapM (getO castToComboBox) ["modeComboBox"]
     [pwCancel, pwAdd] <- mapM (getO castToButton) ["cancelButton", "addButton"]
     [pwStatus] <- mapM (getO castToStatusbar) ["statusBar"]
 
     return $ ProgramWidgets pwCall pwRSTRcvd pwRSTSent pwExchangeRcvd pwExchangeSent
-                            pwFrequency pwDate pwTime pwModeCombo pwStatus pwCancel pwAdd
+                            pwFrequency pwDate pwTime pwCurrentDT pwModeCombo pwStatus
+                            pwCancel pwAdd
  where
     getO cast = builderGetObject builder cast
 
@@ -328,6 +365,7 @@ runGUI dbh conf = do
 
     onClicked (pwCancel widgets) $ clearUI widgets
     onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO dbh conf)
+    onToggled (pwCurrentDT widgets) $ setDateTimeSensitivity widgets
 
     -- And away we go!
     widgetShowAll window
