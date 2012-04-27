@@ -1,6 +1,6 @@
 import Control.Exception(finally)
 import Data.ConfigFile
-import List(intersperse)
+import Data.List(intersperse)
 import System.Directory(getHomeDirectory, getTemporaryDirectory, removeFile)
 import System.IO
 import System.IO.Error(catch)

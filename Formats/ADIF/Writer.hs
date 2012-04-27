@@ -1,7 +1,7 @@
 module Formats.ADIF.Writer where
 
+import Data.List(concat, intersperse)
 import Data.Maybe(isJust, fromJust)
-import List(concat, intersperse)
 import Text.Printf(printf)
 
 import Formats.ADIF.Types
