@@ -15,7 +15,7 @@ import QSO
 import Utils(colonifyTime, dashifyDate, freqToBand)
 
 type EntryTy = Bool
-type ConfirmInfo = [(QSO, Bool)]
+type ConfirmInfo = (QSO, Bool)
 
 data BandRow = BandRow {
     row160M :: EntryTy,
@@ -106,7 +106,7 @@ awardHeader = let
  in
     besides $ [(th $ toHtml "")] ++ map (th . toHtml . show) bands ++ [th $ toHtml "Total"]
 
-report :: String -> (QSO -> Bool) -> ConfirmInfo -> Html
+report :: String -> (QSO -> Bool) -> [ConfirmInfo] -> Html
 report caption f ci = concatHtml [
     table ! [border 1] << (toHtml tableBody),
     br,
@@ -127,11 +127,11 @@ reportAward keys fn qsos = let
     tableBody = awardHeader `above` aboves (map (td . toHtml . show) keys)
 
 -- Just dump all logged QSOs to HTML.
-reportAllQSOs :: ConfirmInfo -> Html
+reportAllQSOs :: [ConfirmInfo] -> Html
 reportAllQSOs ci = report "QSOs logged" (\_ -> True) ci
 
 -- Dump all QSOs for a specific band to HTML.
-reportBandQSOs :: ADIF.Band -> ConfirmInfo -> Html
+reportBandQSOs :: ADIF.Band -> [ConfirmInfo] -> Html
 reportBandQSOs band ci =
     report ("QSOs logged for " ++ show band)
            (\q -> (freqToBand $ qFreq q) == band)
