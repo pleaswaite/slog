@@ -4,7 +4,6 @@ module Lookup.Lookup(RadioAmateur(..),
                      lookupCall, login)
  where
 
-import Data.Char(toUpper)
 import Data.Maybe(catMaybes, isJust)
 import Network.HTTP
 import System.IO.Error(try)
@@ -12,6 +11,8 @@ import Text.XML.Light(unqual)
 import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, QName, elName, qName)
+
+import Utils(uppercase)
 
 data RadioAmateur = RadioAmateur {
     raCall :: Maybe String,
@@ -59,7 +60,6 @@ stringToRAUses s = case uppercase s of
     "Y" -> Yes
     "N" -> No
     _   -> Unknown
- where uppercase = map toUpper
 
 emptyRadioAmateur :: RadioAmateur
 emptyRadioAmateur = RadioAmateur {

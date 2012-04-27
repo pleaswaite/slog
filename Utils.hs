@@ -1,6 +1,11 @@
 module Utils where
 
+import Data.Char(toUpper)
+
 import qualified Formats.ADIF.Types as ADIF
+
+uppercase :: String -> String
+uppercase = map toUpper
 
 -- Add dashes to an ADIF-formatted date, since that's what LOTW expects.
 dashifyDate :: String -> String

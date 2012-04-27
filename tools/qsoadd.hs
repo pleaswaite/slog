@@ -1,7 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 import Control.Exception(bracket)
 import Control.Monad(liftM)
-import Data.Char(toUpper)
 import Data.ConfigFile
 import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
@@ -21,7 +20,7 @@ import DXCC(DXCC(..), idFromName)
 import qualified Formats.ADIF.Types as ADIF
 import Lookup.Lookup
 import QSO
-import Utils(uncolonifyTime, undashifyDate)
+import Utils(uncolonifyTime, undashifyDate, uppercase)
 
 --
 -- CONFIG FILE PROCESSING CODE
@@ -113,7 +112,7 @@ opts = [
            "frequency used (or freq:rxfreq for split mode) (REQUIRED)",
     Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
            "their call sign (REQUIRED)",
-    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (map toUpper arg) :: ADIF.Mode) }) "MODE")
+    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
            "mode used (REQUIRED)",
     Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })

@@ -1,17 +1,15 @@
 module Formats.ADIF.Parser(parseString) where
 
 import Control.Applicative((<*), (*>))
-import Data.Char(toUpper)
 import Data.String.Utils(split)
 import qualified Data.Text as T
 import Text.ParserCombinators.Parsec
 
 import Formats.ADIF.Types
+import Utils(uppercase)
 
 stringToInt :: String -> Int
 stringToInt s = fst $ (reads s :: [(Int, String)]) !! 0
-
-uppercase = map toUpper
 
 stringToField :: (String, Int, Maybe Char) -> String -> Field
 stringToField (name, length, ty) datum = case name of

@@ -13,7 +13,6 @@ module DB(confirmQSO,
  where
 
 import Control.Monad(when)
-import Data.Char(toUpper)
 import Data.List(find)
 import Data.Time.Clock
 import Database.HDBC
@@ -21,7 +20,7 @@ import Database.HDBC.Sqlite3(Connection, connectSqlite3)
 
 import qualified Formats.ADIF.Types as ADIF
 import QSO
-import Utils(undashifyDate)
+import Utils(undashifyDate, uppercase)
 
 -- Connect to the database, create the tables if necessary, and return the
 -- database handle.
@@ -186,9 +185,7 @@ qsoToSql qso =
     [toSql $ qDate qso, toSql $ qTime qso, toSql $ qFreq qso, toSql $ qRxFreq qso, toSql $ show $ qMode qso,
      toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qNotes qso,
      toSql $ qXcIn qso, toSql $ qXcOut qso, toSql $ qRST_Rcvd qso, toSql $ qRST_Sent qso, toSql $ qIOTA qso,
-     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ upcase (qCall qso), toSql $ qSatName qso, toSql $ qSatMode qso]
- where
-    upcase = map toUpper
+     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), toSql $ qSatName qso, toSql $ qSatMode qso]
 
 sqlToQSO :: [SqlValue] -> QSO
 sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
