@@ -23,8 +23,7 @@ import Types(ConfirmInfo)
 --
 
 data Config = Config {
-    confDB :: String,
-    confQTH :: String }
+    confDB :: String }
 
 readConfigFile :: FilePath -> IO Config
 readConfigFile f = do
@@ -32,9 +31,7 @@ readConfigFile f = do
     let config = do
         c <- readstring emptyCP contents
         database <- get c "DEFAULT" "database"
-        qth <- get c "DEFAULT" "qth"
-        return Config { confDB = database,
-                        confQTH = qth }
+        return Config { confDB = database }
 
     case config of
         Left cperr  -> fail $ show cperr
