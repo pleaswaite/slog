@@ -1,8 +1,9 @@
 module Formats.ADIF.Parser(parseString) where
 
 import Control.Applicative((<*), (*>))
+import Data.Char(toUpper)
 import Data.String.Utils(split)
-import qualified Data.Text as T
+import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
 
 import Formats.ADIF.Types
