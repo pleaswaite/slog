@@ -4,6 +4,7 @@ module Filter(byBand,
               byDXCC,
               byITU,
               byMode,
+              byNone,
               byWAZ)
  where
 
@@ -29,6 +30,9 @@ byITU itu (qso, _) = maybe False (itu ==) (qITU qso)
 
 byMode :: ADIF.Mode -> ConfirmInfo -> Bool
 byMode mode (qso, _) = mode == qMode qso
+
+byNone :: ConfirmInfo -> Bool
+byNone _ = True
 
 byWAZ :: Integer -> ConfirmInfo -> Bool
 byWAZ waz (qso, _) = maybe False (waz ==) (qWAZ qso)
