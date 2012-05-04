@@ -1,0 +1,45 @@
+How to use all this crud:
+
+(1) Install a bunch of stuff with yum:
+
+    - ghc-Cabal ghc-ConfigFile ghc-MissingH ghc-gtk ghc-parsec ghc-xml
+    - the -devel versions of all the above
+    - tqsllib trustedqsl
+
+    Install a bunch of stuff with cabal:
+
+    - HDBC HDBC-sqlite3
+
+(2) Set up an account at http://www.hamqth.com.  You will need this to do call sign lookups.
+    It's easy.
+
+(3) Set up a LOTW account.  Instructions are at http://www.arrl.org/logbook-of-the-world.
+    This is the world's worst process and takes a week or two (they mail you a postcard)
+    but the good news is you can log QSOs without the LOTW account.  You just can't
+    run qsoconfirm or qsoupload.
+
+(4) Create a ~/.slog config file.  Mine looks like this:
+
+    database = /home/chris/radio/qsos.db
+    qth = Merrimack
+
+    [Lookup]
+    username = KG6CIH
+    password = <my password here>
+
+    [LOTW]
+    username = kg6cih
+    password = <my password here>
+
+    It's okay if the file referenced by database does not yet exist.  The first time you
+    run qsoadd, it will be created.  I highly recomment having a radio/ directory as you
+    will start to accumulate a ton of files for using LOTW.  Also, the qth setting needs
+    to be the same as the value you give to LOTW.  It's not important for running qsoadd.
+
+(5) Build everything.  Eventually, this will be a cabal thing that's easier to work with,
+    but for now:
+
+    $ ghc --make tools/qsoadd.hs
+    $ ghc --make tools/qsoconfirm.hs
+    $ ghc --make tools/qsoreport/qsoreport.hs -itools/qsoreport
+    $ ghc --make tools/qsoreport.hs
