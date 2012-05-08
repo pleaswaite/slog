@@ -4,6 +4,10 @@ import Data.Char(toUpper)
 
 import qualified Formats.ADIF.Types as ADIF
 
+-- Given an association list, turn it inside out
+invert :: [(a, b)] -> [(b, a)]
+invert = map (\(a, b) -> (b, a))
+
 uppercase :: String -> String
 uppercase = map toUpper
 

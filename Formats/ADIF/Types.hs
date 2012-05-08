@@ -362,10 +362,7 @@ instance Show SentVia where
 instance Read SentVia where
     readsPrec _ sent = maybe [] (\s -> [(s, "")]) (lookup sent sentViaMap')
 
---
--- HELPER FUNCTIONS
---
-
 -- Given an association list, turn it inside out
 invert :: [(a, b)] -> [(b, a)]
 invert = map (\(a, b) -> (b, a))
+
