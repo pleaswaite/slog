@@ -8,6 +8,13 @@ import qualified Formats.ADIF.Types as ADIF
 invert :: [(a, b)] -> [(b, a)]
 invert = map (\(a, b) -> (b, a))
 
+-- Convert a string into an integer.
+stringToInteger :: String -> Maybe Integer
+stringToInteger s =
+    case reads s :: [(Integer, String)] of
+        [tup]   -> Just $ fst tup
+        _       -> Nothing
+
 uppercase :: String -> String
 uppercase = map toUpper
 

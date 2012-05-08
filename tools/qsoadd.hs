@@ -20,7 +20,7 @@ import DXCC(DXCC(..), idFromName)
 import qualified Formats.ADIF.Types as ADIF
 import Lookup.Lookup
 import QSO
-import Utils(uncolonifyTime, undashifyDate, uppercase)
+import Utils(stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 --
 -- CONFIG FILE PROCESSING CODE
@@ -121,7 +121,7 @@ opts = [
     Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
            "time the QSO was made (in UTC) (REQUIRED)",
 
-    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = strToInteger arg }) "DXCC")
+    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
            "their DXCC entity",
     Option ['g'] ["graphical"]  (NoArg  (\opt -> return opt { optGraphical = True }))
            "run in graphical mode",
@@ -131,7 +131,7 @@ opts = [
            "print program usage",
     Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = Just arg }) "IOTA")
            "their IOTA number",
-    Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = strToInteger arg }) "ITU")
+    Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",
     Option ['n'] ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",
@@ -141,7 +141,7 @@ opts = [
            "their grid square",
     Option ['s'] ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
            "their state",
-    Option ['w'] ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = strToInteger arg }) "WAZ")
+    Option ['w'] ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = stringToInteger arg }) "WAZ")
            "their WAZ zone",
     Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optXcIn = fst sp, optXcOut = snd sp })
@@ -159,12 +159,6 @@ handleOpts argv =
 strToDouble :: String -> Maybe Double
 strToDouble s =
     case reads s :: [(Double, String)] of
-        [tup]   -> Just $ fst tup
-        _       -> Nothing
-
-strToInteger :: String -> Maybe Integer
-strToInteger s =
-    case reads s :: [(Integer, String)] of
         [tup]   -> Just $ fst tup
         _       -> Nothing
 

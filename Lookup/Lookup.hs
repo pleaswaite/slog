@@ -12,7 +12,7 @@ import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, QName, elName, qName)
 
-import Utils(uppercase)
+import Utils(stringToInteger, uppercase)
 
 data RadioAmateur = RadioAmateur {
     raCall :: Maybe String,
@@ -50,10 +50,6 @@ data RAUses = Yes | No | Unknown
  deriving(Eq, Show)
 
 type SessionID = String
-
-stringToInteger :: String -> Integer
-stringToInteger "" = 0
-stringToInteger s  = fst $ (reads s :: [(Integer, String)]) !! 0
 
 stringToRAUses :: String -> RAUses
 stringToRAUses s = case uppercase s of
@@ -100,8 +96,8 @@ xmlToRadioAmateur xml = Just $
                    raNick        = xml <?> "nick",
                    raQTH         = xml <?> "qth",
                    raCountry     = xml <?> "country",
-                   raITU         = maybe Nothing (Just . stringToInteger) (xml <?> "itu"),
-                   raWAZ         = maybe Nothing (Just . stringToInteger) (xml <?> "cq"),
+                   raITU         = xml <?> "itu" >>= stringToInteger,
+                   raWAZ         = xml <?> "cq" >>= stringToInteger,
                    raGrid        = xml <?> "grid",
                    raAddrName    = xml <?> "adr_name",
                    raAddrStreet  = catMaybes [xml <?> "adr_street1",
@@ -114,7 +110,7 @@ xmlToRadioAmateur xml = Just $
                    raUSState     = xml <?> "us_state",
                    raUSCounty    = xml <?> "us_county",
                    raOblast      = xml <?> "oblast",
-                   raDOK         = maybe Nothing (Just . stringToInteger) (xml <?> "dok"),
+                   raDOK         = xml <?> "dok" >>= stringToInteger,
                    raIOTA        = xml <?> "iota",
                    raQSLVia      = xml <?> "qsl_via",
                    raLOTW        = maybe Nothing (Just . stringToRAUses) (xml <?> "lotw"),
@@ -123,8 +119,8 @@ xmlToRadioAmateur xml = Just $
                    raEMail       = xml <?> "email",
                    raJabber      = xml <?> "jabber",
                    raSkype       = xml <?> "skype",
-                   raBirthYear   = maybe Nothing (Just . stringToInteger) (xml <?> "birth_year"),
-                   raLicenseYear = maybe Nothing (Just . stringToInteger) (xml <?> "lic_year"),
+                   raBirthYear   = xml <?> "birth_year" >>= stringToInteger,
+                   raLicenseYear = xml <?> "lic_year" >>= stringToInteger,
                    raWeb         = xml <?> "web",
                    raPicture     = xml <?> "picture" }
  where
