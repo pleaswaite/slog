@@ -21,6 +21,7 @@ import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, QName, elName, qName)
 
+import qualified Slog.Formats.ADIF.Types as A
 import Slog.Utils(stringToInteger, uppercase)
 
 -- | A RadioAmateur is a record used to return information following a query to
@@ -53,11 +54,17 @@ data RadioAmateur = RadioAmateur {
     raEQSL :: Maybe RAUses,            -- ^ eQSL user?
     raEMail :: Maybe String,           -- ^ email address
     raJabber :: Maybe String,          -- ^ jabber address
+    raICQ :: Maybe Integer,            -- ^ ICQ number
+    raMSN :: Maybe String,             -- ^ MSN address
     raSkype :: Maybe String,           -- ^ skype address
     raBirthYear :: Maybe Integer,      -- ^ year of birth
     raLicenseYear :: Maybe Integer,    -- ^ year of licensing
     raWeb :: Maybe String,             -- ^ URL to personal website
-    raPicture :: Maybe String          -- ^ URL to user's picture
+    raPicture :: Maybe String,         -- ^ URL to user's picture
+    raLatitude :: Maybe String,        -- ^ station position (lat)
+    raLongitude :: Maybe String,       -- ^ station position (long)
+    raContinent :: Maybe A.Continent,  -- ^ continent
+    raUTCOffset :: Maybe Integer       -- ^ station's offset to UTC time
  }
  deriving(Show)
 
@@ -108,11 +115,18 @@ emptyRadioAmateur = RadioAmateur {
     raEQSL           = Nothing,
     raEMail          = Nothing,
     raJabber         = Nothing,
+    raICQ            = Nothing,
+    raMSN            = Nothing,
     raSkype          = Nothing,
     raBirthYear      = Nothing,
     raLicenseYear    = Nothing,
     raWeb            = Nothing,
-    raPicture        = Nothing}
+    raPicture        = Nothing,
+    raLatitude       = Nothing,
+    raLongitude      = Nothing,
+    raContinent      = Nothing,
+    raUTCOffset      = Nothing
+ }
 
 -- Given a parsed XML document, return a RadioAmateur record.
 xmlToRadioAmateur :: Element -> Maybe RadioAmateur
@@ -143,11 +157,17 @@ xmlToRadioAmateur xml = Just $
                    raEQSL        = maybe Nothing (Just . stringToRAUses) (xml <?> "eqsl"),
                    raEMail       = xml <?> "email",
                    raJabber      = xml <?> "jabber",
+                   raICQ         = xml <?> "icq" >>= stringToInteger,
+                   raMSN         = xml <?> "msn",
                    raSkype       = xml <?> "skype",
                    raBirthYear   = xml <?> "birth_year" >>= stringToInteger,
                    raLicenseYear = xml <?> "lic_year" >>= stringToInteger,
                    raWeb         = xml <?> "web",
-                   raPicture     = xml <?> "picture" }
+                   raPicture     = xml <?> "picture",
+                   raLatitude    = xml <?> "latitude",
+                   raLongitude   = xml <?> "longitude",
+                   raContinent   = xml <?> "continent" >>= \c -> Just (read c :: A.Continent),
+                   raUTCOffset   = xml <?> "utc_offset" >>= stringToInteger }
  where
     x <?> e = maybe Nothing Just (getElementValue e x)
 
