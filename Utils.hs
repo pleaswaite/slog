@@ -8,6 +8,13 @@ import qualified Formats.ADIF.Types as ADIF
 invert :: [(a, b)] -> [(b, a)]
 invert = map (\(a, b) -> (b, a))
 
+-- Convert a string into a double.
+stringToDouble :: String -> Maybe Double
+stringToDouble s =
+    case reads s :: [(Double, String)] of
+        [tup]   -> Just $ fst tup
+        _       -> Nothing
+
 -- Convert a string into an integer.
 stringToInteger :: String -> Maybe Integer
 stringToInteger s =

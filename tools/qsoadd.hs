@@ -20,7 +20,7 @@ import DXCC(DXCC(..), idFromName)
 import qualified Formats.ADIF.Types as ADIF
 import Lookup.Lookup
 import QSO
-import Utils(stringToInteger, uncolonifyTime, undashifyDate, uppercase)
+import Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 --
 -- CONFIG FILE PROCESSING CODE
@@ -106,8 +106,8 @@ opts = [
     Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
            "date the QSO was made (in UTC) (REQUIRED)",
     Option ['f'] ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optFreq = maybe Nothing strToDouble (fst sp),
-                                                                     optRxFreq = maybe Nothing strToDouble (snd sp) })
+                                                        return opt { optFreq = maybe Nothing stringToDouble (fst sp),
+                                                                     optRxFreq = maybe Nothing stringToDouble (snd sp) })
                                         "FREQ")
            "frequency used (or freq:rxfreq for split mode) (REQUIRED)",
     Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
@@ -155,12 +155,6 @@ handleOpts argv =
         (o, n, [])   -> return (o, n)
         (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header opts))
                         where header = "Usage: qsoadd [OPTIONS] file"
-
-strToDouble :: String -> Maybe Double
-strToDouble s =
-    case reads s :: [(Double, String)] of
-        [tup]   -> Just $ fst tup
-        _       -> Nothing
 
 splitArg :: String -> (Maybe String, Maybe String)
 splitArg s = 
