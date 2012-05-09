@@ -1,7 +1,7 @@
-module Lookup.Lookup(RadioAmateur(..),
-                     SessionID,
-                     emptyRadioAmateur,
-                     lookupCall, login)
+module Slog.Lookup.Lookup(RadioAmateur(..),
+                          SessionID,
+                          emptyRadioAmateur,
+                          lookupCall, login)
  where
 
 import Data.Maybe(catMaybes, isJust)
@@ -12,7 +12,7 @@ import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, QName, elName, qName)
 
-import Utils(stringToInteger, uppercase)
+import Slog.Utils(stringToInteger, uppercase)
 
 data RadioAmateur = RadioAmateur {
     raCall :: Maybe String,

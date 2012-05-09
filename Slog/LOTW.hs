@@ -1,6 +1,7 @@
-module LOTW(sign,
-            download,
-            upload)
+{-# LANGUAGE DoAndIfThenElse #-}
+module Slog.LOTW(sign,
+                 download,
+                 upload)
  where
 
 import System.Cmd(system)

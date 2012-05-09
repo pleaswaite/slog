@@ -1,14 +1,14 @@
-module DXCC(DXCC(..),
-            entityFromID,
-            entityFromName,
-            entityIDs,
-            idFromName)
+module Slog.DXCC(DXCC(..),
+                 entityFromID,
+                 entityFromName,
+                 entityIDs,
+                 idFromName)
  where
 
 import qualified Data.IntMap as IntMap
 import Data.List(find)
 
-import qualified Formats.ADIF.Types as ADIF
+import qualified Slog.Formats.ADIF.Types as ADIF
 
 data DXCC = DXCC { dxccEntity :: String,
                    dxccContinent :: ADIF.Continent,

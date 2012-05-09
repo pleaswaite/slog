@@ -1,8 +1,8 @@
-module Utils where
+module Slog.Utils where
 
 import Data.Char(toUpper)
 
-import qualified Formats.ADIF.Types as ADIF
+import qualified Slog.Formats.ADIF.Types as ADIF
 
 -- Given an association list, turn it inside out
 invert :: [(a, b)] -> [(b, a)]

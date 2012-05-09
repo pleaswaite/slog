@@ -1,10 +1,10 @@
-module Formats.ADIF.Writer where
+module Slog.Formats.ADIF.Writer where
 
 import Data.List(concat, intersperse)
 import Data.Maybe(isJust, fromJust)
 import Text.Printf(printf)
 
-import Formats.ADIF.Types
+import Slog.Formats.ADIF.Types
 
 renderFile :: ADIFFile -> String
 renderFile f = header ++ "\n\r" ++ concat body

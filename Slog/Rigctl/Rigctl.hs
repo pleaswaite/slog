@@ -1,10 +1,10 @@
-module Rigctl(RigConn,
-              RigctldError(..),
-              connect,
-              disconnect,
-              ask,
-              tell,
-              runRigctld)
+module Slog.Rigctl.Rigctl(RigConn,
+                          RigctldError(..),
+                          connect,
+                          disconnect,
+                          ask,
+                          tell,
+                          runRigctld)
  where
 
 import Control.Monad.Reader hiding(ask)
@@ -16,10 +16,10 @@ import System.IO
 import System.IO.Utils(hGetLines)
 import Text.Printf(hPrintf)
 
-import Commands.Class(ser)
-import qualified Commands.Ask as A
-import qualified Commands.Tell as T
-import Utils(stringToInteger)
+import Slog.Rigctl.Commands.Class(ser)
+import qualified Slog.Rigctl.Commands.Ask as A
+import qualified Slog.Rigctl.Commands.Tell as T
+import Slog.Utils(stringToInteger)
 
 type RigConn = ReaderT Rig IO
 data Rig = Rig { socket :: Handle }

@@ -5,10 +5,10 @@ import System.Directory(getHomeDirectory, getTemporaryDirectory, removeFile)
 import System.IO
 import System.IO.Error(catch)
 
-import DB(connect, getUnsentQSOs, markQSOsAsSent)
-import Formats.ADIF.Writer(renderRecord)
-import LOTW(sign, upload)
-import QSO(qsoToADIF)
+import Slog.DB(connect, getUnsentQSOs, markQSOsAsSent)
+import Slog.Formats.ADIF.Writer(renderRecord)
+import Slog.LOTW(sign, upload)
+import Slog.QSO(qsoToADIF)
 
 --
 -- CONFIG FILE PROCESSING CODE

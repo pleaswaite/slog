@@ -1,6 +1,6 @@
 module Types where
 
-import QSO
+import Slog.QSO
 
 type EntryTy = Bool
 type ConfirmInfo = (QSO, Bool)

@@ -1,11 +1,12 @@
-module QSO where
+module Slog.QSO where
 
 import Data.Maybe(catMaybes, fromJust)
-import Utils(colonifyTime, dashifyDate, freqToBand, withoutSeconds)
 
 -- Some of these types are pretty useful everywhere.  Perhaps they should move
 -- up into a non-ADIF specific module.
-import qualified Formats.ADIF.Types as ADIF
+import qualified Slog.Formats.ADIF.Types as ADIF
+
+import Slog.Utils(colonifyTime, dashifyDate, freqToBand, withoutSeconds)
 
 data QSO = QSO {
     qDate      :: ADIF.Date,

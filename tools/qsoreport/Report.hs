@@ -5,10 +5,10 @@ import System.IO
 import Text.XHtml.Strict
 import Text.XHtml.Table
 
-import DXCC(DXCC(..), entityFromID)
-import qualified Formats.ADIF.Types as ADIF
-import QSO
-import Utils(colonifyTime, dashifyDate, freqToBand)
+import Slog.DXCC(DXCC(..), entityFromID)
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.QSO
+import Slog.Utils(colonifyTime, dashifyDate, freqToBand)
 
 import Types(ConfirmInfo, EntryTy, emptyBandRow)
 

@@ -8,10 +8,11 @@ module Filter(byBand,
               byWAZ)
  where
 
-import qualified Formats.ADIF.Types as ADIF
-import QSO
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.QSO
+import Slog.Utils(freqToBand, uppercase)
+
 import Types(ConfirmInfo)
-import Utils(freqToBand, uppercase)
 
 byBand :: ADIF.Band -> ConfirmInfo -> Bool
 byBand band (qso, _) = band == (freqToBand $ qFreq qso)

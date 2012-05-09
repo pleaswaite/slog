@@ -1,7 +1,7 @@
-module Commands.Ask(Command(..))
+module Slog.Rigctl.Commands.Ask(Command(..))
  where
 
-import Commands.Class
+import Slog.Rigctl.Commands.Class
 
 data Command = Frequency
              | Mode

@@ -1,21 +1,21 @@
-module Commands.Tell(Command(..),
-                     RigVFO(..),
-                     Direction(..),
-                     RigMode(..),
-                     RigFunction(..),
-                     RigLevel(..),
-                     RigParam(..),
-                     RigMVOp(..),
-                     TranscieveMode(..),
-                     toTell)
+module Slog.Rigctl.Commands.Tell(Command(..),
+                                 RigVFO(..),
+                                 Direction(..),
+                                 RigMode(..),
+                                 RigFunction(..),
+                                 RigLevel(..),
+                                 RigParam(..),
+                                 RigMVOp(..),
+                                 TranscieveMode(..),
+                                 toTell)
  where
 
 import Data.Bits
 import Data.Maybe(fromJust, fromMaybe, isNothing)
 
-import Commands.Class
-import qualified Commands.Ask as A
-import Utils(invert, stringToDouble, stringToInteger)
+import Slog.Rigctl.Commands.Class
+import qualified Slog.Rigctl.Commands.Ask as A
+import Slog.Utils(invert, stringToDouble, stringToInteger)
 
 data Command = Frequency Integer
              | Mode RigMode Integer

@@ -1,4 +1,4 @@
-module Commands.Class(Serializable(..))
+module Slog.Rigctl.Commands.Class(Serializable(..))
  where
 
 class Serializable c where

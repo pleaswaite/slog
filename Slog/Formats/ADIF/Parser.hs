@@ -1,4 +1,4 @@
-module Formats.ADIF.Parser(parseString) where
+module Slog.Formats.ADIF.Parser(parseString) where
 
 import Control.Applicative((<*), (*>))
 import Data.Char(toUpper)
@@ -6,8 +6,8 @@ import Data.String.Utils(split)
 import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
 
-import Formats.ADIF.Types
-import Utils(uppercase)
+import Slog.Formats.ADIF.Types
+import Slog.Utils(uppercase)
 
 stringToInt :: String -> Int
 stringToInt s = fst $ (reads s :: [(Int, String)]) !! 0
@@ -112,7 +112,7 @@ stringToField (name, length, ty) datum = case name of
     "SIG_INFO"          -> SIG_Info datum
     "SRX"               -> SRX (read datum :: Integer)
     "SRX_STRING"        -> SRX_String datum
-    "STATE"             -> Formats.ADIF.Types.State datum
+    "STATE"             -> Slog.Formats.ADIF.Types.State datum
     "STATION_CALLSIGN"  -> StationCall datum
     "STX"               -> Serial (read datum :: Integer)
     "STX_STRING"        -> SerialString datum
@@ -121,7 +121,7 @@ stringToField (name, length, ty) datum = case name of
     "TIME_OFF"          -> TimeOff datum
     "TIME_ON"           -> TimeOn datum
     "TX_PWR"            -> TxPower (read datum :: Integer)
-    "VE_PROV"           -> Formats.ADIF.Types.State datum
+    "VE_PROV"           -> Slog.Formats.ADIF.Types.State datum
     "WEB"               -> Web datum
     _                   -> Appdef $ AppDefined {appName=name,
                                                 appLength=length,

@@ -15,12 +15,12 @@ import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 import System.Locale(defaultTimeLocale)
 
-import DB(connect, addQSO)
-import DXCC(DXCC(..), idFromName)
-import qualified Formats.ADIF.Types as ADIF
-import Lookup.Lookup
-import QSO
-import Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
+import Slog.DB(connect, addQSO)
+import Slog.DXCC(DXCC(..), idFromName)
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.Lookup.Lookup
+import Slog.QSO
+import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 --
 -- CONFIG FILE PROCESSING CODE

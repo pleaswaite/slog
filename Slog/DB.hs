@@ -1,15 +1,15 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
-module DB(confirmQSO,
-          connect,
-          findQSOByDateTime,
-          addQSO,
-          updateQSO,
-          removeQSO,
-          getAllQSOs,
-          getAllQSOs',
-          getUnconfirmedQSOs,
-          getUnsentQSOs,
-          markQSOsAsSent)
+module Slog.DB(confirmQSO,
+               connect,
+               findQSOByDateTime,
+               addQSO,
+               updateQSO,
+               removeQSO,
+               getAllQSOs,
+               getAllQSOs',
+               getUnconfirmedQSOs,
+               getUnsentQSOs,
+               markQSOsAsSent)
  where
 
 import Control.Monad(when)
@@ -18,9 +18,9 @@ import Data.Time.Clock
 import Database.HDBC
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
 
-import qualified Formats.ADIF.Types as ADIF
-import QSO
-import Utils(undashifyDate, uppercase)
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.QSO
+import Slog.Utils(undashifyDate, uppercase)
 
 -- Connect to the database, create the tables if necessary, and return the
 -- database handle.

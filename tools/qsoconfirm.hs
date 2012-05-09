@@ -5,12 +5,12 @@ import Database.HDBC
 import System.Directory(getHomeDirectory)
 import System.IO
 
-import DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs)
-import Formats.ADIF.Parser(parseString)
-import qualified Formats.ADIF.Types as ADIF
-import LOTW(download)
-import QSO(QSO(qDate))
-import Utils(dashifyDate, withoutSeconds)
+import Slog.DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs)
+import Slog.Formats.ADIF.Parser(parseString)
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.LOTW(download)
+import Slog.QSO(QSO(qDate))
+import Slog.Utils(dashifyDate, withoutSeconds)
 
 type QSLInfo = (ADIF.Date, ADIF.Time, Maybe ADIF.Date)
 
