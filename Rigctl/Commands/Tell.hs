@@ -6,7 +6,8 @@ module Commands.Tell(Command(..),
                      RigLevel(..),
                      RigParam(..),
                      RigMVOp(..),
-                     TranscieveMode(..))
+                     TranscieveMode(..),
+                     toTell)
  where
 
 import Data.Bits

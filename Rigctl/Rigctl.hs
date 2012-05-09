@@ -1,6 +1,13 @@
-module Rigctl where
+module Rigctl(RigConn,
+              RigctldError(..),
+              connect,
+              disconnect,
+              ask,
+              tell,
+              runRigctld)
+ where
 
-import Control.Monad.Reader
+import Control.Monad.Reader hiding(ask)
 import Data.List(isPrefixOf)
 import Data.Maybe(fromJust, isNothing)
 import Network
@@ -40,24 +47,26 @@ ask inCmd =
         wr $ fromJust serialized
         response <- rd
 
-        if length response == 1 && "RPRT " `isPrefixOf` (response !! 0)
-        then return $ Left $ errorCode (drop 5 $ response !! 0)
-        else return $ Left NoError
+        case response of
+            []      -> return $ Left $ RigError 1
+            [l1]    -> if "RPRT " `isPrefixOf` l1 then return $ Left $ errorCode (drop 5 l1)
+                       else return $ doAsk inCmd response
+            _       -> return $ doAsk inCmd response
  where
     serialized = ser inCmd
+    doAsk cmd s = maybe (Left $ RigError 1) Right (T.toTell cmd s)
 
-tell :: T.Command -> RigConn RigctldError
+tell :: T.Command -> RigConn (Maybe RigctldError)
 tell inCmd =
-    if isNothing serialized then return $ RigError 1
+    if isNothing serialized then return $ Just $ RigError 1
     else do
         wr $ fromJust serialized
         response <- rd
 
-        let firstLine = response !! 0
-
-        if "RPRT " `isPrefixOf` firstLine
-        then return $ errorCode (drop 5 firstLine)
-        else return $ RigError 1
+        case response of
+            [l1]    -> if "RPRT " `isPrefixOf` l1 then return $ Just $ errorCode (drop 5 l1)
+                       else return $ Nothing
+            _       -> return $ Just $ RigError 1
  where
     serialized = ser inCmd
 
