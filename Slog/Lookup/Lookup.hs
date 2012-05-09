@@ -1,4 +1,13 @@
+-- | The Lookup module provides a mechanism to query the <http://www.hamqth.com> website
+-- for information about a call sign.  Information is returned in a 'RadioAmateur'
+-- record.
+-- 
+-- Before using this module, you must have a valid login on the website in order to
+-- provide authentication credentials to the 'login' method.  Having done that, you
+-- first call 'login' to obtain a 'SessionID'.  Then, simply repeatedly call
+-- 'lookupCall' and inspect the results.
 module Slog.Lookup.Lookup(RadioAmateur(..),
+                          RAUses(..),
                           SessionID,
                           emptyRadioAmateur,
                           lookupCall, login)
@@ -14,41 +23,54 @@ import Text.XML.Light.Types(Element, QName, elName, qName)
 
 import Slog.Utils(stringToInteger, uppercase)
 
+-- | A RadioAmateur is a record used to return information following a query to
+-- http://www.hamqth.com.  Not all fields will be provided for every call sign,
+-- and not every field is even valid for every call sign.  For instance, the
+-- 'raOblast' field will only mean something to a Russian call sign while the
+-- 'raUSState' and 'raUSCounty' fields will only apply to an American call.
 data RadioAmateur = RadioAmateur {
-    raCall :: Maybe String,
-    raNick :: Maybe String,
-    raQTH :: Maybe String,
-    raCountry :: Maybe String,
-    raITU :: Maybe Integer,
-    raWAZ :: Maybe Integer,
-    raGrid :: Maybe String,
-    raAddrName :: Maybe String,
-    raAddrStreet :: [String],
-    raAddrCity :: Maybe String,
-    raAddrZip :: Maybe String,
-    raAddrCountry :: Maybe String,
-    raDistrict :: Maybe String,
-    raUSState :: Maybe String,
-    raUSCounty :: Maybe String,
-    raOblast :: Maybe String,
-    raDOK :: Maybe Integer,
-    raLOTW :: Maybe RAUses,
-    raIOTA :: Maybe String,
-    raQSLVia :: Maybe String,
-    raQSL :: Maybe RAUses,
-    raEQSL :: Maybe RAUses,
-    raEMail :: Maybe String,
-    raJabber :: Maybe String,
-    raSkype :: Maybe String,
-    raBirthYear :: Maybe Integer,
-    raLicenseYear :: Maybe Integer,
-    raWeb :: Maybe String,
-    raPicture :: Maybe String }
+    raCall :: Maybe String,            -- ^ call sign searched for
+    raNick :: Maybe String,            -- ^ real name
+    raQTH :: Maybe String,             -- ^ home city/country/etc.
+    raCountry :: Maybe String,         -- ^ country related to call, not address
+    raITU :: Maybe Integer,            -- ^ ITU zone
+    raWAZ :: Maybe Integer,            -- ^ CQ (WAZ) zone
+    raGrid :: Maybe String,            -- ^ four or six digit grid identifier
+    raAddrName :: Maybe String,        -- ^ address name
+    raAddrStreet :: [String],          -- ^ street address
+    raAddrCity :: Maybe String,        -- ^ city address
+    raAddrZip :: Maybe String,         -- ^ ZIP code
+    raAddrCountry :: Maybe String,     -- ^ country related to the address
+    raDistrict :: Maybe String,        -- ^ station district
+    raUSState :: Maybe String,         -- ^ US state (US calls only)
+    raUSCounty :: Maybe String,        -- ^ US county (US calls only)
+    raOblast :: Maybe String,          -- ^ Russian district (Russian calls only)
+    raDOK :: Maybe Integer,            -- ^ DL stations
+    raLOTW :: Maybe RAUses,            -- ^ Logbook of the World user?
+    raIOTA :: Maybe Integer,           -- ^ Islands on the air reference number
+    raQSLVia :: Maybe String,          -- ^ how to QSL
+    raQSL :: Maybe RAUses,             -- ^ accepts QSL cards?
+    raEQSL :: Maybe RAUses,            -- ^ eQSL user?
+    raEMail :: Maybe String,           -- ^ email address
+    raJabber :: Maybe String,          -- ^ jabber address
+    raSkype :: Maybe String,           -- ^ skype address
+    raBirthYear :: Maybe Integer,      -- ^ year of birth
+    raLicenseYear :: Maybe Integer,    -- ^ year of licensing
+    raWeb :: Maybe String,             -- ^ URL to personal website
+    raPicture :: Maybe String          -- ^ URL to user's picture
+ }
  deriving(Show)
 
+-- | This data type is used by 'RadioAmateur' to determine whether or not the call sign
+-- supports LOTW, eSQL, and paper QSL cards.  It's not a simple boolean due to the
+-- potential unknown value.
 data RAUses = Yes | No | Unknown
  deriving(Eq, Show)
 
+-- | A SessionID is a 'String' used to communicate with <http://www.hamqth.com> without
+-- the need to repeatedly authenticate.  It is acquired by calling 'login'.  A
+-- SessionID will time out eventually, at which point 'login' will need to be called
+-- again.
 type SessionID = String
 
 stringToRAUses :: String -> RAUses
@@ -57,6 +79,9 @@ stringToRAUses s = case uppercase s of
     "N" -> No
     _   -> Unknown
 
+-- | Return an empty 'RadioAmateur' record - that is, one where all fields are
+-- initialize to 'Nothing' or an empty list.  This is useful when constructing a
+-- 'RadioAmateur' from some source other than 'lookupCall'.
 emptyRadioAmateur :: RadioAmateur
 emptyRadioAmateur = RadioAmateur {
     raCall           = Nothing,
@@ -111,7 +136,7 @@ xmlToRadioAmateur xml = Just $
                    raUSCounty    = xml <?> "us_county",
                    raOblast      = xml <?> "oblast",
                    raDOK         = xml <?> "dok" >>= stringToInteger,
-                   raIOTA        = xml <?> "iota",
+                   raIOTA        = xml <?> "iota" >>= stringToInteger,
                    raQSLVia      = xml <?> "qsl_via",
                    raLOTW        = maybe Nothing (Just . stringToRAUses) (xml <?> "lotw"),
                    raQSL         = maybe Nothing (Just . stringToRAUses) (xml <?> "qsl"),
@@ -152,9 +177,9 @@ responseIsValid :: Element -> Maybe Element
 responseIsValid xml | gotError xml = Nothing
                     | otherwise    = Just xml
 
--- Given a session ID and a call sign, do a lookup at http://www.hamqth.com.  Return
--- a RadioAmateur record if successful.  Note:  you need to call login first or this
--- will not succeed.
+-- | Given a call sign and a 'SessionID', do a lookup at <http://www.hamqth.com>.  Return
+-- a 'RadioAmateur' record if successful.  If you do not call 'login' first, this
+-- function will not succeed.
 lookupCall :: String -> SessionID -> IO (Maybe RadioAmateur)
 lookupCall call sid = do
     let url = "http://www.hamqth.com/xml.php?id=" ++ sid ++ "&callsign=" ++ call ++ "&prg=slog"
@@ -164,7 +189,7 @@ lookupCall call sid = do
         Right s   -> return $ parseXMLDoc s >>= responseIsValid >>= xmlToRadioAmateur
         _         -> return Nothing
 
--- Given a user name and password, login to http://www.hamqth.com and return the
+-- | Given a user name and password, login to <http://www.hamqth.com> and return the
 -- returned session ID.  This operation may fail.  Be prepared.
 login :: String -> String -> IO (Maybe SessionID)
 login username pass = do
