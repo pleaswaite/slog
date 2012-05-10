@@ -23,7 +23,7 @@ data QSO = QSO {
     qXcOut     :: Maybe String,
     qRST_Rcvd  :: String,
     qRST_Sent  :: String,
-    qIOTA      :: Maybe String,
+    qIOTA      :: Maybe Integer,
     qITU       :: Maybe Integer,
     qWAZ       :: Maybe Integer,
     qCall      :: String,

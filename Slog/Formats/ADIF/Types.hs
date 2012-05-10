@@ -91,7 +91,7 @@ data Field = Address          [String]
            | Freq             Double
            | FreqRx           Double
            | Grid             String
-           | Their_IOTA       String
+           | Their_IOTA       Integer
            | IOTA_ID          String
            | ITUZ             Integer
            | KIndex           Integer

@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 import Control.Exception(bracket)
 import Control.Monad(liftM)
 import Data.ConfigFile
@@ -67,7 +68,7 @@ data Options = Options {
     optXcOut :: Maybe String,
     optRST_Rcvd :: Maybe String,
     optRST_Sent :: Maybe String,
-    optIOTA :: Maybe String,
+    optIOTA :: Maybe Integer,
     optITU :: Maybe Integer,
     optWAZ :: Maybe Integer,
     optCall :: Maybe String,
@@ -129,7 +130,7 @@ opts = [
                                                    putStrLn (usageInfo "qsoadd" opts)
                                                    exitWith ExitSuccess))
            "print program usage",
-    Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = Just arg }) "IOTA")
+    Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = stringToInteger arg }) "IOTA")
            "their IOTA number",
     Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",

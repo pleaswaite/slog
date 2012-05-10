@@ -57,7 +57,7 @@ renderField f = case f of
     Freq f              -> "<FREQ" ++ (renderString $ show f)
     FreqRx f            -> "<FREQ_RX" ++ (renderString $ show f)
     Grid g              -> "<GRIDSQUARE" ++ renderString g
-    Their_IOTA s        -> "<IOTA" ++ renderString s
+    Their_IOTA i        -> "<IOTA" ++ (renderString $ show i)
     IOTA_ID id          -> "<IOTA_ISLAND_ID" ++ renderString id
     ITUZ zone           -> "<ITUZ" ++ (renderString $ show zone)
     KIndex ndx          -> "<K_INDEX" ++ (renderString $ show ndx)

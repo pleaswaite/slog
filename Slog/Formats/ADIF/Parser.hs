@@ -48,7 +48,7 @@ stringToField (name, length, ty) datum = case name of
     "FREQ_RX"           -> Freq (read datum :: Double)
     "GRIDSQUARE"        -> Grid datum
     "GUEST_OP"          -> Operator datum
-    "IOTA"              -> Their_IOTA datum
+    "IOTA"              -> Their_IOTA (read datum :: Integer)
     "IOTA_ISLAND_ID"    -> IOTA_ID datum
     "ITUZ"              -> ITUZ (read datum :: Integer)
     "K_INDEX"           -> KIndex (read datum :: Integer)
