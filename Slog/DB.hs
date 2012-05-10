@@ -1,4 +1,14 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+-- | This module interfaces with the sqlite3 database that makes up the data store of
+-- the library.  This database stores a serialized version of the 'QSO' record, plus
+-- some information about whether individual records have been uploaded to LOTW or
+-- eQSL, whether a QSL card was received or sent, and whether records have been
+-- confirmed by the remote station.
+--
+-- All functions require a database handle argument returned by 'connect'.  This should
+-- be the first function called when interacting with the database, obviously.
+-- Unfortunately, most of these functions also call the 'fail' function on error, which
+-- does not result in very friendly behavior.  This needs to be fixed.
 module Slog.DB(confirmQSO,
                connect,
                findQSOByDateTime,
@@ -22,8 +32,8 @@ import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.QSO
 import Slog.Utils(undashifyDate, uppercase)
 
--- Connect to the database, create the tables if necessary, and return the
--- database handle.
+-- | Connect to the database given by the provided file path, create tables if
+-- they do not already exist, and return the database handle.
 connect :: FilePath -> IO Connection
 connect fp = do
     dbh <- connectSqlite3 fp
@@ -65,8 +75,10 @@ prepDB dbh = do
         return ()
     commit dbh
 
--- Given a QSO date and time, return its unique ID from the qsos table.  Raises
--- an error if no such QSO exists, so be prepared to handle that.
+-- | Given a database handle, QSO date and time (in YYYYMMDD and HHMM format - see
+-- 'undashifyDate' and 'uncolonifyTime'), look up and return the unique ID for the first
+-- QSO found.  It is assumed that only one QSO can ever happen in any given minute.
+-- FIXME:  If no QSO is found, fail is called.
 findQSOByDateTime :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> IO Integer
 findQSOByDateTime dbh date time = do
     ndxs <- quickQuery' dbh "SELECT qsoid FROM qsos WHERE date = ? and time = ?"
@@ -77,7 +89,9 @@ findQSOByDateTime dbh date time = do
         [[ndx]] -> return $ fromSql ndx
         _       -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
 
--- Add a QSO object into the database.  Returns the new row's qsoid.
+-- | Given a database handle and a 'QSO' record, insert the record into the database
+-- and return the new row's unique ID.  If a row already exists with the record's
+-- date and time, fail is called.
 addQSO :: IConnection conn => conn -> QSO -> IO Integer
 addQSO dbh qso = handleSql errorHandler $ do
     -- First, add the new QSO to the qsos table.
@@ -99,8 +113,11 @@ addQSO dbh qso = handleSql errorHandler $ do
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
 
--- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
--- update the confirmations table.
+-- | Given a database handle, unique ID (which should have first been obtained by calling
+-- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
+-- 'QSO' record has been confirmed.  A confirmed record is one where the local station has
+-- recorded an entry in the log, and the remote station has recorded and uploaded a
+-- matching entry in their log.
 confirmQSO :: IConnection conn => conn -> Integer -> ADIF.Date -> IO ()
 confirmQSO dbh qsoid qsl_date = do
     run dbh "UPDATE confirmations SET lotw_rdate = ?, lotw_rcvd=\"Y\" WHERE qsoid = ?"
@@ -108,8 +125,10 @@ confirmQSO dbh qsoid qsl_date = do
     commit dbh
     return ()
 
--- Given a qsoid (which should have first been obtained by calling findQSOByDateTime),
--- update it with the values out of the provided new QSO.
+-- | 'updateQSO' takes a database handle, a unique ID (which should have first been obtained
+--  by calling 'findQSOByDateTime'), and a 'QSO' record.  The row with a matching unique ID
+--  is then modified to contain the values out of 'QSO'.  Note that it is assumed such a row
+--  already exists, which is why 'findQSOByDateTime' should be called to obtain the ID.
 updateQSO :: IConnection conn => conn -> Integer -> QSO -> IO ()
 updateQSO dbh qsoid qso = do
     run dbh "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
@@ -125,8 +144,8 @@ updateQSO dbh qsoid qso = do
     commit dbh
     return ()
 
--- Look up the QSO given by the supplied qsoid (which should have first been obtained
--- by calling findQSOByDateTime), and remove it from the database.
+-- | Given a database handle and a unique ID (which should have first been obtained by
+-- calling 'findQSOByDateTime'), remove the matching row from the database.
 removeQSO :: IConnection conn => conn -> Integer -> IO ()
 removeQSO dbh qsoid = do
     run dbh "DELETE FROM qsos WHERE qsoid = ?" [toSql qsoid]
@@ -134,35 +153,39 @@ removeQSO dbh qsoid = do
     commit dbh
     return ()
 
--- Return a list of all QSOs in the database.
+-- | Return a list of all 'QSO' records in the database, sorted by date and time.
 getAllQSOs :: IConnection conn => conn -> IO [QSO]
 getAllQSOs dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date,time" []
     return $ map sqlToQSO results
 
--- Return a list of all QSOs in the database, sorted in reverse.
+-- | Return a list of all 'QSO' records in the database, sorted by date and time
+-- in descending order.  This function and 'getAllQSOs' exist separately instead of
+-- a generic get function combined with a sort, because it is assumed the database
+-- can sort results faster.
 getAllQSOs' :: IConnection conn => conn -> IO [QSO]
 getAllQSOs' dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date DESC, time DESC" []
     return $ map sqlToQSO results
 
--- Return a list of all QSOs that have not been confirmed with LOTW.
+-- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
 getUnconfirmedQSOs dbh = do
     results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
                                 \qsos.qsoid=confirmations.qsoid AND lotw_rcvd IS NULL \
                                 \ORDER BY lotw_sdate ASC;" []
     return $ map sqlToQSO results
 
--- Return a list of all QSOs that have not been uploaded to LOTW.
+-- | Return a list of all 'QSO' records that have not been uploaded to LOTW.
 getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
 getUnsentQSOs dbh = do
     results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
                                \qsos.qsoid=confirmations.qsoid AND lotw_sent IS NULL;" []
     return $ map sqlToQSO results
 
--- Given a list of previously un-uploaded QSOs, mark them as sent.  It is expected
--- that the input list will be the output of getUnsentQSOs, with this function called
--- after that one and LOTW.upload.
+-- | Given a database handle and a list of previously unsent 'QSO' records (perhaps as
+-- returned by 'getUnsentQSOs'), mark them as sent in the database.  It is expected
+-- this function will be called after 'LOTW.upload', as it makes sense to have the
+-- uploading succeed before attempting to mark as sent.
 markQSOsAsSent :: IConnection conn => conn -> [QSO] -> IO ()
 markQSOsAsSent dbh qsos = do
     today <- getCurrentTime

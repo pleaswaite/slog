@@ -1,4 +1,12 @@
 {-# LANGUAGE DoAndIfThenElse #-}
+-- | The LOTW module interfaces with the ARRL's LOTW website and provides a way
+-- to sign ADIF files, upload signed files to the website, and download verified
+-- QSLs from the website.
+--
+-- Before using this module, you must first have a login on the LOTW website which is
+-- a pretty complicated procedure that is beyond the scope of this documentation.  You
+-- must also have curl and the tsql programs installed, as there are not satisfactory
+-- Haskell interfaces to do everything in this module.
 module Slog.LOTW(sign,
                  download,
                  upload)
@@ -10,9 +18,9 @@ import System.Exit(ExitCode(..))
 import System.FilePath(replaceExtension)
 import System.Process(readProcessWithExitCode)
 
--- Download a list of verified, received QSLs from LOTW, starting with a
--- provided date.  This can then be used to mark them as received in the
--- database.  The resulting string is in ADIF format.
+-- | 'download' takes a starting date (as a string in YYYY-MM-DD format - see
+-- 'dashifyDate'), a LOTW login name, and an LOTW password.  Fetch a list of
+-- verified, received QSLs from LOTW and return them as an ADIF-formatted string,
 download :: String -> String -> String -> IO String
 download date call password = do
     -- Argh, Network.HTTP does not support HTTPS so we have to be all convoluted
@@ -22,14 +30,14 @@ download date call password = do
         ExitSuccess     -> return stdout
         ExitFailure _   -> fail $ "Fetching from LOTW failed: " ++ stderr
 
--- Given a file path and a QTH, sign the file.  Note that you must have set
--- everything up with tqsl first.
---
--- NOTE:  tqsl is annoying and will start up graphically, especially if there
--- are any errors.  It's recommended that the QTH be verified by running this
--- command.  We can at least verify the file path here, though.
+-- | Given a QTH (which must match the QTH provided when generating a trustedqsl
+-- cert and LOTW login) and a file path, sign the file.  Note that you must have set
+-- everything up with tqsl first.  Return the path of the signed file.
 sign :: String -> FilePath -> IO FilePath
 sign qth file = do
+    -- NOTE:  tqsl is annoying and will start up graphically, especially if there
+    -- are any errors.  It's recommended that the QTH be verified by running this
+    -- command.  We can at least verify the file path here, though.
     exists <- doesFileExist file
 
     if exists then do
@@ -42,7 +50,7 @@ sign qth file = do
     else
         fail "File does not exist."
 
--- Upload a signed ADIF file to LOTW.
+-- | Upload a signed ADIF file to LOTW.
 upload :: FilePath -> IO ()
 upload file = do
     (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" ["-F", "upfile=@" ++ file, "https://p1k.arrl.org/lotw/upload"] ""

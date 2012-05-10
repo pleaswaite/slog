@@ -1,3 +1,7 @@
+-- | The ARRL provides an ever-changing list of entities for the DXCC award.  Some
+-- of these entities are entire countries, some are just a portion of a country,
+-- and some are individual islands.  This module provides a way to list and get
+-- information about DXCC entities, via the 'DXCC' record.
 module Slog.DXCC(DXCC(..),
                  entityFromID,
                  entityFromName,
@@ -10,10 +14,12 @@ import Data.List(find)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
 
-data DXCC = DXCC { dxccEntity :: String,
-                   dxccContinent :: ADIF.Continent,
-                   dxccITUZ :: [Integer],
-                   dxccCQZ :: [Integer] }
+-- | This record contains all the information about a single DXCC entity.
+data DXCC = DXCC { dxccEntity :: String,                 -- ^ the entity's name
+                   dxccContinent :: ADIF.Continent,      -- ^ the continent this entity is a part of
+                   dxccITUZ :: [Integer],                -- ^ ITU zones contained in this entity
+                   dxccCQZ :: [Integer]                  -- ^ CQ (WAZ) zones contained in this entity
+ }
  deriving (Show, Eq)
 
 mkDXCC :: String -> ADIF.Continent -> [Integer] -> [Integer] -> DXCC
@@ -370,15 +376,21 @@ dxccEntities = IntMap.fromList [
     (201, mkDXCC "Prince Edward & Marion Islands" ADIF.AF [57] [38])
  ]
 
+-- | Return a list of all the DXCC entity numbers.
 entityIDs :: [Integer]
 entityIDs = map fromIntegral (IntMap.keys dxccEntities)
 
+-- | Given a DXCC entity number, return the matching 'DXCC' record, or 'Nothing' if
+-- none is found.
 entityFromID :: Integer -> Maybe DXCC
 entityFromID id = IntMap.lookup (fromIntegral id) dxccEntities
 
+-- | Given a DXCC entity name, return the matching 'DXCC' record, or 'Nothing' if
+-- none is found.
 entityFromName :: String -> Maybe DXCC
 entityFromName name = find (\ent -> dxccEntity ent == name) (IntMap.elems dxccEntities)
 
+-- | Given a DXCC entity name, return the matching number, or 'Nothing' if none is found.
 idFromName :: String -> Maybe Integer
 idFromName name = let
     search (id:lst) = if (dxccEntity $ dxccEntities IntMap.! id) == name then Just (fromIntegral id)
