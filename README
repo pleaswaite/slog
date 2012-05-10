@@ -36,10 +36,7 @@ How to use all this crud:
     will start to accumulate a ton of files for using LOTW.  Also, the qth setting needs
     to be the same as the value you give to LOTW.  It's not important for running qsoadd.
 
-(5) Build everything.  Eventually, this will be a cabal thing that's easier to work with,
-    but for now:
+(5) Build everything:
 
-    $ ghc --make tools/qsoadd.hs
-    $ ghc --make tools/qsoconfirm.hs
-    $ ghc --make tools/qsoreport/qsoreport.hs -itools/qsoreport
-    $ ghc --make tools/qsoreport.hs
+    $ runhaskell Setup.hs configure --user
+    $ runhaskell Setup.hs build
