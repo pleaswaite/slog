@@ -12,7 +12,7 @@ import Slog.DB(connect, getAllQSOs', getUnconfirmedQSOs)
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.QSO
-import Slog.Utils(colonifyTime, dashifyDate, freqToBand, uppercase)
+import Slog.Utils(colonifyTime, dashifyDate, uppercase)
 
 import qualified Filter as F
 import Report(reportAll)

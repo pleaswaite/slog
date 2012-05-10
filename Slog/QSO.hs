@@ -1,6 +1,6 @@
 module Slog.QSO where
 
-import Data.Maybe(catMaybes, fromJust)
+import Data.Maybe(catMaybes, fromJust, isNothing)
 
 -- Some of these types are pretty useful everywhere.  Perhaps they should move
 -- up into a non-ADIF specific module.
@@ -45,7 +45,7 @@ data Confirmation = Confirmation {
  deriving (Eq, Show, Read)
 
 qsoToADIF :: QSO -> [ADIF.Field]
-qsoToADIF qso =
+qsoToADIF qso = if isNothing band then [] else
     -- First, let's get the required fields we know will always exist.
     [ADIF.QSO_Date $ qDate qso,
      ADIF.TimeOn $ qTime qso,
@@ -57,7 +57,7 @@ qsoToADIF qso =
 
     -- LOTW wants the band, not the frequency, so just make sure that's
     -- included here.
-    [ADIF.Band $ freqToBand $ qFreq qso] ++
+    [ADIF.Band $ fromJust band] ++
 
     -- And now we add in everything that could potentially be set.
     (catMaybes [qRxFreq qso >>= Just . ADIF.FreqRx,
@@ -70,3 +70,5 @@ qsoToADIF qso =
                 qWAZ qso >>= Just . ADIF.CQZ,
                 qSatName qso >>= Just . ADIF.SatelliteName,
                 qSatMode qso >>= Just . ADIF.SatelliteMode])
+ where
+    band = freqToBand $ qFreq qso

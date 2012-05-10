@@ -15,7 +15,7 @@ import Slog.Utils(freqToBand, uppercase)
 import Types(ConfirmInfo)
 
 byBand :: ADIF.Band -> ConfirmInfo -> Bool
-byBand band (qso, _) = band == (freqToBand $ qFreq qso)
+byBand band (qso, _) = maybe False (band ==) (freqToBand $ qFreq qso)
 
 byCall :: String -> ConfirmInfo -> Bool
 byCall call (qso, _) = uppercase call == uppercase (qCall qso)
