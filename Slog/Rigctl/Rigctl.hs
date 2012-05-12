@@ -4,6 +4,7 @@ module Slog.Rigctl.Rigctl(RigConn,
                           disconnect,
                           ask,
                           tell,
+                          isRigctldRunning,
                           runRigctld)
  where
 
@@ -79,6 +80,13 @@ wr :: String -> RigConn ()
 wr s = do
     h <- asks socket
     liftIO $ hPrintf h "%s\n" s
+
+-- | Determine if the rigctld process is running by attempting to connect with it.
+isRigctldRunning :: IO Bool
+isRigctldRunning =
+    catch tryConnect (\_ -> return False)
+ where
+    tryConnect = connect "localhost" 4532 >>= disconnect >> return True
 
 runRigctld :: String -> String -> IO ()
 runRigctld model device = do
