@@ -55,6 +55,7 @@ executable qsoadd
   build-depends:   base,
                    directory,
                    gtk,
+                   mtl,
                    old-locale,
                    time,
                    ConfigFile,

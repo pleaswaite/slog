@@ -2,6 +2,7 @@
 {-# LANGUAGE DoAndIfThenElse #-}
 import Control.Exception(bracket)
 import Control.Monad(liftM)
+import Control.Monad.Reader(runReaderT)
 import Data.ConfigFile
 import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
@@ -21,6 +22,9 @@ import Slog.DXCC(DXCC(..), idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
 import Slog.QSO
+import qualified Slog.Rigctl.Commands.Ask as Ask
+import qualified Slog.Rigctl.Commands.Tell as Tell
+import qualified Slog.Rigctl.Rigctl as R
 import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 --
@@ -182,6 +186,7 @@ data ProgramWidgets = ProgramWidgets {
     pwDate :: Entry,
     pwTime :: Entry,
 
+    pwRigctld :: CheckButton,
     pwCurrentDT :: CheckButton,
 
     pwModeCombo :: ComboBox,
@@ -224,6 +229,10 @@ clearUI w = do
     -- Set the current date/time checkbox back to active.
     toggleButtonSetActive (pwCurrentDT w) True
 
+    -- Set the rigctld checkbox to active, but only if it's running.
+    running <- R.isRigctldRunning
+    toggleButtonSetActive (pwRigctld w) running
+
     -- Remove the status bar message.
     statusbarRemoveAll (pwStatus w) 0
 
@@ -241,10 +250,30 @@ initUI w = do
     mapM_ (comboBoxAppendText combo) ["AM", "CW", "FM", "SSB"]
     setDefaultMode combo
 
-    setDateTime w
+    clearUI w
+
+rigctldActive :: ProgramWidgets -> IO Bool
+rigctldActive w = toggleButtonGetActive (pwRigctld w)
 
 currentDTActive :: ProgramWidgets -> IO Bool
 currentDTActive w = toggleButtonGetActive (pwCurrentDT w)
+
+-- If the checkbox is active, the individual frequency and mode entries are not.
+-- This is how we decide whether to get this data from rigctld or not.
+setFreqModeSensitivity :: ProgramWidgets -> IO ()
+setFreqModeSensitivity w = do
+    running <- R.isRigctldRunning
+
+    -- If rigctld is not running, we shouldn't allow the user to even check
+    -- the box, though we should at least tell them why.
+    if not running then do
+        toggleButtonSetActive (pwRigctld w) False
+        statusbarPush (pwStatus w) 0 "rigctld is not running."
+        return ()
+    else do
+        active <- rigctldActive w
+        widgetSetSensitive (pwFrequency w) (not active)
+        widgetSetSensitive (pwModeCombo w) (not active)
 
 -- If the checkbox is active, the individual date and time entries are not.  This
 -- is how we decide which way to get the time for the QSO.
@@ -259,32 +288,38 @@ buildArgList w = do
     liftM concat $ sequence [getOneEntry pwCall "-l",
                              getTwoEntries pwRSTRcvd pwRSTSent "-r",
                              getTwoEntries pwExchangeRcvd pwExchangeSent "-x",
-                             getOneEntry pwFrequency "-f",
-                             getDate,
-                             getTime,
-                             getCombo pwModeCombo "-m"]
+                             getFromRigctl Ask.Frequency
+                                           (\(Tell.Frequency f) -> return ["-f", show f])
+                                           (getOneEntry pwFrequency "-f"),
+                             getDT (do d <- theDate ; return ["-d", d]) (getOneEntry pwDate "-d"),
+                             getDT (do t <- theTime ; return ["-t", t]) (getOneEntry pwTime "-t"),
+                             getFromRigctl Ask.Mode
+                                           (\(Tell.Mode mode _) -> return ["-m", show mode])
+                                           (getCombo pwModeCombo "-m")]
  where
-    getDate = do
+    getDT f fallback = do
         active <- currentDTActive w
-        if active then do d <- theDate
-                          return ["-d", d]
-        else getOneEntry pwDate "-d"
+        if active then f else fallback
 
-    getTime = do
-        active <- currentDTActive w
-        if active then do t <- theTime
-                          return ["-t", t]
-        else getOneEntry pwTime "-t"
-
-    getEntryText f = do
-        entryGetText (f w)
+    getFromRigctl inCmd getOutCmd fallback = do
+        active <- rigctldActive w
+        if active then do bracket (R.connect "localhost" 4532)
+                                  (R.disconnect)
+                                  doAsk
+        else fallback
+     where
+        doAsk st = do
+            result <- runReaderT (R.ask inCmd) st
+            either (\_ -> fallback)
+                   getOutCmd
+                   result
 
     getOneEntry f optName = do
-        s <- getEntryText f
+        s <- entryGetText (f w)
         if s == "" then return [] else return [optName, s]
 
     getTwoEntries f1 f2 optName = do
-        [s1, s2] <- mapM getEntryText [f1, f2]
+        [s1, s2] <- mapM entryGetText [f1 w, f2 w]
         if s1 == "" then return [] else
             if s2 == "" then return [optName, s1] else return [optName, s1 ++ ":" ++ s2]
 
@@ -325,14 +360,14 @@ loadWidgets builder = do
                              ["callEntry", "rstRcvdEntry", "rstSentEntry", "exchangeRcvdEntry",
                               "exchangeSentEntry", "frequencyEntry", "dateEntry", "timeEntry"]
 
-    [pwCurrentDT] <- mapM (getO castToCheckButton) ["currentDateTimeCheckbox"]
+    [pwRigctld, pwCurrentDT] <- mapM (getO castToCheckButton) ["getFromRigCheckbox", "currentDateTimeCheckbox"]
     [pwModeCombo] <- mapM (getO castToComboBox) ["modeComboBox"]
     [pwCancel, pwAdd] <- mapM (getO castToButton) ["cancelButton", "addButton"]
     [pwStatus] <- mapM (getO castToStatusbar) ["statusBar"]
 
     return $ ProgramWidgets pwCall pwRSTRcvd pwRSTSent pwExchangeRcvd pwExchangeSent
-                            pwFrequency pwDate pwTime pwCurrentDT pwModeCombo pwStatus
-                            pwCancel pwAdd
+                            pwFrequency pwDate pwTime pwRigctld pwCurrentDT pwModeCombo
+                            pwStatus pwCancel pwAdd
  where
     getO cast = builderGetObject builder cast
 
@@ -355,6 +390,7 @@ runGUI dbh conf = do
 
     onClicked (pwCancel widgets) $ clearUI widgets
     onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO dbh conf)
+    onToggled (pwRigctld widgets) $ setFreqModeSensitivity widgets
     onToggled (pwCurrentDT widgets) $ setDateTimeSensitivity widgets
 
     -- And away we go!
