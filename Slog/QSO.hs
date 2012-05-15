@@ -1,3 +1,5 @@
+-- | This module exports the most basic data types used throughout the Slog library
+-- and utilities.
 module Slog.QSO where
 
 import Data.Maybe(catMaybes, fromJust, isNothing)
@@ -8,6 +10,15 @@ import qualified Slog.Formats.ADIF.Types as ADIF
 
 import Slog.Utils(colonifyTime, dashifyDate, freqToBand, withoutSeconds)
 
+-- | A 'QSO' is a record used to convey information about a single radio contact within
+-- the Slog library and utilities.  It is the interchange format between the database
+-- and the rest of the library.  In fact this record closely matches the layout of one
+-- table in the database.  The qsoadd utility builds up this record from the command line
+-- or graphical interface.
+--
+-- While this record can contain a lot of data, most of it is optional.  Much can be
+-- determined automatically by looking up a call sign.  Other information is not
+-- needed at all.
 data QSO = QSO {
     qDate      :: ADIF.Date,
     qTime      :: ADIF.Time,
@@ -31,6 +42,10 @@ data QSO = QSO {
     qSatMode   :: Maybe String }
  deriving (Eq, Show, Read)
 
+-- | A 'Confirmation' record is used to convey information about whether a 'QSO'
+-- has been confirmed via a variety of methods.  This record closely matches the layout
+-- of another table in the database, but is much less widely used than the 'QSO'
+-- record.
 data Confirmation = Confirmation {
     qQSL_RDate    :: ADIF.Date,
     qQSL_SDate    :: ADIF.Date,
@@ -44,6 +59,8 @@ data Confirmation = Confirmation {
     qLOTW_Sent    :: ADIF.SentStatus }
  deriving (Eq, Show, Read)
 
+-- | Given a 'QSO' record, attempt to convert it into a list of ADIF fields.  This is
+-- used to grab QSOs out of the database and upload them to LOTW.
 qsoToADIF :: QSO -> [ADIF.Field]
 qsoToADIF qso = if isNothing band then [] else
     -- First, let's get the required fields we know will always exist.

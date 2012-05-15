@@ -1,3 +1,11 @@
+-- | This module provides the set of Tell commands.  A Tell command is used for one of
+-- two things:  First, it is the result of the radio previously being asked for a piece
+-- of data - that is, the radio is telling you something.  Second, it is used to have
+-- the radio set some value or perform some function - that is, you are telling the radio
+-- to do something.
+--
+-- To use these commands, provide one to 'Slog.Rigctl.Rigctl.tell'.  The result is an
+-- error code, if any.  Note that not all radios support all commands.
 module Slog.Rigctl.Commands.Tell(Command(..),
                                  RigVFO(..),
                                  Direction(..),
@@ -17,37 +25,40 @@ import Slog.Rigctl.Commands.Class
 import qualified Slog.Rigctl.Commands.Ask as A
 import Slog.Utils(invert, stringToDouble, stringToInteger)
 
-data Command = Frequency Integer
-             | Mode RigMode Integer
-             | VFO RigVFO
-             | RIT Integer
-             | XIT Integer
-             | PTT Bool
-             | DCD Bool       -- you can ask for the DCD value, but can't set it
-             | RepeaterShift (Maybe Direction)
-             | RepeaterOffset Integer
-             | CTCSSTone Integer
-             | DCSCode Integer
-             | CTCSSSql Integer
-             | DCSSql Integer
-             | SplitFrequency Integer
-             | SplitMode RigMode Integer
-             | SplitVFO Bool RigVFO
-             | TuningStep Integer
-             | Function RigFunction Bool
-             | Level RigLevel Double
-             | Param RigParam Double
-             | Bank Integer
-             | Memory Integer
-             | MVOp RigMVOp
-             | Channel Integer
-             | Transcieve TranscieveMode
-             | Antenna Integer
+-- | These are all the tell commands as supported by rigctl.
+data Command = Frequency Integer                -- ^ Set the frequency, in Hz.
+             | Mode RigMode Integer             -- ^ Set the operating mode and passband, in Hz.
+             | VFO RigVFO                       -- ^ Set the current VFO.
+             | RIT Integer                      -- ^ Set the RIT, in Hz.
+             | XIT Integer                      -- ^ Set the XIT, in Hz.
+             | PTT Bool                         -- ^ Set the PTT status (transmit = True)
+             | DCD Bool                         -- ^ Return the result of asking for DCD.  This value cannot be set.
+             | RepeaterShift (Maybe Direction)  -- ^ Set the repeater shift direction, if any.
+             | RepeaterOffset Integer           -- ^ Set the repeater offset, in Hz.
+             | CTCSSTone Integer                -- ^ Set the CTCSS tone, in tenths of Hz.
+             | DCSCode Integer                  -- ^ Set the DCS code.
+             | CTCSSSql Integer                 -- ^ Set the CTCSS squelch tone, in tenths of Hz.
+             | DCSSql Integer                   -- ^ Set the DCS squelch code.
+             | SplitFrequency Integer           -- ^ Set the transmit frequency, in Hz.
+             | SplitMode RigMode Integer        -- ^ Set the split operating mode and passband, in Hz.
+             | SplitVFO Bool RigVFO             -- ^ Set whether we are operating split and the transmit VFO.
+             | TuningStep Integer               -- ^ Set the tuning step, in Hz.
+             | Function RigFunction Bool        -- ^ Set some radio function to be on or off.
+             | Level RigLevel Double            -- ^ Set the level of some value.
+             | Param RigParam Double            -- ^ Set the value of some parameter.
+             | Bank Integer                     -- ^ Set the current memory bank.
+             | Memory Integer                   -- ^ Set the current memory channel.
+             | MVOp RigMVOp                     -- ^ Perform some memory/VFO operation.
+             | Channel Integer                  -- ^ Not implemented in rigctld yet.
+             | Transcieve TranscieveMode        -- ^ Set the transcieve mode.
+             | Antenna Integer                  -- ^ Set the current antenna.
              | Reset {resetNone :: Bool, resetSoftware :: Bool, resetVFO :: Bool,
                       resetMemoryClear :: Bool, resetMaster :: Bool}
-             | Morse String
+                                                -- ^ Send a reset of various parts of the radio.
+             | Morse String                     -- ^ Send a string of morse code.
              | PowerStatus {powerOff :: Bool, powerOn :: Bool, powerStandby :: Bool}
-             | DTMF String
+                                                -- ^ Set the radio's power status.
+             | DTMF String                      -- ^ Send DTMF digits.
 
 instance Serializable Command where
     ser (Frequency i)      = Just $ "F " ++ show i
@@ -85,6 +96,10 @@ instance Serializable Command where
     ser (DTMF s)           = Just $ "\\send_dtmf " ++ s
     ser _                  = Nothing
 
+-- | Given the ask 'Slog.Rigctl.Commands.Ask.Command' and the response from running that
+-- ask command, convert it into a tell 'Slog.Rigctl.Commands.Tell.Command'.  Because not all
+-- ask commands have an equivalent tell command, the result must be wrapped in a 'Maybe'.
+-- This also presumes the response has already been checked for an error code.
 toTell :: A.Command -> [String] -> Maybe Command
 toTell cmd s =
     case cmd of
@@ -150,6 +165,8 @@ toTell cmd s =
 
 --
 
+-- | This data type is used to represent VFOs in various places.  Not all radios will
+-- support all these values.
 data RigVFO = V_VFOA | V_VFOB | V_VFOC | V_Current | V_VFO | V_MEM | V_Main | V_Sub | V_TX | V_RX
     deriving (Eq)
 
@@ -168,6 +185,7 @@ instance Read RigVFO where
 
 --
 
+-- | This data type is used for expressing repeater shift directions, if any.
 data Direction = Plus | Minus
     deriving (Eq)
 
@@ -181,12 +199,17 @@ instance Read Direction where
 
 --
 
+-- | This data type is used for expressing the operating mode.  Not all radios will
+-- support all these values.  Also note that these are a subset of those expressable
+-- via 'Slog.Formats.ADIF.Types.Mode'.
 data RigMode = USB | LSB | CW | CWR | RTTY | RTTYR | AM | FM | WFM | AMS | PKTLSB |
                PKTUSB | PKTFM | ECSSUSB | ECSSLSB | FAX | SAM | SAL | SAH | DSB
     deriving (Eq, Show, Read)
 
 --
 
+-- | This data type expresses a variety of functions that can be set on a radio.  Not
+-- all radios will support all functions.
 data RigFunction = F_FAGC | F_NB | F_COMP | F_VOX | F_TONE | F_TSQL | F_SBKIN | F_FBKIN | F_ANF | F_NR |
                    F_AIP | F_APF | F_MON | F_MN | F_RF | F_ARO | F_LOCK | F_MUTE | F_VSC | F_REV | F_SQL |
                    F_ABM | F_BC | F_MBC | F_AFC | F_SATMODE | F_SCOPE | F_RESUME | F_TBURST | F_TUNER
@@ -206,6 +229,8 @@ instance Read RigFunction where
 
 --
 
+-- | This data type expresses a variety of levels that can be set on a radio.  Not all
+-- radios will support all levels.
 data RigLevel = L_PREAMP | L_ATT | L_VOX | L_AF | L_RF | L_SQL | L_IF | L_APF | L_NR | L_PBT_IN | L_PBT_OUT |
                 L_CWPITCH | L_RFPOWER | L_MICGAIN | L_KEYSPD | L_NOTCHF | L_COMP | L_AGC | L_BKINDL | L_BAL |
                 L_METER | L_VOXGAIN | L_ANTIVOX | L_SLOPE_LOW | L_SLOPE_HIGH | L_RAWSTR | L_SQLSTAT |
@@ -226,16 +251,21 @@ instance Read RigLevel where
 
 --
 
+-- | This data type expresses a variety of parameters that can be set on a radio.  Not
+-- all radios will support all parameters.
 data RigParam = ANN | APO | BACKLIGHT | BEEP | TIME | BAT | KEYLIGHT
     deriving (Eq, Show, Read)
 
 --
 
+-- | This data type expresses a variety of memory/VFO operations that can be performed
+-- by a radio.  Not all radios will support all operations.
 data RigMVOp = CPY | XCHG | FROM_VFO | TO_VFO | MCL | UP | DOWN | BAND_UP | BAND_DOWN |
                LEFT | RIGHT | TUNE | TOGGLE
     deriving (Eq, Show, Read)
 
 --
 
+-- | This data type expresses the transciever modes.
 data TranscieveMode = OFF | RIG | POLL
     deriving (Eq, Show, Read)
