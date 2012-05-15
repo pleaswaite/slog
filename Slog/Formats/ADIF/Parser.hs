@@ -1,3 +1,7 @@
+-- | This module exports a single function that converts a 'String' into an
+-- 'ADIFFile'.  This is the only way to do such a conversion.  The 'Read' methods
+-- in the 'Types' module should not be relied upon to do more than convert a single
+-- token.
 module Slog.Formats.ADIF.Parser(parseString) where
 
 import Control.Applicative((<*), (*>))
@@ -193,11 +197,16 @@ garbage     = noneOf "<"
 eoh         = string' "<EOH>"
 eor         = string' "<EOR>"
 
--- Data fetched from LOTW has "<APP_LoTW_EOF>" at the end of the text, which
--- looks totally out of spec as far as I can tell.  We need to strip it out
--- before doing the parsing.
+-- | Given a 'String' containing ADIF data, convert it into an 'ADIFFile'.  The complete and
+-- exact type signature for this function is not given -- because the applicative parsing
+-- functions make it into a giant mess.  However, the documented type signature here is close
+-- enough for use.
 parseString s = let
     txt = T.strip $ T.pack s
+
+    -- Data fetched from LOTW has "<APP_LoTW_EOF>" at the end of the text, which
+    -- looks totally out of spec as far as I can tell.  We need to strip it out
+    -- before doing the parsing.
     s'  = maybe s T.unpack (T.stripSuffix (T.pack "<APP_LoTW_EOF>") txt)
  in
     parse file "<stdin>" s'

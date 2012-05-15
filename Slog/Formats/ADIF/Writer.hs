@@ -1,4 +1,11 @@
-module Slog.Formats.ADIF.Writer where
+-- | This module exports a couple functions that convert an 'ADIFFile' or a portion
+-- of one into a 'String'.  This is the only way to do such a conversion.  The 'Show'
+-- methods in the 'Types' module should not be relied upon to do more than convert a
+-- single piece.
+module Slog.Formats.ADIF.Writer(renderFile,
+                                renderHeader,
+                                renderRecord)
+ where
 
 import Data.List(concat, intersperse)
 import Data.Maybe(isJust, fromJust)
@@ -6,17 +13,18 @@ import Text.Printf(printf)
 
 import Slog.Formats.ADIF.Types
 
+-- | Convert an entire 'ADIFFile' into a 'String', headers and all.
 renderFile :: ADIFFile -> String
 renderFile f = header ++ "\n\r" ++ concat body
  where header = renderHeader $ fileHeader f
        body   = map renderRecord (fileBody f)
 
--- Given a record (which is just a list of fields), convert it into a single string.
+-- | Convert a record (which is just a 'Field' list) into a 'String'.
 renderRecord :: [Field] -> String
 renderRecord rec = concat body
  where body = map renderField rec ++ ["<EOR>"]
 
--- Given a header (which is just a list of certain fields), convert it into a single string.
+-- | Convert a header (which is just a 'HeaderField' list) into a 'String'.
 renderHeader :: [HeaderField] -> String
 renderHeader rec = concat body
  where body = map renderHeaderField rec ++ ["<EOH>"]

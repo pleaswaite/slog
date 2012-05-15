@@ -1,3 +1,8 @@
+-- | This module contains a wide variety of data types representing the
+-- guts of an ADIF file.  ADIF is the standard format for amateur radio log
+-- files, and is especially used as the import/export format for LOTW and
+-- a variety of other programs.  For the ADIF specification, see
+-- <http://www.adif.org/adif227.htm>.
 module Slog.Formats.ADIF.Types(Date, Time,
                                Location(..),
                                ADIFFile(..),
@@ -24,12 +29,18 @@ import Text.Printf(printf)
 --
 -- BASIC FIELD DATA TYPES
 --
+
+-- | Date is represented by a 'String', and should be in YYYYMMDD format.
 type Date = String
+
+-- | Time is represented by a 'String', and should be in HHMM format.
 type Time = String
 
-data Location = Location { locDirection :: Char,
-                           locDegrees :: Integer,
-                           locMinutes :: Double
+-- | A record representing the location of either the local station or the remote
+-- station.  It is used for both latitude and longitude.
+data Location = Location { locDirection :: Char,      -- ^ The single character N, S, E, or W.
+                           locDegrees :: Integer,     -- ^ An 'Integer' number of degrees.
+                           locMinutes :: Double       -- ^ A 'Double' number of minutes.
  } deriving (Eq, Read)
 
 instance Show Location where
@@ -39,8 +50,14 @@ instance Show Location where
 -- TOP-LEVEL DATA TYPE
 --
 
--- An ADIF file consists of an optional header, followed by multiple records.  Each
--- record consists of a list of fields.
+-- | This record is the top-level representation of an ADIF file.  It consists of an
+-- optional header containing one or more 'HeaderField' elements, followed by one or more
+-- records.  A record consists of one or more 'Field' elements.
+--
+-- Converting a 'String' into an 'ADIFFile' is accomplished via the 'Parser' module, while
+-- converting an 'ADIFFile' into a 'String' is accomplished via the 'Writer' module.  These
+-- data types do derive 'Read' and 'Show', but those should not be relied upon to handle
+-- the full complexity of ADIF.
 data ADIFFile = ADIFFile { fileHeader :: [HeaderField],
                            fileBody :: [[Field]]
  } deriving (Read, Show)
@@ -49,7 +66,9 @@ data ADIFFile = ADIFFile { fileHeader :: [HeaderField],
 -- FIELDS AND HEADER FIELDS
 --
 
--- The header contains only a couple special fields.
+-- | A 'HeaderField' can be only one of a couple special fields that contain information about
+-- the file itself and the program used to write the file out.  It is also the place where
+-- users and applications can define their own extra fields.
 data HeaderField = ProgramID        String
                  | ProgramVersion   String
                  | Userdef          UserDefined
@@ -57,7 +76,8 @@ data HeaderField = ProgramID        String
                  | HeaderAppdef     AppDefined
  deriving (Read, Show)
 
--- The records can contain a very large variety of fields.
+-- | There are a very large number of possibilities for a 'Field', all of which are information
+-- about the QSO itself.  Note that the 'ContestID' constructor is not yet supported.
 data Field = Address          [String]
            | Age              Integer
            | AIndex           Integer
@@ -172,18 +192,25 @@ data Field = Address          [String]
 -- ADDITIONAL DEFINED FIELDS
 --
 
--- Applications may define their own fields, of course.  Here's a definition for them.
-data AppDefined = AppDefined { appName :: String,
-                               appLength :: Int,
-                               appType :: Maybe Char,
-                               appValue :: String
+-- | Applications may define their own fields in the 'HeaderField' of an 'ADIFFile'.
+-- This record is used to recognize them on read and write them back out, but we do not
+-- use them anywhere else in the Slog library.  See <http://www.adif.org/adif227.htm#Application-defined%20Fields>
+-- for information on how to create your own field.
+data AppDefined = AppDefined { appName :: String,        -- ^ The name of the field.
+                               appLength :: Int,         -- ^ The length of the data in the field.
+                               appType :: Maybe Char,    -- ^ The type of the field, which should be provided.
+                               appValue :: String        -- ^ The value given.
  } deriving (Read, Show)
 
 -- Users may also define their own fields, but only in the header.  Here's a definition for
 -- those, too.  Is this really necessary?
-data UserDefined = UserPlain  String
-                 | UserEnum   (String, [String])
-                 | UserRange  (String, (Integer, Integer))
+-- | Users may also define their own fields in the 'HeaderField' of an 'ADIFFile'.
+-- This record is used to recognize them on read and write them back out, but we do not
+-- use them anywhere else in the Slog library.  See <http://www.adif.org/adif227.htm#Fields>
+-- for more information on how to create your own field (search for USERDEF).
+data UserDefined = UserPlain  String                        -- ^ Defines a normal field.
+                 | UserEnum   (String, [String])            -- ^ Defines an enumeration 
+                 | UserRange  (String, (Integer, Integer))  -- ^ Defines a range across two integers.
  deriving (Read, Show)
 
 --
@@ -193,10 +220,8 @@ data UserDefined = UserPlain  String
 -- to represent them and hope it all works out.
 --
 
---
--- ARRL Section
+-- | Which ARRL section is the remote station in?
 -- FIXME:  Add PAC, MS (these overlap with other data types)
---
 data ARRLSection = AL | AK | AB | AR | AZ | BC | CO | CT | DE | EB | EMA | ENY | EPA | EWA |
                    GA | ID | IL | IN | IA | KS | KY | LAX | LA | ME | MB | MAR | MDC | MI |
                    MN | MO | MT | NE | NV | NH | NM | NLI | NL | NC | ND | NTX | NFL |
@@ -205,9 +230,7 @@ data ARRLSection = AL | AK | AB | AR | AZ | BC | CO | CT | DE | EB | EMA | ENY |
                    VT | VA | WCF | WTX | WV | WMA | WNY | WPA | WWA | WI | WY
  deriving (Eq, Read, Show)
 
---
--- What path did the signal take?
---
+-- | What path did the signal take?
 data AntennaPath = GrayLine
                  | ShortPath
                  | LongPath
@@ -226,18 +249,14 @@ instance Show AntennaPath where
 instance Read AntennaPath where
     readsPrec _ path = maybe [] (\b -> [(b, "")]) (lookup path antennaPathMap')
 
---
--- What awards has credit been submitted and granted for?
---
+-- | What awards has credit been submitted and granted for?
 data Award = AJA | CQDX | CQDXFIELD | CQWAZ_MIXED | CQWAZ_CW | CQWAZ_PHONE |
              CQWAZ_RTTY | CQWAZ_160m | CQWPX | DARC_DOK | DXCC | DXCC_MIXED |
              DXCC_CW | DXCC_PHONE | DXCC_RTTY | IOTA | JCC | JCG | MARATHON |
              RDA | WAB | WAC | WAE | WAIP | WAJA | WAS | WAZ | USACA | VUCC
  deriving (Eq, Read, Show)
 
---
--- What band did the QSO take place on?
---
+-- | What band did the QSO take place on?
 data Band = Band2190M | Band560M | Band160M | Band80M | Band60M | Band40M
           | Band30M | Band20M | Band17M | Band15M | Band12M | Band10M
           | Band6M | Band4M | Band2M | Band1Point25M | Band70CM | Band33CM
@@ -265,9 +284,7 @@ instance Show Band where
 instance Read Band where
     readsPrec _ band = maybe [] (\b -> [(b, "")]) (lookup band bandMap')
 
---
--- Was the QSO completed?
---
+-- | Was the QSO completed?
 data Complete = CYes | CNo | CNil | CUnknown
  deriving (Eq)
 
@@ -283,15 +300,11 @@ instance Show Complete where
 instance Read Complete where
     readsPrec _ comp = maybe [] (\c -> [(c, "")]) (lookup comp completeMap')
 
---
--- Which continent is the remote end on?
---
+-- | Which continent is the remote station on?
 data Continent = NA | SA | EU | AF | OC | AS | AN
  deriving (Eq, Read, Show)
 
---
--- What mode was used?
---
+-- | What mode was used?
 data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
             CW | DSTAR | DOMINO | DOMINOF | FAX | FM | FMHELL | FSK31 | FSK441 |
             GTOR | HELL | HELL80 | HFSK | JT44 | JT4A | JT4B | JT4C | JT4D |
@@ -303,16 +316,13 @@ data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
             WINMOR | WSPR
  deriving (Eq, Read, Show)
 
---
--- What was the observed propagation?
---
+-- | What was the observed propagation method?
 data Propagation = AUR | AUE | BS | ECH | EME | ES | FAI | F2 | INTERNET |
                    ION | IRL | MS | RPT | RS | SAT | TEP | TR
  deriving (Eq, Read, Show)
 
---
--- QSL/EQSL/LOTW Received/Sent status
---
+-- | Has the QSL been sent yet?  This is used for LOTW, eQSL, and paper QSL cards.
+-- 'RYes' and 'RNo' are the most widely used choices.
 data ReceivedStatus = RYes | RNo | RRequested | RInvalid | RValidated
  deriving (Eq)
 
@@ -329,6 +339,8 @@ instance Show ReceivedStatus where
 instance Read ReceivedStatus where
     readsPrec _ status = maybe [] (\s -> [(s, "")]) (lookup status receivedStatusMap')
 
+-- | Has the QSL been sent yet?  This is used for LOTW, eQSL, and paper QSL cards.
+-- 'SYes' and 'SNo' are the most widely used choices.
 data SentStatus = SYes | SNo | SRequested | SQueued | SInvalid
  deriving (Eq)
 
@@ -344,9 +356,7 @@ instance Show SentStatus where
 instance Read SentStatus where
     readsPrec _ status = maybe [] (\s -> [(s, "")]) (lookup status sentStatusMap')
 
---
--- How was the QSL sent?
---
+-- | How was the QSL sent?
 data SentVia = Bureau | Direct | Electronic | Manager
  deriving (Eq)
 
