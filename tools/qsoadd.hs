@@ -193,6 +193,11 @@ data ProgramWidgets = ProgramWidgets {
 
     pwStatus :: Statusbar,
 
+    pwDateLabel :: Label,
+    pwTimeLabel :: Label,
+    pwFreqLabel :: Label,
+    pwModeLabel :: Label,
+
     pwCancel :: Button,
     pwAdd :: Button }
 
@@ -274,6 +279,8 @@ setFreqModeSensitivity w = do
         active <- rigctldActive w
         widgetSetSensitive (pwFrequency w) (not active)
         widgetSetSensitive (pwModeCombo w) (not active)
+        widgetSetSensitive (pwFreqLabel w) (not active)
+        widgetSetSensitive (pwModeLabel w) (not active)
 
 -- If the checkbox is active, the individual date and time entries are not.  This
 -- is how we decide which way to get the time for the QSO.
@@ -282,6 +289,8 @@ setDateTimeSensitivity w = do
     active <- currentDTActive w
     widgetSetSensitive (pwDate w) (not active)
     widgetSetSensitive (pwTime w) (not active)
+    widgetSetSensitive (pwDateLabel w) (not active)
+    widgetSetSensitive (pwTimeLabel w) (not active)
 
 buildArgList :: ProgramWidgets -> IO [String]
 buildArgList w = do
@@ -365,9 +374,13 @@ loadWidgets builder = do
     [pwCancel, pwAdd] <- mapM (getO castToButton) ["cancelButton", "addButton"]
     [pwStatus] <- mapM (getO castToStatusbar) ["statusBar"]
 
+    [pwDateLabel, pwTimeLabel, pwFreqLabel, pwModeLabel] <- mapM (getO castToLabel)
+                                                                 ["dateLabel", "timeLabel", "frequencyLabel", "modeLabel"]
+
     return $ ProgramWidgets pwCall pwRSTRcvd pwRSTSent pwExchangeRcvd pwExchangeSent
                             pwFrequency pwDate pwTime pwRigctld pwCurrentDT pwModeCombo
-                            pwStatus pwCancel pwAdd
+                            pwStatus pwDateLabel pwTimeLabel pwFreqLabel pwModeLabel
+                            pwCancel pwAdd
  where
     getO cast = builderGetObject builder cast
 
