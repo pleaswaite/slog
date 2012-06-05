@@ -215,7 +215,7 @@ setDateTime w = do
     theDate >>= entrySetText (pwDate w)
     theTime >>= entrySetText (pwTime w)
 
-setDefaultMode combo = comboBoxSetActive combo 3
+setDefaultMode combo = comboBoxSetActive combo 4
 
 -- This function is called when the Cancel button is clicked in order to blank
 -- out the UI and prepare it for starting over.  Expected user behavior is that
@@ -252,7 +252,7 @@ initUI w = do
     let combo = pwModeCombo w
 
     comboBoxSetModelText combo
-    mapM_ (comboBoxAppendText combo) ["AM", "CW", "FM", "SSB"]
+    mapM_ (comboBoxAppendText combo) ["AM", "CW", "FM", "PSK31", "SSB"]
     setDefaultMode combo
 
     clearUI w
