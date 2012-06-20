@@ -429,7 +429,7 @@ buildQSO ra opt = do
     mode <- optMode opt <!> "You must specify a valid mode."
     rstR <- optRST_Rcvd opt <!> "You must specify a received signal report."
     rstS <- optRST_Sent opt <!> "You must specify a sent signal report."
-    call <- raCall ra ||| optCall opt <!> "You must specify a call sign."
+    call <- optCall opt ||| raCall ra <!> "You must specify a call sign."
     Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call)
  where
     doBuildQSO (date, time, freq, mode, rstR, rstS, call) =
