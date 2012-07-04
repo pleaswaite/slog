@@ -68,10 +68,8 @@ prepDB dbh = do
                 \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \qsoid INTEGER NOT NULL UNIQUE,\
                 \qsl_rdate TEXT, qsl_sdate TEXT,\
-                \qsl_rcvd TEXT, qsl_rcvd_via TEXT,\
-                \qsl_sent TEXT, qsl_sent_via TEXT,\
-                \lotw_rdate TEXT, lotw_sdate TEXT,\
-                \lotw_rcvd TEXT, lotw_sent TEXT)" []
+                \qsl_rcvd_via TEXT, qsl_sent_via TEXT,\
+                \lotw_rdate TEXT, lotw_sdate TEXT)" []
         return ()
     commit dbh
 
@@ -120,7 +118,7 @@ addQSO dbh qso = handleSql errorHandler $ do
 -- matching entry in their log.
 confirmQSO :: IConnection conn => conn -> Integer -> ADIF.Date -> IO ()
 confirmQSO dbh qsoid qsl_date = do
-    run dbh "UPDATE confirmations SET lotw_rdate = ?, lotw_rcvd=\"Y\" WHERE qsoid = ?"
+    run dbh "UPDATE confirmations SET lotw_rdate = ?, WHERE qsoid = ?"
             [toSql qsl_date, toSql qsoid]
     commit dbh
     return ()
@@ -139,7 +137,7 @@ updateQSO dbh qsoid qso = do
             (qsoToSql qso ++ [toSql qsoid])
     -- Then, we need to zero out this QSO's row in the confirmations table so we'll know
     -- to upload the new information later.
-    run dbh "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", lotw_rcvd = \"\", lotw_sent = \"\" WHERE qsoid = ?"
+    run dbh "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", WHERE qsoid = ?"
             [toSql qsoid]
     commit dbh
     return ()
@@ -171,7 +169,7 @@ getAllQSOs' dbh = do
 -- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
 getUnconfirmedQSOs dbh = do
     results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
-                                \qsos.qsoid=confirmations.qsoid AND lotw_rcvd IS NULL \
+                                \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
                                 \ORDER BY lotw_sdate ASC;" []
     return $ map sqlToQSO results
 
@@ -179,7 +177,7 @@ getUnconfirmedQSOs dbh = do
 getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
 getUnsentQSOs dbh = do
     results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
-                               \qsos.qsoid=confirmations.qsoid AND lotw_sent IS NULL;" []
+                               \qsos.qsoid=confirmations.qsoid AND lotw_sdate IS NULL;" []
     return $ map sqlToQSO results
 
 -- | Given a database handle and a list of previously unsent 'QSO' records (perhaps as
@@ -191,8 +189,7 @@ markQSOsAsSent dbh qsos = do
     today <- getCurrentTime
     ids <- mapM (\qso -> findQSOByDateTime dbh (qDate qso) (qTime qso)) qsos
 
-    confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ?, \
-                            \lotw_sent = \"Y\" WHERE qsoid = ?"
+    confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ? WHERE qsoid = ?"
 
     executeMany confStmt (map (\x -> [toSql $ undashifyDate $ show $ utctDay today, toSql x]) ids)
     commit dbh
