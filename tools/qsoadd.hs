@@ -237,6 +237,7 @@ clearUI w = do
     -- Set the rigctld checkbox to active, but only if it's running.
     running <- R.isRigctldRunning
     toggleButtonSetActive (pwRigctld w) running
+    setFreqModeSensitivity w
 
     -- Remove the status bar message.
     statusbarRemoveAll (pwStatus w) 0
