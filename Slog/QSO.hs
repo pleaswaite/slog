@@ -49,14 +49,10 @@ data QSO = QSO {
 data Confirmation = Confirmation {
     qQSL_RDate    :: ADIF.Date,
     qQSL_SDate    :: ADIF.Date,
-    qQSL_Rcvd     :: ADIF.ReceivedStatus,
     qQSL_RcvdVia  :: ADIF.SentVia,
-    qQSL_Sent     :: ADIF.SentStatus,
     qQSL_SentVia  :: ADIF.SentVia,
     qLOTW_RDate   :: ADIF.Date,
-    qLOTW_SDate   :: ADIF.Date,
-    qLOTW_Rcvd    :: ADIF.ReceivedStatus,
-    qLOTW_Sent    :: ADIF.SentStatus }
+    qLOTW_SDate   :: ADIF.Date }
  deriving (Eq, Show, Read)
 
 -- | Given a 'QSO' record, attempt to convert it into a list of ADIF fields.  This is
