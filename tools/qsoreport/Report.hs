@@ -1,5 +1,8 @@
-module Report(reportAll) where
+module Report(reportAll,
+              reportVUCC)
+ where
 
+import Data.List(nubBy)
 import qualified Data.Map as Map
 import System.IO
 import Text.XHtml.Strict
@@ -43,16 +46,6 @@ tableHeader =
              (th $ toHtml "Confirmed")
      ]
 
--- For reporting on award status, we really only want a table of bands.  Also
--- I only care about a subset.
-awardHeader :: HtmlTable
-awardHeader = let
-    bands = [ADIF.Band160M, ADIF.Band80M, ADIF.Band60M, ADIF.Band40M, ADIF.Band30M,
-             ADIF.Band20M, ADIF.Band17M, ADIF.Band15M, ADIF.Band12M, ADIF.Band10M,
-             ADIF.Band6M, ADIF.Band2M, ADIF.Band1Point25M, ADIF.Band70CM]
- in
-    besides $ [(th $ toHtml "")] ++ map (th . toHtml . show) bands ++ [th $ toHtml "Total"]
-
 report :: String -> [ConfirmInfo] -> Html
 report caption ci = concatHtml [
     table ! [border 1] << (toHtml tableBody),
@@ -67,15 +60,26 @@ report caption ci = concatHtml [
     tableBody = if length results == 0 then tableHeader
                 else tableHeader `above` aboves results
 
-reportAward :: (Ord a, Show a) => [a] -> (QSO -> Maybe EntryTy) -> [QSO] -> Html
-reportAward keys fn qsos = let
-    initial = Map.fromList $ map (\v -> (v, emptyBandRow)) keys
- in
-    concatHtml [table ! [border 1] << (toHtml tableBody),
-                br]
- where
-    tableBody = awardHeader `above` aboves (map (td . toHtml . show) keys)
-
 -- Just dump all logged QSOs to HTML.
 reportAll :: [ConfirmInfo] -> Html
 reportAll = report "QSOs logged"
+
+-- Dump all logged QSOs for the VUCC award.
+reportVUCC :: [ConfirmInfo] -> Html
+reportVUCC ci = report "VUCC QSOs logged" (zip uniq $ repeat True)
+ where
+    modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qGrid qso)
+
+    gridsEq qsoA qsoB = (qGrid qsoA) == (qGrid qsoB)
+
+    -- Remove the confirmation info, since everything's confirmed.
+    ci' = fst $ unzip ci
+
+    -- Grab everything 50 MHz and up.
+    sixAndUp = filter (\qso -> maybe False (>= ADIF.Band6M) (freqToBand $ qFreq qso)) ci'
+
+    -- Reduce the grid element of each QSO to just four characters.
+    trimmedGrids = map modifyGrid sixAndUp
+
+    -- And then reduce the list to only unique grid squares.
+    uniq = nubBy gridsEq trimmedGrids

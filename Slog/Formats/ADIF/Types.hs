@@ -262,7 +262,7 @@ data Band = Band2190M | Band560M | Band160M | Band80M | Band60M | Band40M
           | Band6M | Band4M | Band2M | Band1Point25M | Band70CM | Band33CM
           | Band23CM | Band13CM | Band9CM | Band6CM | Band3CM | Band1Point25CM
           | Band6MM | Band4MM | Band2Point5MM | Band2MM | Band1MM
- deriving (Eq)
+ deriving (Eq, Ord)
 
 bandMap :: [(Band, String)]
 bandMap = [(Band2190M, "2190M"), (Band560M, "560M"), (Band160M, "160M"), (Band80M, "80M"),

@@ -5,8 +5,7 @@ import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
 import System.IO
-import Text.XHtml.Strict
-import Text.XHtml.Table
+import Text.XHtml.Strict(Html, showHtml)
 
 import Slog.DB(connect, getAllQSOs', getUnconfirmedQSOs)
 import Slog.DXCC(DXCC(..), entityFromID)
@@ -15,7 +14,7 @@ import Slog.QSO
 import Slog.Utils(colonifyTime, dashifyDate, uppercase)
 
 import qualified Filter as F
-import Report(reportAll)
+import Report(reportAll, reportVUCC)
 import Types(ConfirmInfo)
 
 --
@@ -42,37 +41,44 @@ readConfigFile f = do
 --
 
 type FilterFunc = (ConfirmInfo -> Bool)
+type ReportFunc = ([ConfirmInfo] -> Html)
 
 data Options = Options {
-    optFilter :: [FilterFunc] }
+    optFilter :: [FilterFunc],
+    optReport :: ReportFunc }
 
 type OptAction = (Options -> IO Options)
 
 defaultOptions :: Options
 defaultOptions = Options {
-    optFilter = [F.byNone] }
+    optFilter = [F.byNone],
+    optReport = reportAll }
 
-mkAction opt f =
-    return opt { optFilter = optFilter opt ++ [f] }
+mkFilterAction opt f =
+    opt { optFilter = optFilter opt ++ [f] }
 
 opts :: [OptDescr OptAction]
 opts = [
-    Option [] ["filter-band"]           (ReqArg (\arg opt -> mkAction opt (F.byBand (read arg :: ADIF.Band))) "BAND")
+    Option [] ["filter-band"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byBand (read arg :: ADIF.Band))) "BAND")
            "filter by band",
-    Option [] ["filter-call"]           (ReqArg (\arg opt -> mkAction opt (F.byCall $ uppercase arg)) "CALL")
+    Option [] ["filter-call"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byCall $ uppercase arg)) "CALL")
            "filter QSOs by call sign",
-    Option [] ["filter-confirmed"]      (NoArg (\opt -> mkAction opt (F.byConfirmed True)))
+    Option [] ["filter-confirmed"]      (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed True)))
            "filter confirmed QSOs",
-    Option [] ["filter-dxcc"]           (ReqArg (\arg opt -> mkAction opt (F.byDXCC (read arg :: Integer))) "DXCC")
+    Option [] ["filter-dxcc"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byDXCC (read arg :: Integer))) "DXCC")
            "filter by DXCC entity",
-    Option [] ["filter-itu"]            (ReqArg (\arg opt -> mkAction opt (F.byITU (read arg :: Integer))) "ITU")
+    Option [] ["filter-itu"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byITU (read arg :: Integer))) "ITU")
            "filter by ITU zone",
-    Option [] ["filter-mode"]           (ReqArg (\arg opt -> mkAction opt (F.byMode (read arg :: ADIF.Mode))) "MODE")
+    Option [] ["filter-mode"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byMode (read arg :: ADIF.Mode))) "MODE")
            "filter by mode",
-    Option [] ["filter-unconfirmed"]    (NoArg (\opt -> mkAction opt (F.byConfirmed False)))
+    Option [] ["filter-unconfirmed"]    (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed False)))
            "filter unconfirmed QSOs",
-    Option [] ["filter-waz"]            (ReqArg (\arg opt -> mkAction opt (F.byWAZ (read arg :: Integer))) "WAZ")
+    Option [] ["filter-waz"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byWAZ (read arg :: Integer))) "WAZ")
            "filter by WAZ zone",
+
+    Option [] ["vucc"]                  (NoArg (\opt -> return (mkFilterAction opt (F.byConfirmed True)) { optReport = reportVUCC }))
+           "display VUCC progress",
+
     Option ['h'] ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
                                                            exitWith ExitSuccess))
            "print program usage"
@@ -122,7 +128,7 @@ main = do
 
     -- (4) Convert to HTML based upon whatever header and body formatting was requested
     -- on the command line.  This is what makes it a report.
-    let html = showHtml $ reportAll ci'
+    let html = showHtml $ (optReport cmdline) ci'
 
     -- (5) Display.
     putStrLn html
