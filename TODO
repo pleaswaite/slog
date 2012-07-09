@@ -1,14 +1,20 @@
 ADIF -
 
 DB -
+   - add support for QSL cards
+
+Rigctl -
+   - rd never returns
 
 UI -
    - remember frequency from one QSO to the next (easy if you're calling CQ on one freq)
    - add info to Add dialog for whether you've worked this band-country and got confirmation yet
 
 qsoconfirm -
-   - if the returned information includes anything that we needed from a failed hamqth lookup, add that
 
 qsoadd -
    - shell script wrapper that can drive it from a CSV file
    - don't allow dates with dashes or times with colons
+
+misc -
+   - add a tool to manage QSL cards
