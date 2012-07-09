@@ -1,10 +1,13 @@
 module Filter(byBand,
               byCall,
               byConfirmed,
+              byDigital,
               byDXCC,
               byITU,
+              byImage,
               byMode,
               byNone,
+              byPhone,
               byWAZ)
  where
 
@@ -23,8 +26,14 @@ byCall call (qso, _) = uppercase call == uppercase (qCall qso)
 byConfirmed :: Bool -> ConfirmInfo -> Bool
 byConfirmed conf (_, conf') = conf == conf'
 
+byDigital :: ConfirmInfo -> Bool
+byDigital (qso, _) = ADIF.digitalMode (qMode qso)
+
 byDXCC :: Integer -> ConfirmInfo -> Bool
 byDXCC dxcc (qso, _) = maybe False (dxcc ==) (qDXCC qso)
+
+byImage :: ConfirmInfo -> Bool
+byImage (qso, _) = ADIF.imageMode (qMode qso)
 
 byITU :: Integer -> ConfirmInfo -> Bool
 byITU itu (qso, _) = maybe False (itu ==) (qITU qso)
@@ -34,6 +43,9 @@ byMode mode (qso, _) = mode == qMode qso
 
 byNone :: ConfirmInfo -> Bool
 byNone _ = True
+
+byPhone :: ConfirmInfo -> Bool
+byPhone (qso, _) = ADIF.phoneMode (qMode qso)
 
 byWAZ :: Integer -> ConfirmInfo -> Bool
 byWAZ waz (qso, _) = maybe False (waz ==) (qWAZ qso)

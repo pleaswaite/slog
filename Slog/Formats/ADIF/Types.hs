@@ -20,7 +20,10 @@ module Slog.Formats.ADIF.Types(Date, Time,
                                Propagation(..),
                                ReceivedStatus(..),
                                SentStatus(..),
-                               SentVia(..))
+                               SentVia(..),
+                               digitalMode,
+                               imageMode,
+                               phoneMode)
  where
 
 import Data.Maybe(fromMaybe)
@@ -315,6 +318,15 @@ data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
             ROS | RTTY | RTTYM | SSB | SSTV | THRB | THOR | THRBX | TOR | VOI |
             WINMOR | WSPR
  deriving (Eq, Read, Show)
+
+digitalMode :: Mode -> Bool
+digitalMode mode = mode `notElem` [AM, ATV, CW, FAX, FM, SSB, SSTV]
+
+imageMode :: Mode -> Bool
+imageMode mode = mode `elem` [ATV, FAX, SSTV]
+
+phoneMode :: Mode -> Bool
+phoneMode mode = mode `elem` [AM, FM, SSB]
 
 -- | What was the observed propagation method?
 data Propagation = AUR | AUE | BS | ECH | EME | ES | FAI | F2 | INTERNET |

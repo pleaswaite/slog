@@ -65,12 +65,18 @@ opts = [
            "filter QSOs by call sign",
     Option [] ["filter-confirmed"]      (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed True)))
            "filter confirmed QSOs",
+    Option [] ["filter-digital"]        (NoArg (\opt -> return $ mkFilterAction opt F.byDigital))
+           "show only digital QSOs",
     Option [] ["filter-dxcc"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byDXCC (read arg :: Integer))) "DXCC")
            "filter by DXCC entity",
+    Option [] ["filter-image"]          (NoArg (\opt -> return $ mkFilterAction opt F.byImage))
+           "show only image QSOs",
     Option [] ["filter-itu"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byITU (read arg :: Integer))) "ITU")
            "filter by ITU zone",
     Option [] ["filter-mode"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byMode (read arg :: ADIF.Mode))) "MODE")
            "filter by mode",
+    Option [] ["filter-phone"]          (NoArg (\opt -> return $ mkFilterAction opt F.byPhone))
+           "show only phone QSOs",
     Option [] ["filter-unconfirmed"]    (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed False)))
            "filter unconfirmed QSOs",
     Option [] ["filter-waz"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byWAZ (read arg :: Integer))) "WAZ")
