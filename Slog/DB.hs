@@ -118,7 +118,7 @@ addQSO dbh qso = handleSql errorHandler $ do
 -- matching entry in their log.
 confirmQSO :: IConnection conn => conn -> Integer -> ADIF.Date -> IO ()
 confirmQSO dbh qsoid qsl_date = do
-    run dbh "UPDATE confirmations SET lotw_rdate = ?, WHERE qsoid = ?"
+    run dbh "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
             [toSql qsl_date, toSql qsoid]
     commit dbh
     return ()
