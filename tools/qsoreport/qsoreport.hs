@@ -14,7 +14,7 @@ import Slog.QSO
 import Slog.Utils(colonifyTime, dashifyDate, uppercase)
 
 import qualified Filter as F
-import Report(reportAll, reportVUCC)
+import Report(reportAll, reportDXCC, reportVUCC)
 import Types(ConfirmInfo)
 
 --
@@ -76,6 +76,8 @@ opts = [
     Option [] ["filter-waz"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byWAZ (read arg :: Integer))) "WAZ")
            "filter by WAZ zone",
 
+    Option [] ["dxcc"]                  (NoArg (\opt -> return (mkFilterAction opt (F.byConfirmed True)) { optReport = reportDXCC }))
+           "display DXCC progress",
     Option [] ["vucc"]                  (NoArg (\opt -> return (mkFilterAction opt (F.byConfirmed True)) { optReport = reportVUCC }))
            "display VUCC progress",
 

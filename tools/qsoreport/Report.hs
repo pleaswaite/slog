@@ -1,4 +1,5 @@
 module Report(reportAll,
+              reportDXCC,
               reportVUCC)
  where
 
@@ -63,6 +64,21 @@ report caption ci = concatHtml [
 -- Just dump all logged QSOs to HTML.
 reportAll :: [ConfirmInfo] -> Html
 reportAll = report "QSOs logged"
+
+-- Dump all logged QSOs for various DXCC awards.  The results of this can be filtered down
+-- further by band or mode to get the sub-awards.
+reportDXCC :: [ConfirmInfo] -> Html
+reportDXCC ci = report "DXCC QSOs logged" (zip uniq $ repeat True)
+ where
+    dxccEq qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
+        (Just a, Just b) -> a == b
+        _                -> False
+
+    -- Remove the confirmation info, since everything's confirmed.
+    ci' = fst $ unzip ci
+
+    -- Reduce the list to only unique entities.
+    uniq = nubBy dxccEq ci'
 
 -- Dump all logged QSOs for the VUCC award.
 reportVUCC :: [ConfirmInfo] -> Html
