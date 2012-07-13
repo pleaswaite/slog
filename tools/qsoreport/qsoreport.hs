@@ -1,3 +1,4 @@
+import Control.Monad(liftM)
 import qualified Data.Map as Map
 import Data.ConfigFile
 import System.Console.GetOpt
@@ -7,7 +8,7 @@ import System.Exit(ExitCode(..), exitWith)
 import System.IO
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(connect, getAllQSOs', getUnconfirmedQSOs)
+import Slog.DB(connect, getAllQSOs, getUnconfirmedQSOs)
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.QSO
@@ -124,7 +125,7 @@ main = do
 
     -- Reporting is a multiple step process:
     -- (1) Get all QSOs and all unconfirmed QSOs.
-    qsos <- getAllQSOs' dbh
+    qsos <- liftM reverse $ getAllQSOs dbh
     unconfirmed <- getUnconfirmedQSOs dbh
 
     -- (2) Construct a list of tuples:  a QSO, and a boolean saying whether it's

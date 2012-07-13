@@ -16,7 +16,6 @@ module Slog.DB(confirmQSO,
                updateQSO,
                removeQSO,
                getAllQSOs,
-               getAllQSOs',
                getUnconfirmedQSOs,
                getUnsentQSOs,
                markQSOsAsSent)
@@ -155,15 +154,6 @@ removeQSO dbh qsoid = do
 getAllQSOs :: IConnection conn => conn -> IO [QSO]
 getAllQSOs dbh = do
     results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date,time" []
-    return $ map sqlToQSO results
-
--- | Return a list of all 'QSO' records in the database, sorted by date and time
--- in descending order.  This function and 'getAllQSOs' exist separately instead of
--- a generic get function combined with a sort, because it is assumed the database
--- can sort results faster.
-getAllQSOs' :: IConnection conn => conn -> IO [QSO]
-getAllQSOs' dbh = do
-    results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date DESC, time DESC" []
     return $ map sqlToQSO results
 
 -- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
