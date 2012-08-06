@@ -83,7 +83,24 @@ data ChallengeRec = ChallengeRec { c160M      :: [QSO],
                                    c1Point25M :: [QSO],
                                    c70CM      :: [QSO],
                                    c23CM      :: [QSO],
-                                   other      :: [QSO] }
+                                   cOther     :: [QSO] }
+
+data ChallengeCount = ChallengeCount { n160M       :: Integer,
+                                       n80M        :: Integer,
+                                       n60M        :: Integer,
+                                       n40M        :: Integer,
+                                       n30M        :: Integer,
+                                       n20M        :: Integer,
+                                       n17M        :: Integer,
+                                       n15M        :: Integer,
+                                       n12M        :: Integer,
+                                       n10M        :: Integer,
+                                       n6M         :: Integer,
+                                       n2M         :: Integer,
+                                       n1Point25M  :: Integer,
+                                       n70CM       :: Integer,
+                                       n23CM       :: Integer,
+                                       nOther      :: Integer }
 
 mkChallengeRec :: ChallengeRec
 mkChallengeRec = ChallengeRec { c160M = [],
@@ -101,7 +118,25 @@ mkChallengeRec = ChallengeRec { c160M = [],
                                 c1Point25M = [],
                                 c70CM = [],
                                 c23CM = [],
-                                other = [] }
+                                cOther = [] }
+
+mkCountRec :: ChallengeCount
+mkCountRec = ChallengeCount { n160M = 0,
+                              n80M = 0,
+                              n60M = 0,
+                              n40M = 0,
+                              n30M = 0,
+                              n20M = 0,
+                              n17M = 0,
+                              n15M = 0,
+                              n12M = 0,
+                              n10M = 0,
+                              n6M = 0,
+                              n2M = 0,
+                              n1Point25M = 0,
+                              n70CM = 0,
+                              n23CM = 0,
+                              nOther = 0 }
 
 recToRow :: (ChallengeRec, QSO) -> HtmlTable
 recToRow (rec, qso) =
@@ -153,7 +188,7 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
             Just ADIF.Band1Point25M -> rec { c1Point25M = (c1Point25M rec) ++ [entry] }
             Just ADIF.Band70CM      -> rec { c70CM = (c70CM rec) ++ [entry] }
             Just ADIF.Band23CM      -> rec { c23CM = (c23CM rec) ++ [entry] }
-            _                       -> rec { c160M = (other rec) ++ [entry] }
+            _                       -> rec { c160M = (cOther rec) ++ [entry] }
 
     -- Remove the confirmation info, since everything's confirmed.
     ci' = fst $ unzip ci
@@ -168,9 +203,35 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
     bandDxccBuckets = map (\bucket -> (createRecords bucket, bucket !! 0)) dxccBuckets
 
     results = map recToRow bandDxccBuckets
+    totals = countUp mkCountRec bandDxccBuckets
+     where
+        a ++? b = a + (if length b > 0 then 1 else 0)
+
+        addTo rec result = rec { n160M = (n160M rec) ++? (c160M result),
+                                 n80M = (n80M rec) ++? (c80M result),
+                                 n60M = (n60M rec) ++? (c60M result),
+                                 n40M = (n40M rec) ++? (c40M result),
+                                 n30M = (n30M rec) ++? (c30M result),
+                                 n20M = (n20M rec) ++? (c20M result),
+                                 n17M = (n17M rec) ++? (c17M result),
+                                 n15M = (n15M rec) ++? (c15M result),
+                                 n12M = (n12M rec) ++? (c12M result),
+                                 n10M = (n10M rec) ++? (c10M result),
+                                 n6M = (n6M rec) ++? (c6M result),
+                                 n2M = (n2M rec) ++? (c2M result),
+                                 n1Point25M = (n1Point25M rec) ++? (c1Point25M result),
+                                 n70CM = (n70CM rec) ++? (c70CM result),
+                                 n23CM = (n23CM rec) ++? (c23CM result) }
+        countUp rec ((r, _):lst) = countUp (addTo rec r) lst
+        countUp rec [] = rec
+
+    reportTotals rec = besides $ [th $ toHtml "Total"] ++
+                       map (\band -> th $ toHtml $ show (band rec))
+                           [n160M, n80M, n60M, n40M, n30M, n20M, n17M, n15M, n12M, n10M,
+                            n6M, n2M, n1Point25M, n70CM, n23CM]
 
     tableBody = if length results == 0 then challengeHeader
-                else challengeHeader `above` aboves results
+                else challengeHeader `above` aboves results `above` (reportTotals totals)
 
 -- Dump all logged QSOs for various DXCC awards.  The results of this can be filtered down
 -- further by band or mode to get the sub-awards.
