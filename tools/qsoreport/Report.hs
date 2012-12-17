@@ -252,7 +252,12 @@ reportDXCC ci = report "DXCC QSOs logged" (zip uniq $ repeat True)
 reportVUCC :: [ConfirmInfo] -> Html
 reportVUCC ci = report "VUCC QSOs logged" (zip uniq $ repeat True)
  where
-    modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qGrid qso)
+    -- Due to the way the VUCC award works, we cannot rely on the grid square given by
+    -- doing a lookup.  The other station could be in a different grid than their QTH.
+    -- Thus, we need to use the grid from the exchange.  For ease of reporting, though,
+    -- I'm just going to stick that value back into the grid field so the rest of the
+    -- reporting code does not need to be changed.
+    modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qXcIn qso)
 
     gridsEq qsoA qsoB = (qGrid qsoA) == (qGrid qsoB)
 
