@@ -38,8 +38,8 @@ data QSO = QSO {
     qITU       :: Maybe Integer,
     qWAZ       :: Maybe Integer,
     qCall      :: String,
-    qSatName   :: Maybe String,
-    qSatMode   :: Maybe String }
+    qPropMode  :: Maybe ADIF.Propagation,
+    qSatName   :: Maybe String }
  deriving (Eq, Show, Read)
 
 -- | A 'Confirmation' record is used to convey information about whether a 'QSO'
@@ -81,7 +81,7 @@ qsoToADIF qso = if isNothing band then [] else
                 qIOTA qso >>= Just . ADIF.Their_IOTA,
                 qITU qso >>= Just . ADIF.ITUZ,
                 qWAZ qso >>= Just . ADIF.CQZ,
-                qSatName qso >>= Just . ADIF.SatelliteName,
-                qSatMode qso >>= Just . ADIF.SatelliteMode])
+                qPropMode qso >>= Just . ADIF.Propagation,
+                qSatName qso >>= Just . ADIF.SatelliteName])
  where
     band = freqToBand $ qFreq qso

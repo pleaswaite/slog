@@ -76,8 +76,8 @@ data Options = Options {
     optITU :: Maybe Integer,
     optWAZ :: Maybe Integer,
     optCall :: Maybe String,
-    optSatName :: Maybe String,
-    optSatMode :: Maybe String }
+    optPropMode :: Maybe ADIF.Propagation,
+    optSatName :: Maybe String }
  deriving (Show)
 
 type OptAction = (Options -> IO Options)
@@ -103,8 +103,8 @@ defaultOptions = Options {
     optITU = Nothing,
     optWAZ = Nothing,
     optCall = Nothing,
-    optSatName = Nothing,
-    optSatMode = Nothing }
+    optPropMode = Nothing,
+    optSatName = Nothing }
 
 opts :: [OptDescr OptAction]
 opts = [
@@ -452,8 +452,8 @@ buildQSO ra opt = do
               qITU      = raITU ra ||| optITU opt <?> Nothing,
               qWAZ      = raWAZ ra ||| optWAZ opt <?> Nothing,
               qCall     = call,
-              qSatName  = optSatName opt <?> Nothing,
-              qSatMode  = optSatMode opt <?> Nothing }
+              qPropMode = optPropMode opt <?> Nothing,
+              qSatName  = optSatName opt <?> Nothing }
 
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v
