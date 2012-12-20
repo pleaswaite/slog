@@ -114,7 +114,7 @@ opts = [
                                                         return opt { optFreq = maybe Nothing stringToDouble (fst sp),
                                                                      optRxFreq = maybe Nothing stringToDouble (snd sp) })
                                         "FREQ")
-           "frequency used (or freq:rxfreq for split mode) (REQUIRED)",
+           "frequency used (or their freq:your freq for split mode) (REQUIRED)",
     Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
            "their call sign (REQUIRED)",
     Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
@@ -151,7 +151,7 @@ opts = [
     Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optXcIn = fst sp, optXcOut = snd sp })
                                         "EXCHANGE")
-           "exchange in:exchange out"
+           "exchange rcvd:exchange sent"
  ]
 
 handleOpts :: [String] -> IO ([OptAction], [String])
