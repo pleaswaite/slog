@@ -80,6 +80,8 @@ opts = [
            "show only phone QSOs",
     Option [] ["filter-unconfirmed"]    (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed False)))
            "filter unconfirmed QSOs",
+    Option [] ["filter-satellite"]      (NoArg (\opt -> return $ mkFilterAction opt F.bySatellite))
+           "show only satellite QSOs",
     Option [] ["filter-waz"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byWAZ (read arg :: Integer))) "WAZ")
            "filter by WAZ zone",
 

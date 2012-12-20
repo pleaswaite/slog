@@ -8,6 +8,7 @@ module Filter(byBand,
               byMode,
               byNone,
               byPhone,
+              bySatellite,
               byWAZ)
  where
 
@@ -46,6 +47,9 @@ byNone _ = True
 
 byPhone :: ConfirmInfo -> Bool
 byPhone (qso, _) = ADIF.phoneMode (qMode qso)
+
+bySatellite :: ConfirmInfo -> Bool
+bySatellite (qso, _) = maybe False (ADIF.SAT ==) (qPropMode qso)
 
 byWAZ :: Integer -> ConfirmInfo -> Bool
 byWAZ waz (qso, _) = maybe False (waz ==) (qWAZ qso)
