@@ -108,6 +108,8 @@ defaultOptions = Options {
 
 opts :: [OptDescr OptAction]
 opts = [
+    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
+           "their DXCC entity",
     Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
            "date the QSO was made (in UTC) (REQUIRED)",
     Option ['f'] ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
@@ -115,43 +117,40 @@ opts = [
                                                                      optRxFreq = maybe Nothing stringToDouble (snd sp) })
                                         "FREQ")
            "frequency used (or their freq:your freq for split mode) (REQUIRED)",
-    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
-           "their call sign (REQUIRED)",
-    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
-           "mode used (REQUIRED)",
-    Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })
-                                        "RST")
-           "rst rcvd:rst sent (REQUIRED)",
-    Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
-           "time the QSO was made (in UTC) (REQUIRED)",
-
-    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
-           "their DXCC entity",
     Option ['g'] ["graphical"]  (NoArg  (\opt -> return opt { optGraphical = True }))
            "run in graphical mode",
     Option ['h'] ["help"]       (NoArg  (\_ -> do
                                                    putStrLn (usageInfo "qsoadd" opts)
                                                    exitWith ExitSuccess))
            "print program usage",
-    Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = stringToInteger arg }) "IOTA")
-           "their IOTA number",
     Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",
+    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
+           "their call sign (REQUIRED)",
+    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
+           "mode used (REQUIRED)",
     Option ['n'] ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",
     Option ['o'] ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
            "notes",
-    Option ['q'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
-           "their grid square",
+    Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
+                                                        return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })
+                                        "RST")
+           "rst rcvd:rst sent (REQUIRED)",
     Option ['s'] ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
            "their state",
+    Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
+           "time the QSO was made (in UTC) (REQUIRED)",
+    Option ['q'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
+           "their grid square",
     Option ['w'] ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = stringToInteger arg }) "WAZ")
            "their WAZ zone",
     Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optXcIn = fst sp, optXcOut = snd sp })
                                         "EXCHANGE")
-           "exchange rcvd:exchange sent"
+           "exchange rcvd:exchange sent",
+    Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = stringToInteger arg }) "IOTA")
+           "their IOTA number"
  ]
 
 handleOpts :: [String] -> IO ([OptAction], [String])
