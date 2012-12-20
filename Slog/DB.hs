@@ -58,7 +58,7 @@ prepDB dbh = do
                 \rst_rcvd TEXT NOT NULL, rst_sent TEXT NOT NULL,\
                 \iota TEXT,\
                 \itu INTEGER,\
-                \waz_zone INTEGER,\
+                \waz INTEGER,\
                 \call TEXT NOT NULL,\
                 \sat_name TEXT, sat_mode TEXT)" []
         return ()
@@ -102,7 +102,7 @@ addQSO dbh qso = handleSql errorHandler $ do
  where
     addToQSOTable db q = run db "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
                                                   \grid, state, name, notes, xc_in, xc_out,\
-                                                  \rst_rcvd, rst_sent, iota, itu, waz_zone,\
+                                                  \rst_rcvd, rst_sent, iota, itu, waz,\
                                                   \call, sat_name, sat_mode)\
                                 \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                             (qsoToSql q)
@@ -131,7 +131,7 @@ updateQSO dbh qsoid qso = do
     run dbh "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
             \dxcc = ?, grid = ?, state = ?, name = ?, notes = ?,\
             \xc_in = ?, xc_out = ?, rst_rcvd = ?, rst_sent = ?, iota = ?, itu = ?\
-            \waz_zone = ?, call = ?, sat_name = ?, sat_mode = ?\
+            \waz = ?, call = ?, sat_name = ?, sat_mode = ?\
             \WHERE qsoid = ?"
             (qsoToSql qso ++ [toSql qsoid])
     -- Then, we need to zero out this QSO's row in the confirmations table so we'll know
@@ -199,11 +199,11 @@ qsoToSql qso =
 
 sqlToQSO :: [SqlValue] -> QSO
 sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
-          xc_out, rst_rcvd, rst_sent, iota, itu, waz_zone, call, sat_name, sat_mode] =
+          xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, sat_name, sat_mode] =
     QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
          qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,
          qName = fromSql name, qNotes = fromSql notes,
          qXcIn = fromSql xc_in, qXcOut = fromSql xc_out, qRST_Rcvd = fromSql rst_rcvd, qRST_Sent = fromSql rst_sent,
-         qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz_zone,
+         qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz,
          qCall = fromSql call, qSatName = fromSql sat_name, qSatMode = fromSql sat_mode}
 sqlToQSO _ = error $ "sqlToQSO got an unexpected length of list.  How did this happen?"
