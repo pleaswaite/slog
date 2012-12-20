@@ -108,6 +108,10 @@ defaultOptions = Options {
 
 opts :: [OptDescr OptAction]
 opts = [
+    Option ['a'] ["satellite"]  (ReqArg (\arg opt -> return opt { optSatName = Just arg,
+                                                                  optPropMode = Just ADIF.SAT })
+                                        "SATELLITE")
+           "name of satellite",
     Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
            "their DXCC entity",
     Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
