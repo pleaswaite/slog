@@ -33,7 +33,7 @@ import Data.Typeable
 import Database.HDBC.SqlValue(SqlValue(SqlString))
 import Text.Printf(printf)
 
-import Slog.Utils(uppercase)
+import Slog.Utils(invert, uppercase)
 
 --
 -- BASIC FIELD DATA TYPES
@@ -400,8 +400,3 @@ instance Show SentVia where
 
 instance Read SentVia where
     readsPrec _ sent = maybe [] readsError (lookup (uppercase sent) sentViaMap')
-
--- Given an association list, turn it inside out
-invert :: [(a, b)] -> [(b, a)]
-invert = map (\(a, b) -> (b, a))
-
