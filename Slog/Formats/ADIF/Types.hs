@@ -29,6 +29,8 @@ module Slog.Formats.ADIF.Types(Date, Time,
 import Data.Maybe(fromMaybe)
 import Text.Printf(printf)
 
+import Slog.Utils(uppercase)
+
 --
 -- BASIC FIELD DATA TYPES
 --
@@ -223,6 +225,9 @@ data UserDefined = UserPlain  String                        -- ^ Defines a norma
 -- to represent them and hope it all works out.
 --
 
+readsError :: a -> [(a, String)]
+readsError x = [(x, "")]
+
 -- | Which ARRL section is the remote station in?
 -- FIXME:  Add PAC, MS (these overlap with other data types)
 data ARRLSection = AL | AK | AB | AR | AZ | BC | CO | CT | DE | EB | EMA | ENY | EPA | EWA |
@@ -250,7 +255,7 @@ instance Show AntennaPath where
     show path = fromMaybe "" (lookup path antennaPathMap)
 
 instance Read AntennaPath where
-    readsPrec _ path = maybe [] (\b -> [(b, "")]) (lookup path antennaPathMap')
+    readsPrec _ path = maybe [] readsError (lookup (uppercase path) antennaPathMap')
 
 -- | What awards has credit been submitted and granted for?
 data Award = AJA | CQDX | CQDXFIELD | CQWAZ_MIXED | CQWAZ_CW | CQWAZ_PHONE |
@@ -280,12 +285,11 @@ bandMap = [(Band2190M, "2190M"), (Band560M, "560M"), (Band160M, "160M"), (Band80
 bandMap' :: [(String, Band)]
 bandMap' = invert bandMap
 
-
 instance Show Band where
     show band = fromMaybe "" (lookup band bandMap)
 
 instance Read Band where
-    readsPrec _ band = maybe [] (\b -> [(b, "")]) (lookup band bandMap')
+    readsPrec _ band = maybe [] readsError (lookup (uppercase band) bandMap')
 
 -- | Was the QSO completed?
 data Complete = CYes | CNo | CNil | CUnknown
@@ -301,7 +305,7 @@ instance Show Complete where
     show comp = fromMaybe "" (lookup comp completeMap)
 
 instance Read Complete where
-    readsPrec _ comp = maybe [] (\c -> [(c, "")]) (lookup comp completeMap')
+    readsPrec _ comp = maybe [] readsError (lookup (uppercase comp) completeMap')
 
 -- | Which continent is the remote station on?
 data Continent = NA | SA | EU | AF | OC | AS | AN
@@ -349,7 +353,7 @@ instance Show ReceivedStatus where
     show status = fromMaybe "" (lookup status receivedStatusMap)
 
 instance Read ReceivedStatus where
-    readsPrec _ status = maybe [] (\s -> [(s, "")]) (lookup status receivedStatusMap')
+    readsPrec _ status = maybe [] readsError (lookup (uppercase status) receivedStatusMap')
 
 -- | Has the QSL been sent yet?  This is used for LOTW, eQSL, and paper QSL cards.
 -- 'SYes' and 'SNo' are the most widely used choices.
@@ -366,7 +370,7 @@ instance Show SentStatus where
     show status = fromMaybe "" (lookup status sentStatusMap)
 
 instance Read SentStatus where
-    readsPrec _ status = maybe [] (\s -> [(s, "")]) (lookup status sentStatusMap')
+    readsPrec _ status = maybe [] readsError (lookup (uppercase status) sentStatusMap')
 
 -- | How was the QSL sent?
 data SentVia = Bureau | Direct | Electronic | Manager
@@ -382,7 +386,7 @@ instance Show SentVia where
     show sent = fromMaybe "" (lookup sent sentViaMap)
 
 instance Read SentVia where
-    readsPrec _ sent = maybe [] (\s -> [(s, "")]) (lookup sent sentViaMap')
+    readsPrec _ sent = maybe [] readsError (lookup (uppercase sent) sentViaMap')
 
 -- Given an association list, turn it inside out
 invert :: [(a, b)] -> [(b, a)]
