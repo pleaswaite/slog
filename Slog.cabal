@@ -25,6 +25,7 @@ library
                    Slog.Utils,
                    Slog.Formats.ADIF.Parser,
                    Slog.Formats.ADIF.Types,
+                   Slog.Formats.ADIF.Utils,
                    Slog.Formats.ADIF.Writer,
                    Slog.Lookup.Lookup,
                    Slog.Rigctl.Rigctl,

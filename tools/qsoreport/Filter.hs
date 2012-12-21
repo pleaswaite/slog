@@ -13,8 +13,9 @@ module Filter(byBand,
  where
 
 import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
-import Slog.Utils(freqToBand, uppercase)
+import Slog.Utils(uppercase)
 
 import Types(ConfirmInfo)
 

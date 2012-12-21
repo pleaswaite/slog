@@ -13,8 +13,9 @@ import Text.XHtml.Table
 
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
-import Slog.Utils(colonifyTime, dashifyDate, freqToBand)
+import Slog.Utils(colonifyTime, dashifyDate)
 
 import Types(ConfirmInfo, EntryTy, emptyBandRow)
 
