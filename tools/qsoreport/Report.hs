@@ -144,7 +144,10 @@ reportChallenge :: [ConfirmInfo] -> Html
 reportChallenge ci = table ! [border 1] << (toHtml tableBody)
  where
     dxccSorter qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
-        (Just a, Just b) -> compare a b
+        (Just a, Just b) -> compare nameA nameB
+                             where
+                                 nameA = entityFromID a >>= Just . dxccEntity
+                                 nameB = entityFromID b >>= Just . dxccEntity
         _                -> EQ
 
     dxccGrouper qsoA qsoB = dxccSorter qsoA qsoB == EQ
