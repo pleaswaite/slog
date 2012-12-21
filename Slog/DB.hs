@@ -192,11 +192,16 @@ markQSOsAsSent dbh qsos = do
 
 -- Convert between QSO and SqlValue types.  Order is important on the lists.
 qsoToSql :: QSO -> [SqlValue]
-qsoToSql qso =
+qsoToSql qso = let
+    -- See comment in sqlToQSO.  This is so we don't stash "Nothing" into the database.
+    prop = case qPropMode qso of
+               Just p  -> toSql $ show p
+               Nothing -> toSql SqlNull
+ in
     [toSql $ qDate qso, toSql $ qTime qso, toSql $ qFreq qso, toSql $ qRxFreq qso, toSql $ show $ qMode qso,
      toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qNotes qso,
      toSql $ qXcIn qso, toSql $ qXcOut qso, toSql $ qRST_Rcvd qso, toSql $ qRST_Sent qso, toSql $ qIOTA qso,
-     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), toSql $ show $ qPropMode qso, toSql $ qSatName qso]
+     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), prop, toSql $ qSatName qso]
 
 sqlToQSO :: [SqlValue] -> QSO
 sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
