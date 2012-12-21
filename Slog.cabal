@@ -35,6 +35,7 @@ library
 
   build-depends:   base,
                    containers,
+                   convertible,
                    directory,
                    filepath,
                    mtl,

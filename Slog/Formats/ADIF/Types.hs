@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable, MultiParamTypeClasses #-}
 -- | This module contains a wide variety of data types representing the
 -- guts of an ADIF file.  ADIF is the standard format for amateur radio log
 -- files, and is especially used as the import/export format for LOTW and
@@ -26,7 +27,10 @@ module Slog.Formats.ADIF.Types(Date, Time,
                                phoneMode)
  where
 
+import Data.Convertible
 import Data.Maybe(fromMaybe)
+import Data.Typeable
+import Database.HDBC.SqlValue(SqlValue(SqlString))
 import Text.Printf(printf)
 
 import Slog.Utils(uppercase)
@@ -335,7 +339,16 @@ phoneMode mode = mode `elem` [AM, FM, SSB]
 -- | What was the observed propagation method?
 data Propagation = AUR | AUE | BS | ECH | EME | ES | FAI | F2 | INTERNET |
                    ION | IRL | MS | RPT | RS | SAT | TEP | TR
- deriving (Eq, Read, Show)
+ deriving (Eq, Read, Show, Typeable)
+
+instance Convertible Propagation SqlValue where
+    safeConvert = return . SqlString . show
+
+instance Convertible SqlValue Propagation where
+    safeConvert (SqlString x) = case (reads x :: [(Propagation, String)]) of
+                                    [(p, "")] -> Right p
+                                    _         -> convError "Cannot convert to ADIF.Propagation" x
+    safeConvert y@_ = convError "Cannot convert to ADIF.Propagation" y
 
 -- | Has the QSL been sent yet?  This is used for LOTW, eQSL, and paper QSL cards.
 -- 'RYes' and 'RNo' are the most widely used choices.

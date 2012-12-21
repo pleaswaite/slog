@@ -192,33 +192,19 @@ markQSOsAsSent dbh qsos = do
 
 -- Convert between QSO and SqlValue types.  Order is important on the lists.
 qsoToSql :: QSO -> [SqlValue]
-qsoToSql qso = let
-    -- See comment in sqlToQSO.  This is so we don't stash "Nothing" into the database.
-    prop = case qPropMode qso of
-               Just p  -> toSql $ show p
-               Nothing -> toSql SqlNull
- in
+qsoToSql qso =
     [toSql $ qDate qso, toSql $ qTime qso, toSql $ qFreq qso, toSql $ qRxFreq qso, toSql $ show $ qMode qso,
      toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qNotes qso,
      toSql $ qXcIn qso, toSql $ qXcOut qso, toSql $ qRST_Rcvd qso, toSql $ qRST_Sent qso, toSql $ qIOTA qso,
-     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), prop, toSql $ qSatName qso]
+     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), toSql $ qPropMode qso, toSql $ qSatName qso]
 
 sqlToQSO :: [SqlValue] -> QSO
 sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
-          xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name] = let
-    -- This is pretty annoying.  We need to convert the SQL propagation mode value twice.
-    -- First we have to convert it into a string, and then we have to convert that string
-    -- into a Propagation.  If the ADIF types implemented the Data.Convertible typeclass,
-    -- I could skip this intermediate step.
-    prop = (fromSql prop_mode :: Maybe String) >>=
-           \s -> case reads s :: [(ADIF.Propagation, String)] of
-                     [(p, _)] -> Just p
-                     _        -> Nothing
- in
+          xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name] =
     QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
          qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,
          qName = fromSql name, qNotes = fromSql notes,
          qXcIn = fromSql xc_in, qXcOut = fromSql xc_out, qRST_Rcvd = fromSql rst_rcvd, qRST_Sent = fromSql rst_sent,
          qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz,
-         qCall = fromSql call, qPropMode = prop, qSatName = fromSql sat_name}
+         qCall = fromSql call, qPropMode = fromSql prop_mode, qSatName = fromSql sat_name}
 sqlToQSO _ = error $ "sqlToQSO got an unexpected length of list.  How did this happen?"
