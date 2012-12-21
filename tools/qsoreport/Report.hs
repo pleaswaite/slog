@@ -70,7 +70,6 @@ reportAll = report "QSOs logged"
 -- The DXCC challenge award requires a lot of special code.
 data ChallengeRec = ChallengeRec { c160M      :: [QSO],
                                    c80M       :: [QSO],
-                                   c60M       :: [QSO],
                                    c40M       :: [QSO],
                                    c30M       :: [QSO],
                                    c20M       :: [QSO],
@@ -79,15 +78,10 @@ data ChallengeRec = ChallengeRec { c160M      :: [QSO],
                                    c12M       :: [QSO],
                                    c10M       :: [QSO],
                                    c6M        :: [QSO],
-                                   c2M        :: [QSO],
-                                   c1Point25M :: [QSO],
-                                   c70CM      :: [QSO],
-                                   c23CM      :: [QSO],
                                    cOther     :: [QSO] }
 
 data ChallengeCount = ChallengeCount { n160M       :: Integer,
                                        n80M        :: Integer,
-                                       n60M        :: Integer,
                                        n40M        :: Integer,
                                        n30M        :: Integer,
                                        n20M        :: Integer,
@@ -96,16 +90,11 @@ data ChallengeCount = ChallengeCount { n160M       :: Integer,
                                        n12M        :: Integer,
                                        n10M        :: Integer,
                                        n6M         :: Integer,
-                                       n2M         :: Integer,
-                                       n1Point25M  :: Integer,
-                                       n70CM       :: Integer,
-                                       n23CM       :: Integer,
                                        nOther      :: Integer }
 
 mkChallengeRec :: ChallengeRec
 mkChallengeRec = ChallengeRec { c160M = [],
                                 c80M = [],
-                                c60M = [],
                                 c40M = [],
                                 c30M = [],
                                 c20M = [],
@@ -114,16 +103,11 @@ mkChallengeRec = ChallengeRec { c160M = [],
                                 c12M = [],
                                 c10M = [],
                                 c6M = [],
-                                c2M = [],
-                                c1Point25M = [],
-                                c70CM = [],
-                                c23CM = [],
                                 cOther = [] }
 
 mkCountRec :: ChallengeCount
 mkCountRec = ChallengeCount { n160M = 0,
                               n80M = 0,
-                              n60M = 0,
                               n40M = 0,
                               n30M = 0,
                               n20M = 0,
@@ -132,17 +116,12 @@ mkCountRec = ChallengeCount { n160M = 0,
                               n12M = 0,
                               n10M = 0,
                               n6M = 0,
-                              n2M = 0,
-                              n1Point25M = 0,
-                              n70CM = 0,
-                              n23CM = 0,
                               nOther = 0 }
 
 recToRow :: (ChallengeRec, QSO) -> HtmlTable
 recToRow (rec, qso) =
     besides $ [td $ toHtml $ qDXCC qso >>= entityFromID >>= Just . dxccEntity] ++
-              map (htmlCall rec) [c160M, c80M, c60M, c40M, c30M, c20M, c17M, c15M,
-                                  c12M, c10M, c6M, c2M, c1Point25M, c70CM, c23CM]
+              map (htmlCall rec) [c160M, c80M, c40M, c30M, c20M, c17M, c15M, c12M, c10M, c6M]
  where
     firstQSO rec band =
         if length lst == 0 then Nothing else Just $ lst !! 0
@@ -157,9 +136,9 @@ recToRow (rec, qso) =
 
 challengeHeader = besides $ [th $ toHtml "DXCC"] ++ map (th . toHtml . show) challengeBands
  where
-    challengeBands = [ADIF.Band160M, ADIF.Band80M, ADIF.Band60M, ADIF.Band40M, ADIF.Band30M,
+    challengeBands = [ADIF.Band160M, ADIF.Band80M, ADIF.Band40M, ADIF.Band30M,
                       ADIF.Band20M, ADIF.Band17M, ADIF.Band15M, ADIF.Band12M, ADIF.Band10M,
-                      ADIF.Band6M, ADIF.Band2M, ADIF.Band1Point25M, ADIF.Band70CM, ADIF.Band23CM]
+                      ADIF.Band6M]
 
 reportChallenge :: [ConfirmInfo] -> Html
 reportChallenge ci = table ! [border 1] << (toHtml tableBody)
@@ -175,7 +154,6 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
         addToRec rec entry = case freqToBand (qFreq entry) of
             Just ADIF.Band160M      -> rec { c160M = (c160M rec) ++ [entry] }
             Just ADIF.Band80M       -> rec { c80M = (c80M rec) ++ [entry] }
-            Just ADIF.Band60M       -> rec { c60M = (c60M rec) ++ [entry] }
             Just ADIF.Band40M       -> rec { c40M = (c40M rec) ++ [entry] }
             Just ADIF.Band30M       -> rec { c30M = (c30M rec) ++ [entry] }
             Just ADIF.Band20M       -> rec { c20M = (c20M rec) ++ [entry] }
@@ -184,10 +162,6 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
             Just ADIF.Band12M       -> rec { c12M = (c12M rec) ++ [entry] }
             Just ADIF.Band10M       -> rec { c10M = (c10M rec) ++ [entry] }
             Just ADIF.Band6M        -> rec { c6M = (c6M rec) ++ [entry] }
-            Just ADIF.Band2M        -> rec { c2M = (c2M rec) ++ [entry] }
-            Just ADIF.Band1Point25M -> rec { c1Point25M = (c1Point25M rec) ++ [entry] }
-            Just ADIF.Band70CM      -> rec { c70CM = (c70CM rec) ++ [entry] }
-            Just ADIF.Band23CM      -> rec { c23CM = (c23CM rec) ++ [entry] }
             _                       -> rec { c160M = (cOther rec) ++ [entry] }
 
     -- Remove the confirmation info, since everything's confirmed.
@@ -209,7 +183,6 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
 
         addTo rec result = rec { n160M = (n160M rec) ++? (c160M result),
                                  n80M = (n80M rec) ++? (c80M result),
-                                 n60M = (n60M rec) ++? (c60M result),
                                  n40M = (n40M rec) ++? (c40M result),
                                  n30M = (n30M rec) ++? (c30M result),
                                  n20M = (n20M rec) ++? (c20M result),
@@ -217,18 +190,13 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
                                  n15M = (n15M rec) ++? (c15M result),
                                  n12M = (n12M rec) ++? (c12M result),
                                  n10M = (n10M rec) ++? (c10M result),
-                                 n6M = (n6M rec) ++? (c6M result),
-                                 n2M = (n2M rec) ++? (c2M result),
-                                 n1Point25M = (n1Point25M rec) ++? (c1Point25M result),
-                                 n70CM = (n70CM rec) ++? (c70CM result),
-                                 n23CM = (n23CM rec) ++? (c23CM result) }
+                                 n6M = (n6M rec) ++? (c6M result) }
         countUp rec ((r, _):lst) = countUp (addTo rec r) lst
         countUp rec [] = rec
 
     reportTotals rec = besides $ [th $ toHtml "Total"] ++
                        map (\band -> th $ toHtml $ show (band rec))
-                           [n160M, n80M, n60M, n40M, n30M, n20M, n17M, n15M, n12M, n10M,
-                            n6M, n2M, n1Point25M, n70CM, n23CM]
+                           [n160M, n80M, n40M, n30M, n20M, n17M, n15M, n12M, n10M, n6M]
 
     tableBody = if length results == 0 then challengeHeader
                 else challengeHeader `above` aboves results `above` (reportTotals totals)
