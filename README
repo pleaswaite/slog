@@ -8,7 +8,7 @@ How to use all this crud:
 
     Install a bunch of stuff with cabal:
 
-    - HDBC HDBC-sqlite3
+    - HDBC HDBC-sqlite3 convertible
 
 (2) Set up an account at http://www.hamqth.com.  You will need this to do call sign lookups.
     It's easy.
