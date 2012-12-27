@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -fno-warn-missing-signatures #-}
 -- | This module exports a single function that converts a 'String' into an
 -- 'ADIFFile'.  This is the only way to do such a conversion.  The 'Read' methods
 -- in the 'Types' module should not be relied upon to do more than convert a single
