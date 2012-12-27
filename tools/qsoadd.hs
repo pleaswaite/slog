@@ -10,7 +10,6 @@ import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
 import Database.HDBC(IConnection)
 import Graphics.UI.Gtk hiding (get, set)
-import Graphics.UI.Gtk.Builder
 import System.Exit(ExitCode(..), exitWith)
 import System.Console.GetOpt
 import System.Directory(getHomeDirectory)

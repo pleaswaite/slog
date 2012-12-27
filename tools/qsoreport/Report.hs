@@ -5,7 +5,7 @@ module Report(reportAll,
  where
 
 import Data.List(groupBy, nubBy, sortBy)
-import Text.XHtml.Strict
+import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
 import Slog.DXCC(DXCC(..), entityFromID)
