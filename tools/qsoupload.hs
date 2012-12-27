@@ -1,9 +1,10 @@
-import Control.Exception(finally)
+{-# LANGUAGE ScopedTypeVariables #-}
+import Control.Exception(IOException, catch, finally)
 import Data.ConfigFile
 import Data.List(intersperse)
+import Prelude hiding(catch)
 import System.Directory(getHomeDirectory, getTemporaryDirectory, removeFile)
 import System.IO
-import System.IO.Error(catch)
 
 import Slog.DB(connect, getUnsentQSOs, markQSOsAsSent)
 import Slog.Formats.ADIF.Writer(renderRecord)
@@ -38,7 +39,7 @@ readConfigFile f = do
 
 withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
 withTempFile pattern func = do
-    tempdir <- catch (getTemporaryDirectory) (\_ -> return ".")
+    tempdir <- catch (getTemporaryDirectory) (\(e :: IOException) -> return ".")
     (tempfile, temph) <- openTempFile tempdir pattern
     finally (func tempfile temph)
             (do removeFile tempfile)

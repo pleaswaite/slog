@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 -- | This module contains the top-level interface for communicating with a radio via
 -- the rigctld program.  While this module contains a function for starting rigctld, it
 -- is assumed in the Slog utilities that the user will have started it up before ever
@@ -12,10 +13,12 @@ module Slog.Rigctl.Rigctl(RigConn,
                           runRigctld)
  where
 
+import Control.Exception(IOException, catch)
 import Control.Monad.Reader hiding(ask)
 import Data.List(isPrefixOf)
 import Data.Maybe(fromJust, isNothing)
 import Network
+import Prelude hiding(catch)
 import System.Cmd(system)
 import System.IO
 import System.IO.Utils(hGetLines)
@@ -110,7 +113,7 @@ wr s = do
 -- function assumes localhost and the default port number.
 isRigctldRunning :: IO Bool
 isRigctldRunning =
-    catch tryConnect (\_ -> return False)
+    catch tryConnect (\(e :: IOException) -> return False)
  where
     tryConnect = connect "localhost" 4532 >>= disconnect >> return True
 
