@@ -1,18 +1,14 @@
 import Control.Monad(liftM)
-import qualified Data.Map as Map
 import Data.ConfigFile
 import System.Console.GetOpt
 import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
-import System.IO
 import Text.XHtml.Strict(Html, showHtml)
 
 import Slog.DB(connect, getAllQSOs, getUnconfirmedQSOs)
-import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.QSO
-import Slog.Utils(colonifyTime, dashifyDate, uppercase)
+import Slog.Utils(uppercase)
 
 import qualified Filter as F
 import Report(reportAll, reportChallenge, reportDXCC, reportVUCC)
@@ -55,6 +51,7 @@ defaultOptions = Options {
     optFilter = [F.byNone],
     optReport = reportAll }
 
+mkFilterAction :: Options -> FilterFunc -> Options
 mkFilterAction opt f =
     opt { optFilter = optFilter opt ++ [f] }
 
@@ -104,6 +101,7 @@ handleOpts argv =
         (_, _, errs)    -> ioError (userError (concat errs ++ usageInfo header opts))
                            where header = "Usage: qsoreport [OPTIONS]"
 
+processArgs :: Monad m => m ([Options -> m Options], t) -> m Options
 processArgs argsFunc = do
     (actions, _) <- argsFunc
     foldl (>>=) (return defaultOptions) actions

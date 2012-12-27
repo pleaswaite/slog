@@ -33,6 +33,7 @@ mkDXCC ent cont itu cqz =
 --
 -- Then, since that file only contains one ITU and CQ entry per entity, add in
 -- the ones from the ARRL PDF by hand.
+dxccEntities :: IntMap.IntMap DXCC
 dxccEntities = IntMap.fromList [
     (246, mkDXCC "Sovereign Military Order of Malta" ADIF.EU [28] [15]),
     (247, mkDXCC "Spratly Islands" ADIF.AS [50] [26]),
@@ -383,7 +384,7 @@ entityIDs = map fromIntegral (IntMap.keys dxccEntities)
 -- | Given a DXCC entity number, return the matching 'DXCC' record, or 'Nothing' if
 -- none is found.
 entityFromID :: Integer -> Maybe DXCC
-entityFromID id = IntMap.lookup (fromIntegral id) dxccEntities
+entityFromID i = IntMap.lookup (fromIntegral i) dxccEntities
 
 -- | Given a DXCC entity name, return the matching 'DXCC' record, or 'Nothing' if
 -- none is found.
@@ -393,8 +394,8 @@ entityFromName name = find (\ent -> dxccEntity ent == name) (IntMap.elems dxccEn
 -- | Given a DXCC entity name, return the matching number, or 'Nothing' if none is found.
 idFromName :: String -> Maybe Integer
 idFromName name = let
-    search (id:lst) = if (dxccEntity $ dxccEntities IntMap.! id) == name then Just (fromIntegral id)
-                      else search lst
+    search (i:lst) = if (dxccEntity $ dxccEntities IntMap.! i) == name then Just (fromIntegral i)
+                     else search lst
     search [] = Nothing
  in
     search (IntMap.keys dxccEntities)

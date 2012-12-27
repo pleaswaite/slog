@@ -74,5 +74,5 @@ withoutSeconds s = s
 -- in a recognized format is returned as-is.
 withSeconds :: String -> String
 withSeconds [h1, h2, m1, m2] = [h1, h2, m1, m2, '0', '0']
-withSeconds [h1, h2, ':', m1, m2] = [h1, h1, ':', m1, m2, ':', '0', '0']
+withSeconds [h1, h2, ':', m1, m2] = [h1, h2, ':', m1, m2, ':', '0', '0']
 withSeconds s = s

@@ -9,8 +9,6 @@ import Data.Maybe(catMaybes, fromJust, isNothing)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 
-import Slog.Utils(colonifyTime, dashifyDate, withoutSeconds)
-
 -- | A 'QSO' is a record used to convey information about a single radio contact within
 -- the Slog library and utilities.  It is the interchange format between the database
 -- and the rest of the library.  In fact this record closely matches the layout of one

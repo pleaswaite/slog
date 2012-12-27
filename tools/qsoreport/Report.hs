@@ -5,9 +5,6 @@ module Report(reportAll,
  where
 
 import Data.List(groupBy, nubBy, sortBy)
-import qualified Data.Map as Map
-import Data.Ord(comparing)
-import System.IO
 import Text.XHtml.Strict
 import Text.XHtml.Table
 
@@ -17,7 +14,7 @@ import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
 import Slog.Utils(colonifyTime, dashifyDate)
 
-import Types(ConfirmInfo, EntryTy, emptyBandRow)
+import Types(ConfirmInfo)
 
 -- This defines a row in a general query table, fitting the header given below.
 qsoToRow :: (QSO, Bool) -> HtmlTable
@@ -120,9 +117,9 @@ mkCountRec = ChallengeCount { n160M = 0,
                               nOther = 0 }
 
 recToRow :: (ChallengeRec, QSO) -> HtmlTable
-recToRow (rec, qso) =
+recToRow (record, qso) =
     besides $ [td $ toHtml $ qDXCC qso >>= entityFromID >>= Just . dxccEntity] ++
-              map (htmlCall rec) [c160M, c80M, c40M, c30M, c20M, c17M, c15M, c12M, c10M, c6M]
+              map (htmlCall record) [c160M, c80M, c40M, c30M, c20M, c17M, c15M, c12M, c10M, c6M]
  where
     firstQSO rec band =
         if length lst == 0 then Nothing else Just $ lst !! 0
@@ -135,6 +132,7 @@ recToRow (rec, qso) =
 
     htmlCall rec band = td $ toHtml $ maybe "" qCall (firstQSO rec band)
 
+challengeHeader :: HtmlTable
 challengeHeader = besides $ [th $ toHtml "DXCC"] ++ map (th . toHtml . show) challengeBands
  where
     challengeBands = [ADIF.Band160M, ADIF.Band80M, ADIF.Band40M, ADIF.Band30M,

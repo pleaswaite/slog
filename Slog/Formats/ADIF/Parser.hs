@@ -17,7 +17,7 @@ stringToInt :: String -> Int
 stringToInt s = fst $ (reads s :: [(Int, String)]) !! 0
 
 stringToField :: (String, Int, Maybe Char) -> String -> Field
-stringToField (name, length, ty) datum = case name of
+stringToField (name, len, ty) datum = case name of
     "ADDRESS"           -> Address $ split "\n\r" datum
     "AGE"               -> Age (read datum :: Integer)
     "A_INDEX"           -> AIndex (read datum :: Integer)
@@ -128,17 +128,17 @@ stringToField (name, length, ty) datum = case name of
     "VE_PROV"           -> Slog.Formats.ADIF.Types.State datum
     "WEB"               -> Web datum
     _                   -> Appdef $ AppDefined {appName=name,
-                                                appLength=length,
+                                                appLength=len,
                                                 appType=ty,
                                                 appValue=datum}
 
 stringToHeaderField :: (String, Int, Maybe Char) -> String -> HeaderField
-stringToHeaderField (name, length, ty) datum = case name of
+stringToHeaderField (name, len, ty) datum = case name of
     "ADIF_VER"          -> Version datum
     "PROGRAMID"         -> ProgramID datum
     "PROGRAMVERSION"    -> ProgramVersion datum
     _                   -> HeaderAppdef $ AppDefined {appName=name,
-                                                      appLength=length,
+                                                      appLength=len,
                                                       appType=ty,
                                                       appValue=datum}
 
@@ -160,9 +160,9 @@ string' s = mapM_ char' s <?> s
 
 -- A file can have an optional header, then optionally some garbage characters, then a sequence
 -- of records.
-file        =  do header <- header
+file        =  do hdr <- header
                   body <- skipMany garbage *> recordList
-                  return $ ADIFFile {fileHeader=header, fileBody=body}
+                  return $ ADIFFile {fileHeader=hdr, fileBody=body}
            <|> do body <- recordList
                   return $ ADIFFile {fileHeader=[], fileBody=body}
 
@@ -172,9 +172,9 @@ file        =  do header <- header
 -- header is terminated with <EOH>.
 header      = (skipMany1 garbage *> headerFList) <* eoh
 headerFList = manyTill headerField (lookAhead $ try eoh)
-headerField = do (name, length, ty) <- fieldID
-                 datum <- count length anyChar <* skipMany garbage
-                 return $ stringToHeaderField (name, length, ty) datum
+headerField = do (name, len, ty) <- fieldID
+                 datum <- count len anyChar <* skipMany garbage
+                 return $ stringToHeaderField (name, len, ty) datum
 
 -- A single record describes one QSO, and is terminated by <EOR>.  A list of records may
 -- have arbitrary garbage characters between the <EOR> and the start of the next record.
@@ -184,14 +184,14 @@ record      = manyTill field (lookAhead $ try eor)
 -- A field describes one piece of data about a QSO and consists of an ID tag in brackets
 -- followed by a specific number of characters, perhaps followed by more garbage before
 -- the start of the next field.  So we only want to read as many characters as told.
-field       = do (name, length, ty) <- fieldID
-                 datum <- count length anyChar <* skipMany garbage
-                 return $ stringToField (name, length, ty) datum
+field       = do (name, len, ty) <- fieldID
+                 datum <- count len anyChar <* skipMany garbage
+                 return $ stringToField (name, len, ty) datum
 fieldID     = between (char '<') (char '>') fieldSpec
 fieldSpec   = do name <- many1 $ noneOf ":<>"
-                 length <- char ':' >> many1 digit
+                 len <- char ':' >> many1 digit
                  ty <- optionMaybe (char ':' >> anyChar)
-                 return (uppercase name, stringToInt length, ty)
+                 return (uppercase name, stringToInt len, ty)
 
 garbage     = noneOf "<"
 eoh         = string' "<EOH>"
@@ -201,6 +201,7 @@ eor         = string' "<EOR>"
 -- exact type signature for this function is not given -- because the applicative parsing
 -- functions make it into a giant mess.  However, the documented type signature here is close
 -- enough for use.
+parseString :: String -> Either ParseError ADIFFile
 parseString s = let
     txt = T.strip $ T.pack s
 

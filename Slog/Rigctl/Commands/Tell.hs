@@ -19,7 +19,7 @@ module Slog.Rigctl.Commands.Tell(Command(..),
  where
 
 import Data.Bits
-import Data.Maybe(fromJust, fromMaybe, isNothing)
+import Data.Maybe(fromMaybe)
 
 import Slog.Rigctl.Commands.Class
 import qualified Slog.Rigctl.Commands.Ask as A
@@ -86,13 +86,9 @@ instance Serializable Command where
     ser (Channel i)        = Just $ "H " ++ show i
     ser (Transcieve s)     = Just $ "A " ++ show s
     ser (Antenna i)        = Just $ "Y " ++ show i
-    ser (Reset resetNone resetSoftware resetVFO resetMemoryClear resetMaster) =
-        let i = 0
-        in Just $ "\\reset " ++ show i
+    ser (Reset _ _ _ _ _)  = Just $ "\\reset 0"
     ser (Morse s)          = Just $ "b " ++ s
-    ser (PowerStatus powerOff powerOn powerStandby) =
-        let i = 0
-        in Just $ "\\set_powerstatus " ++ show i
+    ser (PowerStatus _ _ _) = Just $ "\\set_powerstatus 0"
     ser (DTMF s)           = Just $ "\\send_dtmf " ++ s
     ser _                  = Nothing
 
@@ -101,36 +97,36 @@ instance Serializable Command where
 -- ask commands have an equivalent tell command, the result must be wrapped in a 'Maybe'.
 -- This also presumes the response has already been checked for an error code.
 toTell :: A.Command -> [String] -> Maybe Command
-toTell cmd s =
+toTell cmd str =
     case cmd of
-        A.Frequency         -> toInt s 0 >>= Just . Frequency
-        A.Mode              -> ifTwo s readMode
-        A.VFO               -> Just $ VFO (read (s !! 0) :: RigVFO)
-        A.RIT               -> toInt s 0 >>= Just . RIT
-        A.XIT               -> toInt s 0 >>= Just . XIT
-        A.PTT               -> toInt s 0 >>= \i -> Just $ PTT (i == 1)
+        A.Frequency         -> toInt str 0 >>= Just . Frequency
+        A.Mode              -> ifTwo str readMode
+        A.VFO               -> Just $ VFO (read (str !! 0) :: RigVFO)
+        A.RIT               -> toInt str 0 >>= Just . RIT
+        A.XIT               -> toInt str 0 >>= Just . XIT
+        A.PTT               -> toInt str 0 >>= \i -> Just $ PTT (i == 1)
         A.DCD               -> Nothing
-        A.RepeaterShift     -> Just $ readDirection s
-        A.RepeaterOffset    -> toInt s 0 >>= Just . RepeaterOffset
-        A.CTCSSTone         -> toInt s 0 >>= Just . CTCSSTone
-        A.DCSCode           -> toInt s 0 >>= Just . DCSCode
-        A.CTCSSSql          -> toInt s 0 >>= Just . CTCSSSql
-        A.DCSSql            -> toInt s 0 >>= Just . DCSSql
-        A.SplitFrequency    -> toInt s 0 >>= Just . SplitFrequency
-        A.SplitMode         -> ifTwo s readSplitMode
-        A.SplitVFO          -> ifTwo s readSplitVFO
-        A.TuningStep        -> toInt s 0 >>= Just . TuningStep
-        A.Function          -> ifTwo s readFunc
-        A.Level             -> ifTwo s readLevel
-        A.Param             -> ifTwo s readParam
-        A.Memory            -> toInt s 0 >>= Just . Memory
-        A.Channel           -> toInt s 0 >>= Just . Channel
-        A.Transcieve        -> Just $ Transcieve (read (s !! 0) :: TranscieveMode)
-        A.Antenna           -> toInt s 0 >>= Just . Antenna
-        A.PowerStatus       -> toInt s 0 >>= \i -> Just PowerStatus {powerOff     = i == 0,
-                                                                     powerOn      = testBit i 1,
-                                                                     powerStandby = testBit i 2}
-        A.DTMF              -> Just $ DTMF (s !! 0)
+        A.RepeaterShift     -> Just $ readDirection str
+        A.RepeaterOffset    -> toInt str 0 >>= Just . RepeaterOffset
+        A.CTCSSTone         -> toInt str 0 >>= Just . CTCSSTone
+        A.DCSCode           -> toInt str 0 >>= Just . DCSCode
+        A.CTCSSSql          -> toInt str 0 >>= Just . CTCSSSql
+        A.DCSSql            -> toInt str 0 >>= Just . DCSSql
+        A.SplitFrequency    -> toInt str 0 >>= Just . SplitFrequency
+        A.SplitMode         -> ifTwo str readSplitMode
+        A.SplitVFO          -> ifTwo str readSplitVFO
+        A.TuningStep        -> toInt str 0 >>= Just . TuningStep
+        A.Function          -> ifTwo str readFunc
+        A.Level             -> ifTwo str readLevel
+        A.Param             -> ifTwo str readParam
+        A.Memory            -> toInt str 0 >>= Just . Memory
+        A.Channel           -> toInt str 0 >>= Just . Channel
+        A.Transcieve        -> Just $ Transcieve (read (str !! 0) :: TranscieveMode)
+        A.Antenna           -> toInt str 0 >>= Just . Antenna
+        A.PowerStatus       -> toInt str 0 >>= \i -> Just PowerStatus {powerOff     = i == 0,
+                                                                       powerOn      = testBit i 1,
+                                                                       powerStandby = testBit i 2}
+        A.DTMF              -> Just $ DTMF (str !! 0)
  where
     first lst = fst (lst !! 0)
 

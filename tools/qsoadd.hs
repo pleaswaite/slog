@@ -18,7 +18,7 @@ import System.Environment(getArgs)
 import System.Locale(defaultTimeLocale)
 
 import Slog.DB(connect, addQSO)
-import Slog.DXCC(DXCC(..), idFromName)
+import Slog.DXCC(idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
 import Slog.QSO
@@ -218,6 +218,7 @@ setDateTime w = do
     theDate >>= entrySetText (pwDate w)
     theTime >>= entrySetText (pwTime w)
 
+setDefaultMode :: ComboBoxClass self => self -> IO ()
 setDefaultMode combo = comboBoxSetActive combo 4
 
 -- This function is called when the Cancel button is clicked in order to blank
@@ -327,18 +328,18 @@ buildArgList w = do
                    getOutCmd
                    result
 
-    getOneEntry f optName = do
+    getOneEntry f opt = do
         s <- entryGetText (f w)
-        if s == "" then return [] else return [optName, s]
+        if s == "" then return [] else return [opt, s]
 
-    getTwoEntries f1 f2 optName = do
+    getTwoEntries f1 f2 opt = do
         [s1, s2] <- mapM entryGetText [f1 w, f2 w]
         if s1 == "" then return [] else
-            if s2 == "" then return [optName, s1] else return [optName, s1 ++ ":" ++ s2]
+            if s2 == "" then return [opt, s1] else return [opt, s1 ++ ":" ++ s2]
 
-    getCombo f optName = do
+    getCombo f opt = do
         text <- comboBoxGetActiveText (f w)
-        if isJust text then return [optName, fromJust text] else return []
+        if isJust text then return [opt, fromJust text] else return []
 
 -- This function is called when the Add button is clicked in order to add a
 -- QSO into the database.
@@ -353,8 +354,8 @@ addQSOFromUI w addFunc = do
         Just call   -> doAdd addFunc call cmdline
         _           -> showErrorDialog "You must specify a call sign."
  where
-    doAdd addFunc call cmdline = do
-        result <- addFunc cmdline
+    doAdd fn call cmdline = do
+        result <- fn cmdline
         case result of
             Left err    -> showErrorDialog err
             _           -> do clearUI w
@@ -368,23 +369,22 @@ addQSOFromUI w addFunc = do
 
 loadWidgets :: Builder -> IO ProgramWidgets
 loadWidgets builder = do
-    [pwCall, pwRSTRcvd, pwRSTSent, pwExchangeRcvd, pwExchangeSent, pwFrequency,
-     pwDate, pwTime] <- mapM (getO castToEntry)
+    [call, rstRcvd, rstSent, exchangeRcvd, exchangeSent, frequency,
+     date, time] <- mapM (getO castToEntry)
                              ["callEntry", "rstRcvdEntry", "rstSentEntry", "exchangeRcvdEntry",
                               "exchangeSentEntry", "frequencyEntry", "dateEntry", "timeEntry"]
 
-    [pwRigctld, pwCurrentDT] <- mapM (getO castToCheckButton) ["getFromRigCheckbox", "currentDateTimeCheckbox"]
-    [pwModeCombo] <- mapM (getO castToComboBox) ["modeComboBox"]
-    [pwCancel, pwAdd] <- mapM (getO castToButton) ["cancelButton", "addButton"]
-    [pwStatus] <- mapM (getO castToStatusbar) ["statusBar"]
+    [rigctld, currentDT] <- mapM (getO castToCheckButton) ["getFromRigCheckbox", "currentDateTimeCheckbox"]
+    [modeCombo] <- mapM (getO castToComboBox) ["modeComboBox"]
+    [cancel, addButton] <- mapM (getO castToButton) ["cancelButton", "addButton"]
+    [status] <- mapM (getO castToStatusbar) ["statusBar"]
 
-    [pwDateLabel, pwTimeLabel, pwFreqLabel, pwModeLabel] <- mapM (getO castToLabel)
-                                                                 ["dateLabel", "timeLabel", "frequencyLabel", "modeLabel"]
+    [dateLabel, timeLabel, freqLabel, modeLabel] <- mapM (getO castToLabel)
+                                                          ["dateLabel", "timeLabel", "frequencyLabel", "modeLabel"]
 
-    return $ ProgramWidgets pwCall pwRSTRcvd pwRSTSent pwExchangeRcvd pwExchangeSent
-                            pwFrequency pwDate pwTime pwRigctld pwCurrentDT pwModeCombo
-                            pwStatus pwDateLabel pwTimeLabel pwFreqLabel pwModeLabel
-                            pwCancel pwAdd
+    return $ ProgramWidgets call rstRcvd rstSent exchangeRcvd exchangeSent frequency
+                            date time rigctld currentDT modeCombo status dateLabel
+                            timeLabel freqLabel modeLabel cancel addButton
  where
     getO cast = builderGetObject builder cast
 

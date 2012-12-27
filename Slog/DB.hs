@@ -22,7 +22,6 @@ module Slog.DB(confirmQSO,
  where
 
 import Control.Monad(when)
-import Data.List(find)
 import Data.Time.Clock
 import Database.HDBC
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
@@ -158,6 +157,7 @@ getAllQSOs dbh = do
     return $ map sqlToQSO results
 
 -- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
+getUnconfirmedQSOs :: IConnection conn => conn -> IO [QSO]
 getUnconfirmedQSOs dbh = do
     results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
                                 \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
@@ -199,7 +199,7 @@ qsoToSql qso =
      toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), toSql $ qPropMode qso, toSql $ qSatName qso]
 
 sqlToQSO :: [SqlValue] -> QSO
-sqlToQSO [qsoid, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
+sqlToQSO [_, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
           xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name] =
     QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
          qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,

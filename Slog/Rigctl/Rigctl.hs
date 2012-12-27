@@ -50,6 +50,7 @@ connect server port = do
     return (Rig h)
 
 -- | Disconnect from the rigctld process previously connected to with the 'connect' function.
+disconnect :: Rig -> IO ()
 disconnect = hClose . socket
 
 errorCode :: String -> RigctldError

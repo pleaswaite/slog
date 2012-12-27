@@ -3,7 +3,6 @@ import Data.List(find)
 import Data.Maybe(fromJust, isJust)
 import Database.HDBC
 import System.Directory(getHomeDirectory)
-import System.IO
 
 import Slog.DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs)
 import Slog.Formats.ADIF.Parser(parseString)
@@ -96,7 +95,6 @@ main = do
 
     -- Grab the confirmed QSOs from LOTW.
     str <- download earliestUnconfirmed (confUsername conf) (confPassword conf)
-    let adifs = parseString str
 
     -- Now iterate over all the new ADIF data and extract date/times for each.  Mark each
     -- as confirmed.

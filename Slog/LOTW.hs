@@ -53,7 +53,7 @@ sign qth file = do
 -- | Upload a signed ADIF file to LOTW.
 upload :: FilePath -> IO ()
 upload file = do
-    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" ["-F", "upfile=@" ++ file, "https://p1k.arrl.org/lotw/upload"] ""
+    (exitcode, _, stderr) <- readProcessWithExitCode "curl" ["-F", "upfile=@" ++ file, "https://p1k.arrl.org/lotw/upload"] ""
     case exitcode of
         ExitSuccess     -> return ()
         ExitFailure _   -> fail $ "Uploading to LOTW failed: " ++ stderr

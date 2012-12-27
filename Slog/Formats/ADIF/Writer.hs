@@ -7,7 +7,7 @@ module Slog.Formats.ADIF.Writer(renderFile,
                                 renderRecord)
  where
 
-import Data.List(concat, intersperse)
+import Data.List(intersperse)
 import Data.Maybe(isJust, fromJust)
 import Text.Printf(printf)
 
@@ -32,7 +32,7 @@ renderHeader rec = concat body
 -- Convert a single record field into a string.
 renderField :: Field -> String
 renderField f = case f of
-    Address lines       -> "<ADDRESS" ++ (renderString $ condense lines)
+    Address ls          -> "<ADDRESS" ++ (renderString $ condense ls)
     Age age             -> "<AGE" ++ (renderString $ show age)
     AIndex ndx          -> "<A_INDEX" ++ (renderString $ show ndx)
     AntennaAz az        -> "<ANT_AZ" ++ (renderString $ show az)
@@ -61,12 +61,12 @@ renderField f = case f of
     Eqsl_SDate x        -> maybe "" (\date -> "<EQSL_SDATE" ++ renderDate date) x
     Eqsl_Received r     -> "<EQSL_QSL_RCVD" ++ (renderString $ show r)
     Eqsl_Sent s         -> "<EQSL_QSL_SENT" ++ (renderString $ show s)
-    ForceInt f          -> "<FORCE_INT" ++ (renderString $ renderBoolean f)
-    Freq f              -> "<FREQ" ++ (renderString $ show f)
-    FreqRx f            -> "<FREQ_RX" ++ (renderString $ show f)
+    ForceInt b          -> "<FORCE_INT" ++ (renderString $ renderBoolean b)
+    Freq s              -> "<FREQ" ++ (renderString $ show s)
+    FreqRx s            -> "<FREQ_RX" ++ (renderString $ show s)
     Grid g              -> "<GRIDSQUARE" ++ renderString g
     Their_IOTA i        -> "<IOTA" ++ (renderString $ show i)
-    IOTA_ID id          -> "<IOTA_ISLAND_ID" ++ renderString id
+    IOTA_ID i           -> "<IOTA_ISLAND_ID" ++ renderString i
     ITUZ zone           -> "<ITUZ" ++ (renderString $ show zone)
     KIndex ndx          -> "<K_INDEX" ++ (renderString $ show ndx)
     Lat x               -> "<LAT" ++ (renderString $ show x)
@@ -141,7 +141,7 @@ renderField f = case f of
     Web x               -> "<WEB" ++ renderString x
     Appdef x            -> renderAppDefined x
  where
-    condense lines = concat $ intersperse "\r\n" lines
+    condense ls = concat $ intersperse "\r\n" ls
     renderAppDefined x | isJust (appType x) = printf "<%s:%d:%c>%s" (appName x) (appLength x) (fromJust $ appType x) (appValue x)
                        | otherwise          = printf "<%s:%d>%s" (appName x) (appLength x) (appValue x)
     renderBoolean b | b == True = "Y" | otherwise = "N"
