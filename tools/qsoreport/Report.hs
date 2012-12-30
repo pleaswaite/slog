@@ -164,7 +164,7 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
             Just ADIF.Band12M       -> rec { c12M = (c12M rec) ++ [entry] }
             Just ADIF.Band10M       -> rec { c10M = (c10M rec) ++ [entry] }
             Just ADIF.Band6M        -> rec { c6M = (c6M rec) ++ [entry] }
-            _                       -> rec { c160M = (cOther rec) ++ [entry] }
+            _                       -> rec
 
     -- Remove the confirmation info, since everything's confirmed.
     ci' = fst $ unzip ci
