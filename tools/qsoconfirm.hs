@@ -99,7 +99,7 @@ main = do
     -- Now iterate over all the new ADIF data and extract date/times for each.  Mark each
     -- as confirmed.
     case parseString str of
-        Left err -> putStrLn $ show err
+        Left err -> putStrLn $ (show err) ++ "\n\nin input\n\n" ++ str
         Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> confirmQSOs dbh (map adifDateTime adifs)
 
     return ()
