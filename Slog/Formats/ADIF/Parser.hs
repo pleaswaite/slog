@@ -179,7 +179,7 @@ headerField = do (name, len, ty) <- fieldID
 
 -- A single record describes one QSO, and is terminated by <EOR>.  A list of records may
 -- have arbitrary garbage characters between the <EOR> and the start of the next record.
-recordList  = record `sepEndBy1` (eor *> skipMany garbage)
+recordList  = record `sepEndBy` (eor *> skipMany garbage)
 record      = manyTill field (lookAhead $ try eor)
 
 -- A field describes one piece of data about a QSO and consists of an ID tag in brackets
