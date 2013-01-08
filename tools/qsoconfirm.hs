@@ -1,6 +1,6 @@
 import Data.ConfigFile
 import Data.List(find)
-import Data.Maybe(fromJust, isJust)
+import Data.Maybe(catMaybes, fromJust)
 import Database.HDBC
 import System.Directory(getHomeDirectory)
 
@@ -11,7 +11,7 @@ import Slog.LOTW(download)
 import Slog.QSO(QSO(qDate))
 import Slog.Utils(dashifyDate, withoutSeconds)
 
-type QSLInfo = (ADIF.Date, ADIF.Time, Maybe ADIF.Date)
+type QSLInfo = (ADIF.Date, ADIF.Time, ADIF.Date)
 
 --
 -- CONFIG FILE PROCESSING CODE
@@ -45,36 +45,34 @@ readConfigFile f = do
 -- Extract the date and time of a QSO along with the QSL received date from the ADIF
 -- data.  Converting ADIF to a full QSO structure is just way too difficult to
 -- do, as the find* functions below illustrate.
-adifDateTime :: [ADIF.Field] -> QSLInfo
+adifDateTime :: [ADIF.Field] -> Maybe QSLInfo
 adifDateTime fields = let
     findDate fields = find isDate fields >>= \(ADIF.QSO_Date v) -> Just v
                       where isDate (ADIF.QSO_Date _) = True
                             isDate _                 = False
 
-    findQSLDate fields = find isDate fields >>= \(ADIF.QSL_RDate v) -> v
+    findQSLDate fields = find isDate fields >>= \(ADIF.QSL_RDate v) -> Just v
                          where isDate (ADIF.QSL_RDate _) = True
                                isDate _                  = False
+
     findTime fields = find isTime fields >>= \(ADIF.TimeOn v) -> Just v
                       where isTime (ADIF.TimeOn _) = True
                             isTime _               = False
  in
-    (fromJust $ findDate fields, fromJust $ findTime fields, findQSLDate fields)
+    case findQSLDate fields of
+        Just date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)
+        _         -> Nothing
 
-doConfirm :: IConnection conn => conn -> (ADIF.Date, ADIF.Time, ADIF.Date) -> IO ()
+doConfirm :: IConnection conn => conn -> QSLInfo -> IO ()
 doConfirm dbh (date, time, qsl_date) = handleSql errorHandler $ do
     qsoid <- findQSOByDateTime dbh date (withoutSeconds time)
     confirmQSO dbh qsoid qsl_date
  where
     errorHandler e = do fail $ "Error confirming QSO:  No QSO with this date and time exists.\n" ++ show e
 
-confirmQSOs :: IConnection conn => conn -> [QSLInfo] -> IO ()
+confirmQSOs :: IConnection conn => conn -> [Maybe QSLInfo] -> IO ()
 confirmQSOs dbh qsos = do
-    -- Filter out all QSOs without a QSL received date.
-    let qsos' = map (\(date, time, qsl) -> (date, time, fromJust qsl)) $
-                    filter (\(_, _, qsl) -> isJust qsl) qsos
-
-    -- And finally, mark each as confirmed.
-    mapM_ (doConfirm dbh) qsos'
+    mapM_ (doConfirm dbh) (catMaybes qsos)
 
 main :: IO ()
 main = do
