@@ -70,9 +70,25 @@ doConfirm dbh (date, time, qsl_date) = handleSql errorHandler $ do
  where
     errorHandler e = do fail $ "Error confirming QSO:  No QSO with this date and time exists.\n" ++ show e
 
-confirmQSOs :: IConnection conn => conn -> [Maybe QSLInfo] -> IO ()
+filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
+filterPreviousConfirmations qsos infos = let
+    -- qsos is a list of unconfirmed QSO objects as understood by our local database.
+    -- Convert it into a list of QSLInfo tuples (where the third field doesn't really
+    -- matter).
+    unconfirmedDateTimes = map (\qso -> (qDate qso, qTime qso, qDate qso)) qsos
+ in
+    -- Then, remove all the info tuples that are not already confirmed.  This leaves
+    -- us with just a list of unconfirmed tuples which is suitable for feeding into
+    -- the database.
+    filter (\info -> info `memberOf` unconfirmedDateTimes)
+           (catMaybes infos)
+ where
+    memberOf _ [] = False
+    memberOf left@(lDate, lTime, _) ((rDate, rTime, _):lst) = (lDate == rDate && lTime == rTime) || left `memberOf` lst
+
+confirmQSOs :: IConnection conn => conn -> [QSLInfo] -> IO ()
 confirmQSOs dbh qsos = do
-    mapM_ (doConfirm dbh) (catMaybes qsos)
+    mapM_ (doConfirm dbh) qsos
 
 main :: IO ()
 main = do
@@ -98,6 +114,10 @@ main = do
     -- as confirmed.
     case parseString str of
         Left err -> putStrLn $ (show err) ++ "\n\nin input\n\n" ++ str
-        Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> confirmQSOs dbh (map adifDateTime adifs)
+        Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> let
+            infos = map adifDateTime adifs
+            unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
+         in
+            confirmQSOs dbh unconfirmedInfos
 
     return ()
