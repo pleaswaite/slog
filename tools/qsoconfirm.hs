@@ -4,12 +4,14 @@ import Data.Maybe(catMaybes, fromJust)
 import Database.HDBC
 import System.Directory(getHomeDirectory)
 
-import Slog.DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs)
+import Slog.DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs, getQSO)
+import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
+import Slog.Formats.ADIF.Utils(freqToBand)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.LOTW(download)
-import Slog.QSO(QSO(qDate))
-import Slog.Utils(dashifyDate, withoutSeconds)
+import Slog.QSO(QSO(qCall, qDate, qDXCC, qFreq, qTime))
+import Slog.Utils(colonifyTime, dashifyDate, withoutSeconds)
 
 type QSLInfo = (ADIF.Date, ADIF.Time, ADIF.Date)
 
@@ -63,10 +65,24 @@ adifDateTime fields = let
         Just date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)
         _         -> Nothing
 
+logMessage :: QSO -> String
+logMessage qso =
+    "Confirmed QSO: " ++ call ++ " (" ++ entity ++ ") on " ++ band ++ " at " ++ date ++ " " ++ time
+ where
+    call = qCall qso
+    entity = maybe "unknown entity" dxccEntity (qDXCC qso >>= entityFromID)
+    band = maybe "unknown band" show $ freqToBand (qFreq qso)
+    date = dashifyDate $ qDate qso
+    time = colonifyTime $ qTime qso
+
 doConfirm :: IConnection conn => conn -> QSLInfo -> IO ()
 doConfirm dbh (date, time, qsl_date) = handleSql errorHandler $ do
     qsoid <- findQSOByDateTime dbh date (withoutSeconds time)
+    qso <- getQSO dbh qsoid
+
     confirmQSO dbh qsoid qsl_date
+
+    putStrLn $ logMessage qso
  where
     errorHandler e = do fail $ "Error confirming QSO:  No QSO with this date and time exists.\n" ++ show e
 
@@ -84,7 +100,7 @@ filterPreviousConfirmations qsos infos = let
            (catMaybes infos)
  where
     memberOf _ [] = False
-    memberOf left@(lDate, lTime, _) ((rDate, rTime, _):lst) = (lDate == rDate && lTime == rTime) || left `memberOf` lst
+    memberOf left@(lDate, lTime, _) ((rDate, rTime, _):lst) = (lDate == rDate && (withoutSeconds lTime) == (withoutSeconds rTime)) || left `memberOf` lst
 
 confirmQSOs :: IConnection conn => conn -> [QSLInfo] -> IO ()
 confirmQSOs dbh qsos = do
