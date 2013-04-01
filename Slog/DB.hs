@@ -13,6 +13,7 @@ module Slog.DB(confirmQSO,
                connect,
                findQSOByDateTime,
                addQSO,
+               getQSO,
                updateQSO,
                removeQSO,
                getAllQSOs,
@@ -109,6 +110,12 @@ addQSO dbh qso = handleSql errorHandler $ do
     addToConfTable db ndx = run db "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
 
     errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
+
+-- | Given a 'qsoid', return a 'QSO' record from the database.
+getQSO :: IConnection conn => conn -> Integer -> IO QSO
+getQSO dbh qsoid = do
+    results <- quickQuery' dbh "SELECT * FROM qsos WHERE qsoid = ?" [toSql qsoid]
+    return $ head $ map sqlToQSO results
 
 -- | Given a database handle, unique ID (which should have first been obtained by calling
 -- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
