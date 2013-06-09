@@ -18,7 +18,8 @@ data-dir:          data
 data-files:        qsoadd.ui
 
 library
-  exposed-modules: Slog.DB,
+  exposed-modules: Slog.Cluster,
+                   Slog.DB,
                    Slog.DXCC,
                    Slog.LOTW,
                    Slog.QSO,
