@@ -114,7 +114,7 @@ wr s = do
 -- function assumes localhost and the default port number.
 isRigctldRunning :: IO Bool
 isRigctldRunning =
-    catch tryConnect (\(e :: IOException) -> return False)
+    catch tryConnect (\(_ :: IOException) -> return False)
  where
     tryConnect = connect "localhost" 4532 >>= disconnect >> return True
 
@@ -123,5 +123,5 @@ isRigctldRunning =
 -- connection.  You must have permissions to read and write from this device.
 runRigctld :: String -> String -> IO ()
 runRigctld model device = do
-    rc <- system $ "rigctld -m " ++ model ++ " -r " ++ device
+    _ <- system $ "rigctld -m " ++ model ++ " -r " ++ device
     return ()

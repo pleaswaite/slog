@@ -49,17 +49,17 @@ readConfigFile f = do
 -- do, as the find* functions below illustrate.
 adifDateTime :: [ADIF.Field] -> Maybe QSLInfo
 adifDateTime fields = let
-    findDate fields = find isDate fields >>= \(ADIF.QSO_Date v) -> Just v
-                      where isDate (ADIF.QSO_Date _) = True
-                            isDate _                 = False
+    findDate flds = find isDate flds >>= \(ADIF.QSO_Date v) -> Just v
+                    where isDate (ADIF.QSO_Date _) = True
+                          isDate _                 = False
 
-    findQSLDate fields = find isDate fields >>= \(ADIF.QSL_RDate v) -> Just v
-                         where isDate (ADIF.QSL_RDate _) = True
-                               isDate _                  = False
+    findQSLDate flds = find isDate flds >>= \(ADIF.QSL_RDate v) -> Just v
+                       where isDate (ADIF.QSL_RDate _) = True
+                             isDate _                  = False
 
-    findTime fields = find isTime fields >>= \(ADIF.TimeOn v) -> Just v
-                      where isTime (ADIF.TimeOn _) = True
-                            isTime _               = False
+    findTime flds = find isTime flds >>= \(ADIF.TimeOn v) -> Just v
+                    where isTime (ADIF.TimeOn _) = True
+                          isTime _               = False
  in
     case findQSLDate fields of
         Just date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)

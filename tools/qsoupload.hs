@@ -39,7 +39,7 @@ readConfigFile f = do
 
 withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
 withTempFile pattern func = do
-    tempdir <- catch (getTemporaryDirectory) (\(e :: IOException) -> return ".")
+    tempdir <- catch (getTemporaryDirectory) (\(_ :: IOException) -> return ".")
     (tempfile, temph) <- openTempFile tempdir pattern
     finally (func tempfile temph)
             (do removeFile tempfile)

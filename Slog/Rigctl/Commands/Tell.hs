@@ -106,7 +106,7 @@ toTell cmd str =
         A.XIT               -> toInt str 0 >>= Just . XIT
         A.PTT               -> toInt str 0 >>= \i -> Just $ PTT (i == 1)
         A.DCD               -> Nothing
-        A.RepeaterShift     -> Just $ readDirection str
+        A.RepeaterShift     -> readDirection str
         A.RepeaterOffset    -> toInt str 0 >>= Just . RepeaterOffset
         A.CTCSSTone         -> toInt str 0 >>= Just . CTCSSTone
         A.DCSCode           -> toInt str 0 >>= Just . DCSCode
@@ -139,27 +139,32 @@ toTell cmd str =
     toInt s n = stringToInteger (s !! n)
 
     readDirection [l1] = let v1 = reads l1 :: [(Direction, String)]
-                         in RepeaterShift $ ifNotEmpty v1 (first v1)
+                         in Just $ RepeaterShift $ ifNotEmpty v1 (first v1)
+    readDirection _    = Nothing
 
     readMode [l1, l2] = let v1 = reads l1 :: [(RigMode, String)]
                         in stringToInteger l2 >>= \i -> ifNotEmpty v1 (Mode (first v1) i)
+    readMode _        = Nothing
 
     readSplitMode [l1, l2] = let v1 = reads l1 :: [(RigMode, String)]
                              in stringToInteger l2 >>= \i -> ifNotEmpty v1 (SplitMode (first v1) i)
+    readSplitMode _        = Nothing
 
     readSplitVFO [l1, l2] = let v2 = reads l2 :: [(RigVFO, String)]
                             in stringToInteger l1 >>= \i -> ifNotEmpty v2 (SplitVFO (i == 1) (first v2))
+    readSplitVFO _        = Nothing
 
     readFunc [l1, l2] = let v1 = reads l1 :: [(RigFunction, String)]
                         in stringToInteger l2 >>= \i -> ifNotEmpty v1 (Function (first v1) (i == 1))
+    readFunc _        = Nothing
 
     readLevel [l1, l2] = let v1 = reads l1 :: [(RigLevel, String)]
                          in stringToDouble l2 >>= \d -> ifNotEmpty v1 (Level (first v1) d)
+    readLevel _        = Nothing
 
     readParam [l1, l2] = let v1 = reads l1 :: [(RigParam, String)]
                          in stringToDouble l2 >>= \d -> ifNotEmpty v1 (Param (first v1) d)
-
---
+    readParam _        = Nothing
 
 -- | This data type is used to represent VFOs in various places.  Not all radios will
 -- support all these values.
