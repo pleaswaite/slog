@@ -1,10 +1,10 @@
+import Control.Monad.Trans(liftIO)
 import Data.ConfigFile
 import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
-import Database.HDBC
 import System.Directory(getHomeDirectory)
 
-import Slog.DB(confirmQSO, connect, findQSOByDateTime, getUnconfirmedQSOs, getQSO)
+import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSO, runTransaction, Transaction)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -75,16 +75,14 @@ logMessage qso =
     date = dashifyDate $ qDate qso
     time = colonifyTime $ qTime qso
 
-doConfirm :: IConnection conn => conn -> QSLInfo -> IO ()
-doConfirm dbh (date, time, qsl_date) = handleSql errorHandler $ do
-    qsoid <- findQSOByDateTime dbh date (withoutSeconds time)
-    qso <- getQSO dbh qsoid
+doConfirm :: QSLInfo -> Transaction ()
+doConfirm (date, time, qsl_date) = do
+    qsoid <- findQSOByDateTime date (withoutSeconds time)
+    qso <- getQSO qsoid
 
-    confirmQSO dbh qsoid qsl_date
-
-    putStrLn $ logMessage qso
- where
-    errorHandler e = do fail $ "Error confirming QSO:  No QSO with this date and time exists.\n" ++ show e
+    confirmQSO qsoid qsl_date
+    liftIO $ putStrLn $ logMessage qso
+    return ()
 
 filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
 filterPreviousConfirmations qsos infos = let
@@ -102,9 +100,9 @@ filterPreviousConfirmations qsos infos = let
     memberOf _ [] = False
     memberOf left@(lDate, lTime, _) ((rDate, rTime, _):lst) = (lDate == rDate && (withoutSeconds lTime) == (withoutSeconds rTime)) || left `memberOf` lst
 
-confirmQSOs :: IConnection conn => conn -> [QSLInfo] -> IO ()
-confirmQSOs dbh qsos = do
-    mapM_ (doConfirm dbh) qsos
+confirmQSOs :: [QSLInfo] -> Transaction ()
+confirmQSOs qsos = do
+    mapM_ doConfirm qsos
 
 main :: IO ()
 main = do
@@ -112,15 +110,14 @@ main = do
     homeDir <- getHomeDirectory
     conf <- readConfigFile (homeDir ++ "/.slog")
 
-    -- Open the database.  We do not have to close the database since that happens
-    -- automatically.
-    dbh <- connect $ confDB conf
+    -- Get the on-disk location of the database.
+    let fp = confDB conf
 
     -- Determine the earliest unconfirmed QSO.  We don't want to download everything, as
     -- that might be a whole lot of ADIF data.  However, there's really not a better way
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
-    unconfirmeds <- getUnconfirmedQSOs dbh
+    unconfirmeds <- runTransaction fp getUnconfirmedQSOs
     let earliestUnconfirmed = dashifyDate $ qDate $ unconfirmeds !! 0
 
     -- Grab the confirmed QSOs from LOTW.
@@ -134,6 +131,6 @@ main = do
             infos = map adifDateTime adifs
             unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
          in
-            confirmQSOs dbh unconfirmedInfos
+            runTransaction fp $ confirmQSOs unconfirmedInfos
 
     return ()

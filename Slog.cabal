@@ -72,6 +72,7 @@ executable qsoconfirm
 
   build-depends:   base,
                    directory,
+                   mtl,
                    ConfigFile,
                    HDBC,
                    Slog

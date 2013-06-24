@@ -8,7 +8,6 @@ import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
-import Database.HDBC(IConnection)
 import Graphics.UI.Gtk hiding (get, set)
 import System.Exit(ExitCode(..), exitWith)
 import System.Console.GetOpt
@@ -16,7 +15,7 @@ import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 import System.Locale(defaultTimeLocale)
 
-import Slog.DB(connect, addQSO)
+import Slog.DB(addQSO, runTransaction)
 import Slog.DXCC(idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
@@ -387,8 +386,8 @@ loadWidgets builder = do
  where
     getO cast = builderGetObject builder cast
 
-runGUI :: IConnection conn => conn -> Config -> IO ()
-runGUI dbh conf = do
+runGUI :: Config -> IO ()
+runGUI conf = do
     initGUI
 
     -- Load the glade file.
@@ -405,7 +404,7 @@ runGUI dbh conf = do
     onDestroy window mainQuit
 
     onClicked (pwCancel widgets) $ clearUI widgets
-    onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO dbh conf)
+    onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO conf)
     onToggled (pwRigctld widgets) $ setFreqModeSensitivity widgets
     onToggled (pwCurrentDT widgets) $ setDateTimeSensitivity widgets
 
@@ -470,13 +469,15 @@ buildQSO ra opt = do
     Just v <!> _    = Right v
     _ <!> msg       = Left msg
 
--- FIXME:  Give a type signature.
-lookupAndAddQSO :: IConnection conn => conn -> Config -> Options -> IO (Either String Integer)
-lookupAndAddQSO dbh conf cmdline = do
+lookupAndAddQSO :: Config -> Options -> IO (Either String Integer)
+lookupAndAddQSO conf cmdline = do
+    -- Get the on-disk location of the database.
+    let fp = confDB conf
+
     ra <- doLookup call user password
     case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
         Left err  -> return $ Left err
-        Right qso -> do ndx <- addQSO dbh qso
+        Right qso -> do ndx <- runTransaction fp $ addQSO qso
                         return $ Right ndx
  where
     -- We don't have to worry about call being Nothing here.  That's checked before
@@ -494,13 +495,9 @@ main = do
     homeDir <- getHomeDirectory
     conf <- readConfigFile (homeDir ++ "/.slog")
 
-    -- Open the database.  We do not have to close the database since that happens
-    -- automatically.
-    dbh <- connect $ confDB conf
-
     -- Are we running in graphical mode or cmdline mode?
-    if optGraphical cmdline then runGUI dbh conf
-    else do result <- lookupAndAddQSO dbh conf cmdline
+    if optGraphical cmdline then runGUI conf
+    else do result <- lookupAndAddQSO conf cmdline
             case result of
                 Left err   -> ioError (userError err)
                 Right _    -> return ()

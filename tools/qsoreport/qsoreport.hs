@@ -6,7 +6,7 @@ import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(connect, getAllQSOs, getUnconfirmedQSOs)
+import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Utils(uppercase)
 
@@ -119,14 +119,13 @@ main = do
     homeDir <- getHomeDirectory
     conf <- readConfigFile (homeDir ++ "/.slog")
 
-    -- Open the database.  We do not have to close the database since that happens
-    -- automatically.
-    dbh <- connect $ confDB conf
+    -- Get the on-disk location of the database.
+    let fp = confDB conf
 
     -- Reporting is a multiple step process:
     -- (1) Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ getAllQSOs dbh
-    unconfirmed <- getUnconfirmedQSOs dbh
+    qsos <- liftM reverse $ runTransaction fp getAllQSOs
+    unconfirmed <- runTransaction fp getUnconfirmedQSOs
 
     -- (2) Construct a list of tuples:  a QSO, and a boolean saying whether it's
     -- been confirmed or not.

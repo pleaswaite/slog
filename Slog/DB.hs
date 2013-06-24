@@ -5,12 +5,12 @@
 -- eQSL, whether a QSL card was received or sent, and whether records have been
 -- confirmed by the remote station.
 --
--- All functions require a database handle argument returned by 'connect'.  This should
--- be the first function called when interacting with the database, obviously.
--- Unfortunately, most of these functions also call the 'fail' function on error, which
--- does not result in very friendly behavior.  This needs to be fixed.
+-- This module provides a monadic interface to the database.  Public functions should
+-- be run via the 'runTransaction' function, which takes a path to the database and
+-- handles the details of connection management transparently.  One significant downside
+-- to this module is that most of these functions will call 'fail' on error, which does
+-- not result in very friendly behavior.  This needs to be fixed.
 module Slog.DB(confirmQSO,
-               connect,
                findQSOByDateTime,
                addQSO,
                getQSO,
@@ -19,32 +19,58 @@ module Slog.DB(confirmQSO,
                getAllQSOs,
                getUnconfirmedQSOs,
                getUnsentQSOs,
-               markQSOsAsSent)
+               markQSOsAsSent,
+               runTransaction,
+               Transaction)
  where
 
-import Control.Monad(when)
+import Control.Monad.Reader
 import Data.Time.Clock
-import Database.HDBC
+import qualified Database.HDBC as H
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.QSO
 import Slog.Utils(undashifyDate, uppercase)
 
--- | Connect to the database given by the provided file path, create tables if
--- they do not already exist, and return the database handle.
-connect :: FilePath -> IO Connection
-connect fp = do
+-- | The 'Transaction' type hides the details of database connection management from
+-- the user.  Almost all public functions in this module will return something in
+-- this monad.
+type Transaction a = ReaderT Connection IO a
+
+-- | Given the file path to the database and a function in the 'Transaction' monad,
+-- run the transaction and return the result.  This handles connection management
+-- for the user.
+runTransaction :: FilePath -> Transaction a -> IO a
+runTransaction fp io = do
     dbh <- connectSqlite3 fp
     prepDB dbh
-    return dbh
+    runReaderT withCommit dbh
+ where
+    withCommit = do
+        result <- io
+        ask >>= liftIO . H.commit
+        return result
 
--- If the qsos table does not already exist, create it now.
-prepDB :: IConnection conn => conn -> IO ()
+-- These are all private functions that are used internally to duplicate functionality
+-- from the HDBC module, but in such a way as to be callable from the monad.
+
+executeMany :: H.Statement -> [[H.SqlValue]] -> Transaction ()
+executeMany stmt v = liftIO $ H.executeMany stmt v
+
+prepare :: String -> Transaction H.Statement
+prepare q = ask >>= \c -> liftIO $ H.prepare c q
+
+quickQuery' :: String -> [H.SqlValue] -> Transaction [[H.SqlValue]]
+quickQuery' q v = ask >>= \c -> liftIO $ H.quickQuery' c q v
+
+-- If the qsos table does not already exist, create it now.  This is implicitly called
+-- each time some statement is executed from the transaction monad.
+prepDB :: H.IConnection conn => conn -> IO ()
 prepDB dbh = do
-    tables <- getTables dbh
+    tables <- H.getTables dbh
     when (not ("qsos" `elem` tables)) $ do
-        run dbh "CREATE TABLE qsos (\
+        H.run dbh "CREATE TABLE qsos (\
                 \qsoid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
                 \freq REAL NOT NULL, rx_freq REAL,\
@@ -64,133 +90,124 @@ prepDB dbh = do
                 \sat_name TEXT)" []
         return ()
     when (not ("confirmations" `elem` tables)) $ do
-        run dbh "CREATE TABLE confirmations (\
+        H.run dbh "CREATE TABLE confirmations (\
                 \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \qsoid INTEGER NOT NULL UNIQUE,\
                 \qsl_rdate TEXT, qsl_sdate TEXT,\
                 \qsl_rcvd_via TEXT, qsl_sent_via TEXT,\
                 \lotw_rdate TEXT, lotw_sdate TEXT)" []
         return ()
-    commit dbh
+    H.commit dbh
 
--- | Given a database handle, QSO date and time (in YYYYMMDD and HHMM format - see
--- 'undashifyDate' and 'uncolonifyTime'), look up and return the unique ID for the first
--- QSO found.  It is assumed that only one QSO can ever happen in any given minute.
+-- | Given a QSO date and time (in YYYYMMDD and HHMM format - see -- 'undashifyDate'
+-- and 'uncolonifyTime'), look up and return the unique ID for the first QSO found.
+-- It is assumed that only one QSO can ever happen in any given minute.
 -- FIXME:  If no QSO is found, fail is called.
-findQSOByDateTime :: IConnection conn => conn -> ADIF.Date -> ADIF.Time -> IO Integer
-findQSOByDateTime dbh date time = do
-    ndxs <- quickQuery' dbh "SELECT qsoid FROM qsos WHERE date = ? and time = ?"
-                        [toSql $ date, toSql $ time]
+findQSOByDateTime :: ADIF.Date -> ADIF.Time -> Transaction Integer
+findQSOByDateTime date time = do
+    ndxs <- quickQuery' "SELECT qsoid FROM qsos WHERE date = ? and time = ?"
+                        [H.toSql $ date, H.toSql $ time]
 
     -- There really better be only one result.
     case ndxs of
-        [[ndx]] -> return $ fromSql ndx
+        [[ndx]] -> return $ H.fromSql ndx
         _       -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
 
--- | Given a database handle and a 'QSO' record, insert the record into the database
--- and return the new row's unique ID.  If a row already exists with the record's
--- date and time, fail is called.
-addQSO :: IConnection conn => conn -> QSO -> IO Integer
-addQSO dbh qso = handleSql errorHandler $ do
+-- | Insert the new 'QSO' record into the database and return the new row's unique ID.
+-- If a row already exists with the record's date and time, an exception is raised.
+addQSO :: QSO -> Transaction Integer
+addQSO qso = do
     -- First, add the new QSO to the qsos table.
-    addToQSOTable dbh qso
+    addToQSOTable qso
 
     -- Get the qsoid assigned by the database so we can create the other tables.
-    qsoid <- findQSOByDateTime dbh (qDate qso) (qTime qso)
-    addToConfTable dbh (toSql qsoid)
-    commit dbh
+    qsoid <- findQSOByDateTime (qDate qso) (qTime qso)
+    addToConfTable (H.toSql qsoid)
     return qsoid
  where
-    addToQSOTable db q = run db "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
-                                                  \grid, state, name, notes, xc_in, xc_out,\
-                                                  \rst_rcvd, rst_sent, iota, itu, waz,\
-                                                  \call, prop_mode, sat_name)\
-                                \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-                            (qsoToSql q)
-    addToConfTable db ndx = run db "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
-
-    errorHandler e = do fail $ "Error adding QSO:  A QSO with this date and time already exists.\n" ++ show e
+    addToQSOTable q = quickQuery' "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
+                                                     \grid, state, name, notes, xc_in, xc_out,\
+                                                     \rst_rcvd, rst_sent, iota, itu, waz,\
+                                                     \call, prop_mode, sat_name)\
+                                   \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                   (qsoToSql q)
+    addToConfTable ndx = quickQuery' "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
 
 -- | Given a 'qsoid', return a 'QSO' record from the database.
-getQSO :: IConnection conn => conn -> Integer -> IO QSO
-getQSO dbh qsoid = do
-    results <- quickQuery' dbh "SELECT * FROM qsos WHERE qsoid = ?" [toSql qsoid]
+getQSO :: Integer -> Transaction QSO
+getQSO qsoid = do
+    results <- quickQuery' "SELECT * FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
     return $ head $ map sqlToQSO results
 
--- | Given a database handle, unique ID (which should have first been obtained by calling
+-- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
 -- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
 -- 'QSO' record has been confirmed.  A confirmed record is one where the local station has
 -- recorded an entry in the log, and the remote station has recorded and uploaded a
 -- matching entry in their log.
-confirmQSO :: IConnection conn => conn -> Integer -> ADIF.Date -> IO ()
-confirmQSO dbh qsoid qsl_date = do
-    run dbh "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
-            [toSql qsl_date, toSql qsoid]
-    commit dbh
+confirmQSO :: Integer -> ADIF.Date -> Transaction ()
+confirmQSO qsoid qsl_date = do
+    quickQuery' "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
+                [H.toSql qsl_date, H.toSql qsoid]
     return ()
 
--- | 'updateQSO' takes a database handle, a unique ID (which should have first been obtained
---  by calling 'findQSOByDateTime'), and a 'QSO' record.  The row with a matching unique ID
---  is then modified to contain the values out of 'QSO'.  Note that it is assumed such a row
---  already exists, which is why 'findQSOByDateTime' should be called to obtain the ID.
-updateQSO :: IConnection conn => conn -> Integer -> QSO -> IO ()
-updateQSO dbh qsoid qso = do
-    run dbh "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
-            \dxcc = ?, grid = ?, state = ?, name = ?, notes = ?,\
-            \xc_in = ?, xc_out = ?, rst_rcvd = ?, rst_sent = ?, iota = ?, itu = ?\
-            \waz = ?, call = ?, prop_mode = ?, sat_name = ?\
-            \WHERE qsoid = ?"
-            (qsoToSql qso ++ [toSql qsoid])
+-- | 'updateQSO' takes a unique ID for a 'QSO' (which should have first been obtained by
+-- calling 'findQSOByDateTime'), and a 'QSO' record.  The row with a matching unique ID
+-- is then modified to contain the values out of 'QSO'.  Note that it is assumed such a row
+-- already exists, which is why 'findQSOByDateTime' should be called to obtain the ID.
+updateQSO :: Integer -> QSO -> Transaction ()
+updateQSO qsoid qso = do
+    quickQuery' "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
+                                 \dxcc = ?, grid = ?, state = ?, name = ?, notes = ?,\
+                                 \xc_in = ?, xc_out = ?, rst_rcvd = ?, rst_sent = ?, iota = ?\
+                                 \itu = ?, waz = ?, call = ?, prop_mode = ?, sat_name = ?\
+                             \WHERE qsoid = ?"
+                (qsoToSql qso ++ [H.toSql qsoid])
     -- Then, we need to zero out this QSO's row in the confirmations table so we'll know
     -- to upload the new information later.
-    run dbh "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", WHERE qsoid = ?"
-            [toSql qsoid]
-    commit dbh
+    quickQuery' "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", WHERE qsoid = ?"
+                [H.toSql qsoid]
     return ()
 
--- | Given a database handle and a unique ID (which should have first been obtained by
--- calling 'findQSOByDateTime'), remove the matching row from the database.
-removeQSO :: IConnection conn => conn -> Integer -> IO ()
-removeQSO dbh qsoid = do
-    run dbh "DELETE FROM qsos WHERE qsoid = ?" [toSql qsoid]
-    run dbh "DELETE FROM confirmations WHERE qsoid = ?" [toSql qsoid]
-    commit dbh
+-- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
+-- 'findQSOByDateTime'), remove the matching records from the database.
+removeQSO :: Integer -> Transaction ()
+removeQSO qsoid = do
+    quickQuery' "DELETE FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
+    quickQuery' "DELETE FROM confirmations WHERE qsoid = ?" [H.toSql qsoid]
     return ()
 
 -- | Return a list of all 'QSO' records in the database, sorted by date and time.
-getAllQSOs :: IConnection conn => conn -> IO [QSO]
-getAllQSOs dbh = do
-    results <- quickQuery' dbh "SELECT * FROM qsos ORDER BY date,time" []
+getAllQSOs :: Transaction [QSO]
+getAllQSOs = do
+    results <- quickQuery' "SELECT * FROM qsos ORDER BY date,time" []
     return $ map sqlToQSO results
 
 -- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
-getUnconfirmedQSOs :: IConnection conn => conn -> IO [QSO]
-getUnconfirmedQSOs dbh = do
-    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
-                                \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
-                                \ORDER BY lotw_sdate ASC;" []
+getUnconfirmedQSOs :: Transaction [QSO]
+getUnconfirmedQSOs = do
+    results <- quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
+                            \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
+                            \ORDER BY lotw_sdate ASC;" []
     return $ map sqlToQSO results
 
 -- | Return a list of all 'QSO' records that have not been uploaded to LOTW.
-getUnsentQSOs :: IConnection conn => conn -> IO [QSO]
-getUnsentQSOs dbh = do
-    results <- quickQuery' dbh "SELECT qsos.* FROM qsos,confirmations WHERE \
-                               \qsos.qsoid=confirmations.qsoid AND lotw_sdate IS NULL;" []
+getUnsentQSOs :: Transaction [QSO]
+getUnsentQSOs = do
+    results <- quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
+                           \qsos.qsoid=confirmations.qsoid AND lotw_sdate IS NULL;" []
     return $ map sqlToQSO results
 
--- | Given a database handle and a list of previously unsent 'QSO' records (perhaps as
--- returned by 'getUnsentQSOs'), mark them as sent in the database.  It is expected
--- this function will be called after 'LOTW.upload', as it makes sense to have the
--- uploading succeed before attempting to mark as sent.
-markQSOsAsSent :: IConnection conn => conn -> [QSO] -> IO ()
-markQSOsAsSent dbh qsos = do
-    today <- getCurrentTime
-    ids <- mapM (\qso -> findQSOByDateTime dbh (qDate qso) (qTime qso)) qsos
+-- | Given a list of previously unsent 'QSO' records (perhaps as returned by 'getUnsentQSOs'),
+-- mark them as uploaded to LOTW in the database.  It is expected this function will be
+-- called after 'LOTW.upload', as it makes sense to have the uploading succeed before
+-- marking as sent.
+markQSOsAsSent :: [QSO] -> Transaction ()
+markQSOsAsSent qsos = do
+    today <- liftIO getCurrentTime
+    ids <- mapM (\qso -> findQSOByDateTime (qDate qso) (qTime qso)) qsos
 
-    confStmt <- prepare dbh "UPDATE confirmations SET lotw_sdate = ? WHERE qsoid = ?"
-
-    executeMany confStmt (map (\x -> [toSql $ undashifyDate $ show $ utctDay today, toSql x]) ids)
-    commit dbh
+    confStmt <- prepare "UPDATE confirmations SET lotw_sdate = ? WHERE qsoid = ?"
+    executeMany confStmt (map (\x -> [H.toSql $ undashifyDate $ show $ utctDay today, H.toSql x]) ids)
     return ()
 
 --
@@ -198,20 +215,20 @@ markQSOsAsSent dbh qsos = do
 --
 
 -- Convert between QSO and SqlValue types.  Order is important on the lists.
-qsoToSql :: QSO -> [SqlValue]
+qsoToSql :: QSO -> [H.SqlValue]
 qsoToSql qso =
-    [toSql $ qDate qso, toSql $ qTime qso, toSql $ qFreq qso, toSql $ qRxFreq qso, toSql $ show $ qMode qso,
-     toSql $ qDXCC qso, toSql $ qGrid qso, toSql $ qState qso, toSql $ qName qso, toSql $ qNotes qso,
-     toSql $ qXcIn qso, toSql $ qXcOut qso, toSql $ qRST_Rcvd qso, toSql $ qRST_Sent qso, toSql $ qIOTA qso,
-     toSql $ qITU qso, toSql $ qWAZ qso, toSql $ uppercase (qCall qso), toSql $ qPropMode qso, toSql $ qSatName qso]
+    [H.toSql $ qDate qso, H.toSql $ qTime qso, H.toSql $ qFreq qso, H.toSql $ qRxFreq qso, H.toSql $ show $ qMode qso,
+     H.toSql $ qDXCC qso, H.toSql $ qGrid qso, H.toSql $ qState qso, H.toSql $ qName qso, H.toSql $ qNotes qso,
+     H.toSql $ qXcIn qso, H.toSql $ qXcOut qso, H.toSql $ qRST_Rcvd qso, H.toSql $ qRST_Sent qso, H.toSql $ qIOTA qso,
+     H.toSql $ qITU qso, H.toSql $ qWAZ qso, H.toSql $ uppercase (qCall qso), H.toSql $ qPropMode qso, H.toSql $ qSatName qso]
 
-sqlToQSO :: [SqlValue] -> QSO
+sqlToQSO :: [H.SqlValue] -> QSO
 sqlToQSO [_, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
           xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name] =
-    QSO {qDate = fromSql date, qTime = fromSql time, qFreq = fromSql freq, qRxFreq = fromSql rx_freq,
-         qMode = read (fromSql mode) :: ADIF.Mode, qDXCC = fromSql dxcc, qGrid = fromSql grid, qState = fromSql state,
-         qName = fromSql name, qNotes = fromSql notes,
-         qXcIn = fromSql xc_in, qXcOut = fromSql xc_out, qRST_Rcvd = fromSql rst_rcvd, qRST_Sent = fromSql rst_sent,
-         qIOTA = fromSql iota, qITU = fromSql itu, qWAZ = fromSql waz,
-         qCall = fromSql call, qPropMode = fromSql prop_mode, qSatName = fromSql sat_name}
+    QSO {qDate = H.fromSql date, qTime = H.fromSql time, qFreq = H.fromSql freq, qRxFreq = H.fromSql rx_freq,
+         qMode = read (H.fromSql mode) :: ADIF.Mode, qDXCC = H.fromSql dxcc, qGrid = H.fromSql grid, qState = H.fromSql state,
+         qName = H.fromSql name, qNotes = H.fromSql notes,
+         qXcIn = H.fromSql xc_in, qXcOut = H.fromSql xc_out, qRST_Rcvd = H.fromSql rst_rcvd, qRST_Sent = H.fromSql rst_sent,
+         qIOTA = H.fromSql iota, qITU = H.fromSql itu, qWAZ = H.fromSql waz,
+         qCall = H.fromSql call, qPropMode = H.fromSql prop_mode, qSatName = H.fromSql sat_name}
 sqlToQSO _ = error $ "sqlToQSO got an unexpected length of list.  How did this happen?"
