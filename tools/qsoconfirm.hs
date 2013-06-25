@@ -3,6 +3,7 @@ import Data.ConfigFile
 import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import System.Directory(getHomeDirectory)
+import Text.Printf(printf)
 
 import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSO, runTransaction, Transaction)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
@@ -61,13 +62,11 @@ adifDateTime fields = let
                     where isTime (ADIF.TimeOn _) = True
                           isTime _               = False
  in
-    case findQSLDate fields of
-        Just date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)
-        _         -> Nothing
+    findQSLDate fields >>= \date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)
 
 logMessage :: QSO -> String
 logMessage qso =
-    "Confirmed QSO: " ++ call ++ " (" ++ entity ++ ") on " ++ band ++ " at " ++ date ++ " " ++ time
+    printf "Confirmed QSO: %s (%s) on %s at %s %s" call entity band date time
  where
     call = qCall qso
     entity = maybe "unknown entity" dxccEntity (qDXCC qso >>= entityFromID)
@@ -81,7 +80,7 @@ doConfirm (date, time, qsl_date) = do
     qso <- getQSO qsoid
 
     confirmQSO qsoid qsl_date
-    liftIO $ putStrLn $ logMessage qso
+    liftIO $ (putStrLn . logMessage) qso
     return ()
 
 filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]

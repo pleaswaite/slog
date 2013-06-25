@@ -11,6 +11,9 @@ import Slog.Formats.ADIF.Writer(renderRecord)
 import Slog.LOTW(sign, upload)
 import Slog.QSO(qsoToADIF)
 
+type SignFuncTy = FilePath -> IO FilePath
+type UploadFuncTy = FilePath -> IO ()
+
 --
 -- CONFIG FILE PROCESSING CODE
 --
@@ -44,7 +47,7 @@ withTempFile pattern func = do
     finally (func tempfile temph)
             (do removeFile tempfile)
 
-writeAndUpload :: String -> (FilePath -> IO FilePath) -> (FilePath -> IO ()) -> FilePath -> Handle -> IO ()
+writeAndUpload :: String -> SignFuncTy -> UploadFuncTy -> FilePath -> Handle -> IO ()
 writeAndUpload adifs signFunc uploadFunc tempname temph = do
     hPutStrLn temph adifs
     hClose temph
