@@ -14,7 +14,6 @@ module Slog.DB(confirmQSO,
                findQSOByDateTime,
                addQSO,
                getQSO,
-               updateQSO,
                removeQSO,
                getAllQSOs,
                getUnconfirmedQSOs,
@@ -148,24 +147,6 @@ confirmQSO :: Integer -> ADIF.Date -> Transaction ()
 confirmQSO qsoid qsl_date = do
     quickQuery' "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
                 [H.toSql qsl_date, H.toSql qsoid]
-    return ()
-
--- | 'updateQSO' takes a unique ID for a 'QSO' (which should have first been obtained by
--- calling 'findQSOByDateTime'), and a 'QSO' record.  The row with a matching unique ID
--- is then modified to contain the values out of 'QSO'.  Note that it is assumed such a row
--- already exists, which is why 'findQSOByDateTime' should be called to obtain the ID.
-updateQSO :: Integer -> QSO -> Transaction ()
-updateQSO qsoid qso = do
-    quickQuery' "UPDATE qsos SET date = ?, time = ?, freq = ?, rx_freq = ?, mode = ?\
-                                 \dxcc = ?, grid = ?, state = ?, name = ?, notes = ?,\
-                                 \xc_in = ?, xc_out = ?, rst_rcvd = ?, rst_sent = ?, iota = ?\
-                                 \itu = ?, waz = ?, call = ?, prop_mode = ?, sat_name = ?\
-                             \WHERE qsoid = ?"
-                (qsoToSql qso ++ [H.toSql qsoid])
-    -- Then, we need to zero out this QSO's row in the confirmations table so we'll know
-    -- to upload the new information later.
-    quickQuery' "UPDATE confirmations SET lotw_rdate = \"\", lotw_sdate = \"\", WHERE qsoid = ?"
-                [H.toSql qsoid]
     return ()
 
 -- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
