@@ -1,0 +1,126 @@
+import Control.Monad(liftM)
+import Data.ConfigFile
+import Data.List((\\), nub, sort)
+import Data.Maybe(catMaybes, mapMaybe)
+import System.Console.GetOpt
+import System.Directory(getHomeDirectory)
+import System.Environment(getArgs)
+
+import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
+import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
+import Slog.QSO(QSO(qDXCC))
+
+import qualified Filter as F
+
+--
+-- CONFIG FILE PROCESSING CODE
+--
+
+data Config = Config {
+    confDB :: String }
+
+readConfigFile :: FilePath -> IO Config
+readConfigFile f = do
+    contents <- readFile f
+    let config = do
+        c <- readstring emptyCP contents
+        database <- get c "DEFAULT" "database"
+        return Config { confDB = database }
+
+    case config of
+        Left cperr  -> fail $ show cperr
+        Right c     -> return c
+
+--
+-- OPTION PROCESSING CODE
+--
+
+type FilterDXCCFunc = (DXCC -> Bool)
+type FilterQSOFunc = (QSO -> Bool)
+
+data Options = Options {
+    optFilterDXCC    :: FilterDXCCFunc,
+    optFilterQSO     :: [FilterQSOFunc],
+    optConfirmedOnly :: Bool }
+
+type OptAction = (Options -> IO Options)
+
+defaultOptions :: Options
+defaultOptions = Options {
+    optFilterDXCC    = F.dxccByNone,
+    optFilterQSO     = [F.qsoByNone],
+    optConfirmedOnly = True }
+
+mkFilterAction :: Options -> FilterQSOFunc -> Options
+mkFilterAction opt f =
+    opt { optFilterQSO = optFilterQSO opt ++ [f] }
+
+opts :: [OptDescr OptAction]
+opts = [
+    Option ['a'] ["all"]         (NoArg (\opt -> return opt {optConfirmedOnly = False }))
+           "filter out all worked entities, not just confirmed",
+    Option [] ["filter-band"]    (ReqArg (\arg opt -> return $ mkFilterAction opt (F.qsoByBand (read arg :: ADIF.Band))) "BAND")
+           "filter by band",
+    Option [] ["filter-cont"]    (ReqArg (\arg opt -> return opt {optFilterDXCC = (F.dxccByContinent (read arg :: ADIF.Continent))}) "CONT")
+           "show only results for a given continent"
+ ]
+
+handleOpts :: [String] -> IO ([OptAction], [String])
+handleOpts argv =
+    case getOpt RequireOrder opts argv of
+        (o, n, [])   -> return (o, n)
+        (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header opts))
+                        where header = "Usage: unworked [OPTIONS]"
+
+processArgs argsFunc = do
+    (actions, _) <- argsFunc
+    foldl (>>=) (return defaultOptions) actions
+
+--
+-- THE MAIN PROGRAM
+--
+
+-- Given a list of QSOs, reduce it to a list of DXCC entity IDs that have not
+-- been worked.
+unworkedIDs :: [QSO] -> [Integer]
+unworkedIDs qsos =
+    entityIDs \\ (nub $ catMaybes (map qDXCC qsos))
+
+main :: IO ()
+main = do
+    -- Process command line arguments.
+    cmdline <- processArgs (getArgs >>= handleOpts)
+
+    -- Read in the config file.
+    homeDir <- getHomeDirectory
+    conf <- readConfigFile (homeDir ++ "/.slog")
+
+    -- Get the on-disk location of the database.
+    let fp = confDB conf
+
+    -- Get all QSOs and all unconfirmed QSOs.
+    qsos <- liftM reverse $ runTransaction fp getAllQSOs
+    unconfirmed <- runTransaction fp getUnconfirmedQSOs
+
+    -- If we are reporting based on only confirmed QSOs, remove unconfirmed
+    -- ones from the list.  Otherwise, use all the QSOs in the log.
+    let qsos' = if optConfirmedOnly cmdline then qsos \\ unconfirmed
+                else qsos
+
+    -- Reduce the list of worked QSOs down to just those on the given band
+    -- (or whatever) we want to consider.  Then, convert that into a list of
+    -- DXCC entity IDs that have not been worked.
+    let unworked = unworkedIDs $ foldl (flip filter) qsos' (optFilterQSO cmdline)
+
+    -- And then we need to convert the list of entity numbers into a list of
+    -- entity objects.  This is roundabout because DXCC doesn't expose the
+    -- real list.
+    let unworkedEntities = mapMaybe entityFromID unworked
+
+    -- And finally, reduce the list of unworked entities to just those
+    -- on the given continent (if such a filter was requested).
+    let unworkedEntities' = filter (optFilterDXCC cmdline) unworkedEntities
+
+    mapM_ putStrLn $
+          sort (map dxccEntity unworkedEntities')

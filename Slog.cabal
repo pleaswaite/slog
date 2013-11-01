@@ -100,3 +100,14 @@ executable qsoupload
                    directory,
                    ConfigFile,
                    Slog
+
+executable unworked
+  main-is:         unworked.hs
+  hs-source-dirs:  tools/unworked
+
+  other-modules:   Filter
+
+  build-depends:   base,
+                   directory,
+                   ConfigFile,
+                   Slog
