@@ -1,8 +1,6 @@
 import Control.Monad.Trans(liftIO)
-import Data.ConfigFile
 import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
-import System.Directory(getHomeDirectory)
 import Text.Printf(printf)
 
 import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSO, runTransaction, Transaction)
@@ -14,36 +12,9 @@ import Slog.LOTW(download)
 import Slog.QSO(QSO(qCall, qDate, qDXCC, qFreq, qTime))
 import Slog.Utils(colonifyTime, dashifyDate, withoutSeconds)
 
+import ToolLib.Config
+
 type QSLInfo = (ADIF.Date, ADIF.Time, ADIF.Date)
-
---
--- CONFIG FILE PROCESSING CODE
---
-
-data Config = Config {
-    confDB :: String,
-    confUsername :: String,
-    confPassword :: String }
-
-readConfigFile :: FilePath -> IO Config
-readConfigFile f = do
-    contents <- readFile f
-    let config = do
-        c <- readstring emptyCP contents
-        database <- get c "DEFAULT" "database"
-        username <- get c "LOTW" "username"
-        password <- get c "LOTW" "password"
-        return Config { confDB = database,
-                        confUsername = username,
-                        confPassword = password }
-
-    case config of
-        Left cperr   -> fail $ show cperr
-        Right c      -> return c
-
---
--- THE MAIN PROGRAM
---
 
 -- Extract the date and time of a QSO along with the QSL received date from the ADIF
 -- data.  Converting ADIF to a full QSO structure is just way too difficult to
@@ -106,8 +77,7 @@ confirmQSOs qsos = do
 main :: IO ()
 main = do
     -- Read in the config file.
-    homeDir <- getHomeDirectory
-    conf <- readConfigFile (homeDir ++ "/.slog")
+    conf <- readConfig
 
     -- Get the on-disk location of the database.
     let fp = confDB conf

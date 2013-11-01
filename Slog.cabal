@@ -32,7 +32,8 @@ library
                    Slog.Rigctl.Rigctl,
                    Slog.Rigctl.Commands.Class,
                    Slog.Rigctl.Commands.Ask,
-                   Slog.Rigctl.Commands.Tell
+                   Slog.Rigctl.Commands.Tell,
+                   ToolLib.Config
 
   build-depends:   base,
                    containers,
@@ -46,6 +47,7 @@ library
                    text,
                    time,
                    xml,
+                   ConfigFile,
                    HDBC,
                    HDBC-sqlite3,
                    HTTP,
@@ -56,12 +58,10 @@ executable qsoadd
   hs-source-dirs:  tools
 
   build-depends:   base,
-                   directory,
                    gtk,
                    mtl,
                    old-locale,
                    time,
-                   ConfigFile,
                    HDBC,
                    MissingH,
                    Slog
@@ -71,9 +71,7 @@ executable qsoconfirm
   hs-source-dirs:  tools
 
   build-depends:   base,
-                   directory,
                    mtl,
-                   ConfigFile,
                    HDBC,
                    Slog
 
@@ -87,9 +85,7 @@ executable qsoreport
 
   build-depends:   base,
                    containers,
-                   directory,
                    xhtml,
-                   ConfigFile,
                    Slog
 
 executable qsoupload
@@ -98,7 +94,6 @@ executable qsoupload
 
   build-depends:   base,
                    directory,
-                   ConfigFile,
                    Slog
 
 executable unworked
@@ -108,6 +103,4 @@ executable unworked
   other-modules:   Filter
 
   build-depends:   base,
-                   directory,
-                   ConfigFile,
                    Slog

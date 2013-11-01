@@ -1,9 +1,7 @@
 import Control.Monad(liftM)
-import Data.ConfigFile
 import Data.List((\\), nub, sort)
 import Data.Maybe(catMaybes, mapMaybe)
 import System.Console.GetOpt
-import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
@@ -11,26 +9,9 @@ import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
 import Slog.QSO(QSO(qDXCC))
 
+import ToolLib.Config
+
 import qualified Filter as F
-
---
--- CONFIG FILE PROCESSING CODE
---
-
-data Config = Config {
-    confDB :: String }
-
-readConfigFile :: FilePath -> IO Config
-readConfigFile f = do
-    contents <- readFile f
-    let config = do
-        c <- readstring emptyCP contents
-        database <- get c "DEFAULT" "database"
-        return Config { confDB = database }
-
-    case config of
-        Left cperr  -> fail $ show cperr
-        Right c     -> return c
 
 --
 -- OPTION PROCESSING CODE
@@ -93,8 +74,7 @@ main = do
     cmdline <- processArgs (getArgs >>= handleOpts)
 
     -- Read in the config file.
-    homeDir <- getHomeDirectory
-    conf <- readConfigFile (homeDir ++ "/.slog")
+    conf <- readConfig
 
     -- Get the on-disk location of the database.
     let fp = confDB conf

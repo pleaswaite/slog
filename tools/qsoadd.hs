@@ -3,7 +3,6 @@
 import Control.Exception(bracket)
 import Control.Monad(liftM)
 import Control.Monad.Reader(runReaderT)
-import Data.ConfigFile
 import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
@@ -11,7 +10,6 @@ import Data.Time.Format(formatTime)
 import Graphics.UI.Gtk hiding (get, set)
 import System.Exit(ExitCode(..), exitWith)
 import System.Console.GetOpt
-import System.Directory(getHomeDirectory)
 import System.Environment(getArgs)
 import System.Locale(defaultTimeLocale)
 
@@ -25,30 +23,7 @@ import qualified Slog.Rigctl.Commands.Tell as Tell
 import qualified Slog.Rigctl.Rigctl as R
 import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
---
--- CONFIG FILE PROCESSING CODE
---
-
-data Config = Config {
-   confDB :: String,
-   confQTHUser :: String,
-   confQTHPass :: String }
-
-readConfigFile :: FilePath -> IO Config
-readConfigFile f = do
-    contents <- readFile f
-    let config = do
-        c <- readstring emptyCP contents
-        database <- get c "DEFAULT" "database"
-        qthUser <- get c "Lookup" "username"
-        qthPass <- get c "Lookup" "password"
-        return Config { confDB = database,
-                        confQTHUser = qthUser,
-                        confQTHPass = qthPass }
-
-    case config of
-        Left cperr  -> fail $ show cperr
-        Right c     -> return c
+import ToolLib.Config
 
 --
 -- OPTION PROCESSING CODE
@@ -492,8 +467,7 @@ main = do
     cmdline <- processArgs (getArgs >>= handleOpts)
 
     -- Read in the config file.
-    homeDir <- getHomeDirectory
-    conf <- readConfigFile (homeDir ++ "/.slog")
+    conf <- readConfig
 
     -- Are we running in graphical mode or cmdline mode?
     if optGraphical cmdline then runGUI conf

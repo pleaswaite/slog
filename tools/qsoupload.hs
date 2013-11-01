@@ -1,9 +1,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 import Control.Exception(IOException, catch, finally)
-import Data.ConfigFile
 import Data.List(intersperse)
 import Prelude hiding(catch)
-import System.Directory(getHomeDirectory, getTemporaryDirectory, removeFile)
+import System.Directory(getTemporaryDirectory, removeFile)
 import System.IO
 
 import Slog.DB(getUnsentQSOs, markQSOsAsSent, runTransaction)
@@ -11,34 +10,10 @@ import Slog.Formats.ADIF.Writer(renderRecord)
 import Slog.LOTW(sign, upload)
 import Slog.QSO(qsoToADIF)
 
+import ToolLib.Config
+
 type SignFuncTy = FilePath -> IO FilePath
 type UploadFuncTy = FilePath -> IO ()
-
---
--- CONFIG FILE PROCESSING CODE
---
-
-data Config = Config {
-    confDB :: String,
-    confQTH :: String }
-
-readConfigFile :: FilePath -> IO Config
-readConfigFile f = do
-    contents <- readFile f
-    let config = do
-        c <- readstring emptyCP contents
-        database <- get c "DEFAULT" "database"
-        qth <- get c "DEFAULT" "qth"
-        return Config { confDB = database,
-                        confQTH = qth }
-
-    case config of
-        Left cperr  -> fail $ show cperr
-        Right c     -> return c
-
---
--- THE MAIN PROGRAM
---
 
 withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
 withTempFile pattern func = do
@@ -58,8 +33,7 @@ writeAndUpload adifs signFunc uploadFunc tempname temph = do
 main :: IO ()
 main = do
     -- Read in the config file.
-    homeDir <- getHomeDirectory
-    conf <- readConfigFile (homeDir ++ "/.slog")
+    conf <- readConfig
 
     -- Get the on-disk location of the database.
     let fp = confDB conf
