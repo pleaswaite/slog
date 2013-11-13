@@ -1,7 +1,7 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 import Control.Exception(bracket)
-import Control.Monad(liftM)
+import Control.Monad(liftM, void)
 import Control.Monad.Reader(runReaderT)
 import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.String.Utils(split)
@@ -251,8 +251,7 @@ setFreqModeSensitivity w = do
     -- the box, though we should at least tell them why.
     if not running then do
         toggleButtonSetActive (pwRigctld w) False
-        statusbarPush (pwStatus w) 0 "rigctld is not running."
-        return ()
+        void $ statusbarPush (pwStatus w) 0 "rigctld is not running."
     else do
         active <- rigctldActive w
         widgetSetSensitive (pwFrequency w) (not active)
@@ -332,13 +331,12 @@ addQSOFromUI w addFunc = do
         case result of
             Left err    -> showErrorDialog err
             _           -> do clearUI w
-                              statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
-                              return ()
+                              void $ statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
 
     showErrorDialog msg =
         bracket (messageDialogNew Nothing [DialogModal] MessageError ButtonsOk msg)
                 (widgetDestroy)
-                (\dlg -> dialogRun dlg >> return ())
+                (\dlg -> void $ dialogRun dlg)
 
 loadWidgets :: Builder -> IO ProgramWidgets
 loadWidgets builder = do

@@ -5,6 +5,7 @@ module Report(reportAll,
  where
 
 import Data.List(groupBy, nubBy, sortBy)
+import Data.Maybe(listToMaybe)
 import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
@@ -58,7 +59,7 @@ report caption ci = concatHtml [
 
     results = map qsoToRow ci
 
-    tableBody = if length results == 0 then tableHeader
+    tableBody = if null results then tableHeader
                 else tableHeader `above` aboves results
 
 -- Just dump all logged QSOs to HTML.
@@ -122,12 +123,10 @@ recToRow (record, qso) =
               map (htmlCall record) [c160M, c80M, c40M, c30M, c20M, c17M, c15M, c12M, c10M, c6M]
  where
     firstQSO rec band =
-        if length lst == 0 then Nothing else Just $ lst !! 0
-     where
-        lst = sortBy dateSorter (band rec)
+        listToMaybe (sortBy dateSorter (band rec))
 
-    dateSorter qsoA qsoB = case compare (qDate qsoA) (qDate qsoB) of
-        EQ -> compare (qTime qsoA) (qTime qsoB)
+    dateSorter qsoA qsoB = case qDate qsoA `compare` qDate qsoB of
+        EQ -> qTime qsoA `compare` qTime qsoB
         c  -> c
 
     htmlCall rec band = td $ toHtml $ maybe "" qCall (firstQSO rec band)
@@ -143,7 +142,7 @@ reportChallenge :: [ConfirmInfo] -> Html
 reportChallenge ci = table ! [border 1] << (toHtml tableBody)
  where
     dxccSorter qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
-        (Just a, Just b) -> compare nameA nameB
+        (Just a, Just b) -> nameA `compare` nameB
                              where
                                  nameA = entityFromID a >>= Just . dxccEntity
                                  nameB = entityFromID b >>= Just . dxccEntity
@@ -181,7 +180,7 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
     results = map recToRow bandDxccBuckets
     totals = countUp mkCountRec bandDxccBuckets
      where
-        a ++? b = a + (if length b > 0 then 1 else 0)
+        a ++? b = a + (if not (null b) then 1 else 0)
 
         addTo rec result = rec { n160M = (n160M rec) ++? (c160M result),
                                  n80M = (n80M rec) ++? (c80M result),
@@ -200,7 +199,7 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
                        map (\band -> th $ toHtml $ show (band rec))
                            [n160M, n80M, n40M, n30M, n20M, n17M, n15M, n12M, n10M, n6M]
 
-    tableBody = if length results == 0 then challengeHeader
+    tableBody = if null results then challengeHeader
                 else challengeHeader `above` aboves results `above` (reportTotals totals)
 
 -- Dump all logged QSOs for various DXCC awards.  The results of this can be filtered down
@@ -208,9 +207,7 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
 reportDXCC :: [ConfirmInfo] -> Html
 reportDXCC ci = report "DXCC QSOs logged" (zip uniq $ repeat True)
  where
-    dxccEq qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
-        (Just a, Just b) -> a == b
-        _                -> False
+    dxccEq qsoA qsoB = qDXCC qsoA == qDXCC qsoB
 
     -- Remove the confirmation info, since everything's confirmed.
     ci' = fst $ unzip ci
@@ -229,7 +226,7 @@ reportVUCC ci = report "VUCC QSOs logged" (zip uniq $ repeat True)
     -- reporting code does not need to be changed.
     modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qXcIn qso)
 
-    gridsEq qsoA qsoB = (qGrid qsoA) == (qGrid qsoB)
+    gridsEq qsoA qsoB = qGrid qsoA == qGrid qsoB
 
     -- Remove the confirmation info, since everything's confirmed.
     ci' = fst $ unzip ci

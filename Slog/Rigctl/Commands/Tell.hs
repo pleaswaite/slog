@@ -19,6 +19,7 @@ module Slog.Rigctl.Commands.Tell(Command(..),
  where
 
 import Data.Bits
+import Data.List(null)
 import Data.Maybe(fromMaybe)
 
 import Slog.Rigctl.Commands.Class
@@ -130,8 +131,8 @@ toTell cmd str =
  where
     first lst = fst (lst !! 0)
 
-    ifNotEmpty l v | length l == 0 = Nothing
-                   | otherwise     = Just v
+    ifNotEmpty l v | null l     = Nothing
+                   | otherwise  = Just v
 
     ifTwo l f | length l == 2 = f l
               | otherwise     = Nothing

@@ -23,6 +23,8 @@ module Slog.DB(confirmQSO,
                Transaction)
  where
 
+import Control.Applicative((<$>))
+import Control.Monad(sequence_, void)
 import Control.Monad.Reader
 import Data.Time.Clock
 import qualified Database.HDBC as H
@@ -69,7 +71,7 @@ prepDB :: H.IConnection conn => conn -> IO ()
 prepDB dbh = do
     tables <- H.getTables dbh
     when (not ("qsos" `elem` tables)) $ do
-        H.run dbh "CREATE TABLE qsos (\
+        void $ H.run dbh "CREATE TABLE qsos (\
                 \qsoid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
                 \freq REAL NOT NULL, rx_freq REAL,\
@@ -87,15 +89,13 @@ prepDB dbh = do
                 \call TEXT NOT NULL,\
                 \prop_mode TEXT,\
                 \sat_name TEXT)" []
-        return ()
     when (not ("confirmations" `elem` tables)) $ do
-        H.run dbh "CREATE TABLE confirmations (\
+        void $ H.run dbh "CREATE TABLE confirmations (\
                 \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \qsoid INTEGER NOT NULL UNIQUE,\
                 \qsl_rdate TEXT, qsl_sdate TEXT,\
                 \qsl_rcvd_via TEXT, qsl_sent_via TEXT,\
                 \lotw_rdate TEXT, lotw_sdate TEXT)" []
-        return ()
     H.commit dbh
 
 -- | Given a QSO date and time (in YYYYMMDD and HHMM format - see -- 'undashifyDate'
@@ -134,9 +134,8 @@ addQSO qso = do
 
 -- | Given a 'qsoid', return a 'QSO' record from the database.
 getQSO :: Integer -> Transaction QSO
-getQSO qsoid = do
-    results <- quickQuery' "SELECT * FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
-    return $ head $ map sqlToQSO results
+getQSO qsoid =
+    head <$> map sqlToQSO <$> quickQuery' "SELECT * FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
 
 -- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
 -- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
@@ -144,39 +143,34 @@ getQSO qsoid = do
 -- recorded an entry in the log, and the remote station has recorded and uploaded a
 -- matching entry in their log.
 confirmQSO :: Integer -> ADIF.Date -> Transaction ()
-confirmQSO qsoid qsl_date = do
-    quickQuery' "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
-                [H.toSql qsl_date, H.toSql qsoid]
-    return ()
+confirmQSO qsoid qsl_date =
+    void $ quickQuery' "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
+                       [H.toSql qsl_date, H.toSql qsoid]
 
 -- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
 -- 'findQSOByDateTime'), remove the matching records from the database.
 removeQSO :: Integer -> Transaction ()
-removeQSO qsoid = do
-    quickQuery' "DELETE FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
-    quickQuery' "DELETE FROM confirmations WHERE qsoid = ?" [H.toSql qsoid]
-    return ()
+removeQSO qsoid =
+    sequence_ [quickQuery' "DELETE FROM qsos WHERE qsoid = ?" [H.toSql qsoid],
+               quickQuery' "DELETE FROM confirmations WHERE qsoid = ?" [H.toSql qsoid]]
 
 -- | Return a list of all 'QSO' records in the database, sorted by date and time.
 getAllQSOs :: Transaction [QSO]
-getAllQSOs = do
-    results <- quickQuery' "SELECT * FROM qsos ORDER BY date,time" []
-    return $ map sqlToQSO results
+getAllQSOs =
+    map sqlToQSO <$> quickQuery' "SELECT * FROM qsos ORDER BY date,time" []
 
 -- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
 getUnconfirmedQSOs :: Transaction [QSO]
-getUnconfirmedQSOs = do
-    results <- quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
-                            \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
-                            \ORDER BY lotw_sdate ASC;" []
-    return $ map sqlToQSO results
+getUnconfirmedQSOs =
+    map sqlToQSO <$> quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
+                                  \qsos.qsoid=confirmations.qsoid AND lotw_rdate IS NULL \
+                                  \ORDER BY lotw_sdate ASC;" []
 
 -- | Return a list of all 'QSO' records that have not been uploaded to LOTW.
 getUnsentQSOs :: Transaction [QSO]
-getUnsentQSOs = do
-    results <- quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
-                           \qsos.qsoid=confirmations.qsoid AND lotw_sdate IS NULL;" []
-    return $ map sqlToQSO results
+getUnsentQSOs =
+    map sqlToQSO <$> quickQuery' "SELECT qsos.* FROM qsos,confirmations WHERE \
+                                  \qsos.qsoid=confirmations.qsoid AND lotw_sdate IS NULL;" []
 
 -- | Given a list of previously unsent 'QSO' records (perhaps as returned by 'getUnsentQSOs'),
 -- mark them as uploaded to LOTW in the database.  It is expected this function will be
@@ -189,7 +183,6 @@ markQSOsAsSent qsos = do
 
     confStmt <- prepare "UPDATE confirmations SET lotw_sdate = ? WHERE qsoid = ?"
     executeMany confStmt (map (\x -> [H.toSql $ undashifyDate $ show $ utctDay today, H.toSql x]) ids)
-    return ()
 
 --
 -- HELPER FUNCTIONS

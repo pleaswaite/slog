@@ -16,6 +16,7 @@ module Slog.Lookup.Lookup(RadioAmateur(..),
 import Control.Exception(IOException, try)
 import Data.Maybe(catMaybes, isJust)
 import Network.HTTP
+import Text.Printf(printf)
 import Text.XML.Light(unqual)
 import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
@@ -202,7 +203,7 @@ responseIsValid xml | gotError xml = Nothing
 -- function will not succeed.
 lookupCall :: String -> SessionID -> IO (Maybe RadioAmateur)
 lookupCall call sid = do
-    let url = "http://www.hamqth.com/xml.php?id=" ++ sid ++ "&callsign=" ++ call ++ "&prg=slog"
+    let url = printf "http://www.hamqth.com/xml.php?id=%s&callsign=%s&prg=slog" sid call
     result <- try (getXML url) :: IO (Either IOException String)
 
     case result of
@@ -213,7 +214,7 @@ lookupCall call sid = do
 -- returned session ID.  This operation may fail.  Be prepared.
 login :: String -> String -> IO (Maybe SessionID)
 login username pass = do
-    let url = "http://www.hamqth.com/xml.php?u=" ++ username ++ "&p=" ++ pass
+    let url = printf "http://www.hamqth.com/xml.php?u=%s&p=%s" username pass
     result <- try (getXML url) :: IO (Either IOException String)
 
     case result of

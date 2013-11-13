@@ -18,6 +18,7 @@ import System.Directory(doesFileExist)
 import System.Exit(ExitCode(..))
 import System.FilePath(replaceExtension)
 import System.Process(readProcessWithExitCode)
+import Text.Printf(printf)
 
 -- | 'download' takes a starting date (as a string in YYYY-MM-DD format - see
 -- 'dashifyDate'), a LOTW login name, and an LOTW password.  Fetch a list of
@@ -26,7 +27,8 @@ download :: String -> String -> String -> IO String
 download date call password = do
     -- Argh, Network.HTTP does not support HTTPS so we have to be all convoluted
     -- here to get the results.  At least curl will spit the data out to stdout.
-    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" ["https://p1k.arrl.org/lotwuser/lotwreport.adi?qso_query=1&qso_withown=yes&qso_qslsince=" ++ date ++ "&qso_owncall=" ++ call ++ "&login=" ++ call ++ "&password=" ++ password ++ "&qso_qsldetail=yes"] ""
+    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" [printf "https://p1k.arrl.org/lotwuser/lotwreport.adi?qso_query=1&qso_withown=yes&qso_qslsince=%s&qso_owncall=%s&login=%s&password=%s&qso_qsldetail=yes" date call call password] ""
+
     case exitcode of
         -- LOTW can send errors as an HTML chunk (not a full page), so that needs
         -- to be intercepted here.
@@ -48,7 +50,7 @@ sign qth file = do
     if exists then do
         -- I'd add a -x here to tell tqsl to quit after signing, but that
         -- apparently makes it exit with 255 instead of 0.  Oh well.
-        rc <- system $ "tqsl -d -l " ++ qth ++ " " ++ file
+        rc <- system $ printf "tqsl -d -l %s %s" qth file
         case rc of
             ExitSuccess     -> return $ replaceExtension file ".tq8"
             ExitFailure _   -> fail "Signing failed."

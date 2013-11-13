@@ -52,7 +52,6 @@ doConfirm (date, time, qsl_date) = do
 
     confirmQSO qsoid qsl_date
     liftIO $ (putStrLn . logMessage) qso
-    return ()
 
 filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
 filterPreviousConfirmations qsos infos = let
@@ -64,7 +63,7 @@ filterPreviousConfirmations qsos infos = let
     -- Then, remove all the info tuples that are not already confirmed.  This leaves
     -- us with just a list of unconfirmed tuples which is suitable for feeding into
     -- the database.
-    filter (\info -> info `memberOf` unconfirmedDateTimes)
+    filter (`memberOf` unconfirmedDateTimes)
            (catMaybes infos)
  where
     memberOf _ [] = False
@@ -101,5 +100,3 @@ main = do
             unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
          in
             runTransaction fp $ confirmQSOs unconfirmedInfos
-
-    return ()
