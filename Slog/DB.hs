@@ -70,7 +70,7 @@ quickQuery' q v = ask >>= \c -> liftIO $ H.quickQuery' c q v
 prepDB :: H.IConnection conn => conn -> IO ()
 prepDB dbh = do
     tables <- H.getTables dbh
-    when (not ("qsos" `elem` tables)) $ do
+    when ("qsos" `notElem` tables) $ do
         void $ H.run dbh "CREATE TABLE qsos (\
                 \qsoid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \date TEXT NOT NULL, time TEXT NOT NULL,\
@@ -89,7 +89,7 @@ prepDB dbh = do
                 \call TEXT NOT NULL,\
                 \prop_mode TEXT,\
                 \sat_name TEXT)" []
-    when (not ("confirmations" `elem` tables)) $ do
+    when ("confirmations" `notElem` tables) $ do
         void $ H.run dbh "CREATE TABLE confirmations (\
                 \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
                 \qsoid INTEGER NOT NULL UNIQUE,\

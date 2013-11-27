@@ -14,6 +14,7 @@ module Slog.Rigctl.Rigctl(RigConn,
  where
 
 import Control.Exception(IOException, catch)
+import Control.Monad(void)
 import Control.Monad.Reader hiding(ask)
 import Data.List(isPrefixOf)
 import Data.Maybe(fromJust, isNothing)
@@ -122,6 +123,5 @@ isRigctldRunning =
 -- radio to connect to.  The second 'String' argument is the device node to use for the
 -- connection.  You must have permissions to read and write from this device.
 runRigctld :: String -> String -> IO ()
-runRigctld model device = do
-    _ <- system $ "rigctld -m " ++ model ++ " -r " ++ device
-    return ()
+runRigctld model device =
+    void $ system $ "rigctld -m " ++ model ++ " -r " ++ device

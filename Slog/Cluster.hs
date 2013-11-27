@@ -7,8 +7,8 @@ module Slog.Cluster( Spot(..),
 import Control.Exception(IOException, try)
 import Control.Monad.State
 import Data.List(findIndex)
+import Data.List.Split(splitOn)
 import Data.Maybe(fromJust, mapMaybe)
-import Data.String.Utils(split)
 import Network.HTTP
 import Slog.Utils(stringToDouble)
 import qualified Slog.Formats.ADIF.Types as ADIF
@@ -50,7 +50,7 @@ makeSpot [call, freq, spotter, comment, datetime, lotw, eqsl, continent] =
 makeSpot _ = Nothing
 
 parseOne :: String -> Maybe Spot
-parseOne s = makeSpot $ split "^" s
+parseOne s = makeSpot $ splitOn "^" s
 
 -- | Given a string of text from the DX cluster, convert it into a list of Spot
 -- records.  Each line is an individual spot, and any errors in processing a line
@@ -68,10 +68,7 @@ grabSpots :: IO String
 grabSpots = do
     let url = "http://hamqth.com/dxc_csv.php?limit=25"
     result <- try ((simpleHTTP $ getRequest url) >>= getResponseBody) :: IO (Either IOException String)
-
-    case result of
-        Right s -> return s
-        _       -> return ""
+    return $ either (\_ -> "") (id) result
 
 -- Given a list of new spots and the latest spot we previously grabbed, return all the spots that
 -- are newer.

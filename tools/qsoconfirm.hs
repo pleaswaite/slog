@@ -86,7 +86,7 @@ main = do
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
     unconfirmeds <- runTransaction fp getUnconfirmedQSOs
-    let earliestUnconfirmed = dashifyDate $ qDate $ unconfirmeds !! 0
+    let earliestUnconfirmed = dashifyDate . qDate $ unconfirmeds !! 0
 
     -- Grab the confirmed QSOs from LOTW.
     str <- download earliestUnconfirmed (confUsername conf) (confPassword conf)
@@ -94,7 +94,7 @@ main = do
     -- Now iterate over all the new ADIF data and extract date/times for each.  Mark each
     -- as confirmed.
     case parseString str of
-        Left err -> putStrLn $ (show err) ++ "\n\nin input\n\n" ++ str
+        Left err -> putStrLn $ printf "%s\n\nin input\n\n%s" (show err) str
         Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> let
             infos = map adifDateTime adifs
             unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos

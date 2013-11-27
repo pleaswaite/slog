@@ -44,6 +44,7 @@ library
                    network,
                    parsec,
                    process,
+                   split,
                    text,
                    time,
                    xml,
