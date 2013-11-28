@@ -14,7 +14,6 @@ module Slog.DB(confirmQSO,
                findQSOByDateTime,
                addQSO,
                getQSO,
-               removeQSO,
                getAllQSOs,
                getUnconfirmedQSOs,
                getUnsentQSOs,
@@ -146,13 +145,6 @@ confirmQSO :: Integer -> ADIF.Date -> Transaction ()
 confirmQSO qsoid qsl_date =
     void $ quickQuery' "UPDATE confirmations SET lotw_rdate = ? WHERE qsoid = ?"
                        [H.toSql qsl_date, H.toSql qsoid]
-
--- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
--- 'findQSOByDateTime'), remove the matching records from the database.
-removeQSO :: Integer -> Transaction ()
-removeQSO qsoid =
-    sequence_ [quickQuery' "DELETE FROM qsos WHERE qsoid = ?" [H.toSql qsoid],
-               quickQuery' "DELETE FROM confirmations WHERE qsoid = ?" [H.toSql qsoid]]
 
 -- | Return a list of all 'QSO' records in the database, sorted by date and time.
 getAllQSOs :: Transaction [QSO]
