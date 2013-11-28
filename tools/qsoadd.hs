@@ -45,7 +45,6 @@ data Options = Options {
     optXcOut :: Maybe String,
     optRST_Rcvd :: Maybe String,
     optRST_Sent :: Maybe String,
-    optIOTA :: Maybe Integer,
     optITU :: Maybe Integer,
     optWAZ :: Maybe Integer,
     optCall :: Maybe String,
@@ -73,7 +72,6 @@ defaultOptions = Options {
     optXcOut = Nothing,
     optRST_Rcvd = Nothing,
     optRST_Sent = Nothing,
-    optIOTA = Nothing,
     optITU = Nothing,
     optWAZ = Nothing,
     optCall = Nothing,
@@ -129,9 +127,7 @@ opts = [
     Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
                                                         return opt { optXcIn = fst sp, optXcOut = snd sp })
                                         "EXCHANGE")
-           "exchange rcvd:exchange sent",
-    Option [] ["iota"]          (ReqArg (\arg opt -> return opt { optIOTA = stringToInteger arg }) "IOTA")
-           "their IOTA number"
+           "exchange rcvd:exchange sent"
  ]
 
 handleOpts :: [String] -> IO ([OptAction], [String])
@@ -426,7 +422,6 @@ buildQSO ra opt = do
               qXcOut    = optXcOut opt <?> Nothing,
               qRST_Rcvd = rstR,
               qRST_Sent = rstS,
-              qIOTA     = raIOTA ra ||| optIOTA opt <?> Nothing,
               qITU      = raITU ra ||| optITU opt <?> Nothing,
               qWAZ      = raWAZ ra ||| optWAZ opt <?> Nothing,
               qCall     = call,
