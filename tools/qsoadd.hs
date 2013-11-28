@@ -50,7 +50,8 @@ data Options = Options {
     optWAZ :: Maybe Integer,
     optCall :: Maybe String,
     optPropMode :: Maybe ADIF.Propagation,
-    optSatName :: Maybe String }
+    optSatName :: Maybe String,
+    optAntenna :: Maybe String }
  deriving (Show)
 
 type OptAction = (Options -> IO Options)
@@ -77,10 +78,13 @@ defaultOptions = Options {
     optWAZ = Nothing,
     optCall = Nothing,
     optPropMode = Nothing,
-    optSatName = Nothing }
+    optSatName = Nothing,
+    optAntenna = Nothing }
 
 opts :: [OptDescr OptAction]
 opts = [
+    Option ['A'] ["antenna"]    (ReqArg (\arg opt -> return opt { optAntenna = Just arg }) "ANTENNA")
+           "antenna used for QSO",
     Option ['a'] ["satellite"]  (ReqArg (\arg opt -> return opt { optSatName = Just arg,
                                                                   optPropMode = Just ADIF.SAT })
                                         "SATELLITE")
@@ -427,7 +431,8 @@ buildQSO ra opt = do
               qWAZ      = raWAZ ra ||| optWAZ opt <?> Nothing,
               qCall     = call,
               qPropMode = optPropMode opt <?> Nothing,
-              qSatName  = optSatName opt <?> Nothing }
+              qSatName  = optSatName opt <?> Nothing,
+              qAntenna  = optAntenna opt <?> Nothing }
 
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v

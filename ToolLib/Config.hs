@@ -2,7 +2,8 @@ module ToolLib.Config ( Config(..),
                         readConfig )
  where
 
-import Data.ConfigFile(emptyCP, get, readstring)
+import Control.Applicative((<$>))
+import Data.ConfigFile(emptyCP, get, items, readstring)
 import System.Directory(getHomeDirectory)
 
 data Config = Config {
@@ -12,7 +13,9 @@ data Config = Config {
     confUsername  :: String,
 
     confQTHPass   :: String,
-    confQTHUser   :: String }
+    confQTHUser   :: String,
+
+    confAntennas  :: [String] }
 
 readConfig :: IO Config
 readConfig = do
@@ -30,13 +33,17 @@ readConfig = do
         qthPass  <- get c "Lookup" "password"
         qthUser  <- get c "Lookup" "username"
 
+        antennas <- map snd <$> items c "Antennas"
+
         return Config { confDB         = database,
                         confPassword   = password,
                         confQTH        = qth,
                         confUsername   = username,
 
                         confQTHPass    = qthPass,
-                        confQTHUser    = qthUser }
+                        confQTHUser    = qthUser,
+
+                        confAntennas   = antennas }
 
     case config of
         Left cperr   -> fail $ show cperr

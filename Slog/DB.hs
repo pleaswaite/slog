@@ -88,7 +88,8 @@ prepDB dbh = do
                 \waz INTEGER,\
                 \call TEXT NOT NULL,\
                 \prop_mode TEXT,\
-                \sat_name TEXT)" []
+                \sat_name TEXT,\
+                \antenna TEXT)" []
     when ("confirmations" `notElem` tables) $ do
         void $ H.run dbh "CREATE TABLE confirmations (\
                 \confid INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,\
@@ -127,8 +128,8 @@ addQSO qso = do
     addToQSOTable q = quickQuery' "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
                                                      \grid, state, name, notes, xc_in, xc_out,\
                                                      \rst_rcvd, rst_sent, iota, itu, waz,\
-                                                     \call, prop_mode, sat_name)\
-                                   \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                                                     \call, prop_mode, sat_name, antenna)\
+                                   \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                                    (qsoToSql q)
     addToConfTable ndx = quickQuery' "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
 
@@ -194,15 +195,16 @@ qsoToSql qso =
     [H.toSql $ qDate qso, H.toSql $ qTime qso, H.toSql $ qFreq qso, H.toSql $ qRxFreq qso, H.toSql $ show $ qMode qso,
      H.toSql $ qDXCC qso, H.toSql $ qGrid qso, H.toSql $ qState qso, H.toSql $ qName qso, H.toSql $ qNotes qso,
      H.toSql $ qXcIn qso, H.toSql $ qXcOut qso, H.toSql $ qRST_Rcvd qso, H.toSql $ qRST_Sent qso, H.toSql $ qIOTA qso,
-     H.toSql $ qITU qso, H.toSql $ qWAZ qso, H.toSql $ uppercase (qCall qso), H.toSql $ qPropMode qso, H.toSql $ qSatName qso]
+     H.toSql $ qITU qso, H.toSql $ qWAZ qso, H.toSql $ uppercase (qCall qso), H.toSql $ qPropMode qso, H.toSql $ qSatName qso,
+     H.toSql $ qAntenna qso]
 
 sqlToQSO :: [H.SqlValue] -> QSO
 sqlToQSO [_, date, time, freq, rx_freq, mode, dxcc, grid, state, name, notes, xc_in,
-          xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name] =
+          xc_out, rst_rcvd, rst_sent, iota, itu, waz, call, prop_mode, sat_name, antenna] =
     QSO {qDate = H.fromSql date, qTime = H.fromSql time, qFreq = H.fromSql freq, qRxFreq = H.fromSql rx_freq,
-         qMode = read (H.fromSql mode) :: ADIF.Mode, qDXCC = H.fromSql dxcc, qGrid = H.fromSql grid, qState = H.fromSql state,
-         qName = H.fromSql name, qNotes = H.fromSql notes,
-         qXcIn = H.fromSql xc_in, qXcOut = H.fromSql xc_out, qRST_Rcvd = H.fromSql rst_rcvd, qRST_Sent = H.fromSql rst_sent,
-         qIOTA = H.fromSql iota, qITU = H.fromSql itu, qWAZ = H.fromSql waz,
-         qCall = H.fromSql call, qPropMode = H.fromSql prop_mode, qSatName = H.fromSql sat_name}
+         qMode = read (H.fromSql mode) :: ADIF.Mode, qDXCC = H.fromSql dxcc, qGrid = H.fromSql grid,
+         qState = H.fromSql state, qName = H.fromSql name, qNotes = H.fromSql notes, qXcIn = H.fromSql xc_in,
+         qXcOut = H.fromSql xc_out, qRST_Rcvd = H.fromSql rst_rcvd, qRST_Sent = H.fromSql rst_sent,
+         qIOTA = H.fromSql iota, qITU = H.fromSql itu, qWAZ = H.fromSql waz, qCall = H.fromSql call,
+         qPropMode = H.fromSql prop_mode, qSatName = H.fromSql sat_name, qAntenna = H.fromSql antenna}
 sqlToQSO _ = error $ "sqlToQSO got an unexpected length of list.  How did this happen?"

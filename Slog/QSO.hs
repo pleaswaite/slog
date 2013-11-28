@@ -38,7 +38,8 @@ data QSO = QSO {
     qWAZ       :: Maybe Integer,
     qCall      :: String,
     qPropMode  :: Maybe ADIF.Propagation,
-    qSatName   :: Maybe String }
+    qSatName   :: Maybe String,
+    qAntenna   :: Maybe String}
  deriving (Eq, Show, Read)
 
 -- | A 'Confirmation' record is used to convey information about whether a 'QSO'
