@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+import Control.Applicative((<$>))
 import Control.Exception(bracket)
 import Control.Monad(liftM, void)
 import Control.Monad.Reader(runReaderT)
@@ -24,6 +25,15 @@ import qualified Slog.Rigctl.Rigctl as R
 import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 import ToolLib.Config
+
+--
+-- MISCELLANEOUS
+--
+
+ifM :: Monad m => m Bool -> m a -> m a -> m a
+ifM test exprA exprB = do
+    result <- test
+    if result then exprA else exprB
 
 --
 -- OPTION PROCESSING CODE
@@ -177,19 +187,18 @@ data ProgramWidgets = ProgramWidgets {
     pwCancel :: Button,
     pwAdd :: Button }
 
-formatDateTime :: String -> UTCTime -> IO String
-formatDateTime spec utc = return $ formatTime defaultTimeLocale spec utc
+formatDateTime :: String -> UTCTime -> String
+formatDateTime spec utc = formatTime defaultTimeLocale spec utc
 
 theTime :: IO String
-theTime = getCurrentTime >>= formatDateTime "%R"
+theTime = liftM (formatDateTime "%R") getCurrentTime
 
 theDate :: IO String
-theDate = getCurrentTime >>= formatDateTime "%F"
+theDate = liftM (formatDateTime "%F") getCurrentTime
 
 setDateTime :: ProgramWidgets -> IO ()
-setDateTime w = do
-    theDate >>= entrySetText (pwDate w)
-    theTime >>= entrySetText (pwTime w)
+setDateTime w = sequence_ [theDate >>= entrySetText (pwDate w),
+                           theTime >>= entrySetText (pwTime w)]
 
 setDefaultMode :: ComboBoxClass self => self -> IO ()
 setDefaultMode combo = comboBoxSetActive combo 5
@@ -201,9 +210,9 @@ setDefaultMode combo = comboBoxSetActive combo 5
 clearUI :: ProgramWidgets -> IO ()
 clearUI w = do
     -- Blank out all the text entry widgets.
-    let widgets = [pwCall w, pwRSTRcvd w, pwRSTSent w, pwExchangeRcvd w, pwExchangeSent w,
-                   pwFrequency w, pwDate w, pwTime w]
-    mapM_ (flip entrySetText "") widgets
+    mapM_ (flip entrySetText "")
+          [pwCall w, pwRSTRcvd w, pwRSTSent w, pwExchangeRcvd w, pwExchangeSent w,
+           pwFrequency w, pwDate w, pwTime w]
 
     -- Set the mode combo back to SSB.
     setDefaultMode (pwModeCombo w)
@@ -212,8 +221,7 @@ clearUI w = do
     toggleButtonSetActive (pwCurrentDT w) True
 
     -- Set the rigctld checkbox to active, but only if it's running.
-    running <- R.isRigctldRunning
-    toggleButtonSetActive (pwRigctld w) running
+    void $ toggleButtonSetActive (pwRigctld w) <$> R.isRigctldRunning
     setFreqModeSensitivity w
 
     -- Remove the status bar message.
@@ -254,20 +262,16 @@ setFreqModeSensitivity w = do
         void $ statusbarPush (pwStatus w) 0 "rigctld is not running."
     else do
         active <- rigctldActive w
-        widgetSetSensitive (pwFrequency w) (not active)
-        widgetSetSensitive (pwModeCombo w) (not active)
-        widgetSetSensitive (pwFreqLabel w) (not active)
-        widgetSetSensitive (pwModeLabel w) (not active)
+        mapM_ (flip widgetSetSensitive (not active))
+              [toWidget $ pwFrequency w, toWidget $ pwModeCombo w, toWidget $ pwFreqLabel w, toWidget $ pwModeLabel w]
 
 -- If the checkbox is active, the individual date and time entries are not.  This
 -- is how we decide which way to get the time for the QSO.
 setDateTimeSensitivity :: ProgramWidgets -> IO ()
 setDateTimeSensitivity w = do
     active <- currentDTActive w
-    widgetSetSensitive (pwDate w) (not active)
-    widgetSetSensitive (pwTime w) (not active)
-    widgetSetSensitive (pwDateLabel w) (not active)
-    widgetSetSensitive (pwTimeLabel w) (not active)
+    mapM_ (flip widgetSetSensitive (not active))
+          [toWidget $ pwDate w, toWidget $ pwTime w, toWidget $ pwDateLabel w, toWidget $ pwTimeLabel w]
 
 buildArgList :: ProgramWidgets -> IO [String]
 buildArgList w = do
@@ -283,31 +287,30 @@ buildArgList w = do
                                            (\(Tell.Mode mode _) -> return ["-m", show mode])
                                            (getCombo pwModeCombo "-m")]
  where
-    getDT f fallback = do
-        active <- currentDTActive w
-        if active then f else fallback
+    getDT = ifM (currentDTActive w)
 
-    getFromRigctl inCmd getOutCmd fallback = do
-        active <- rigctldActive w
-        if active then do bracket (R.connect "localhost" 4532)
-                                  (R.disconnect)
-                                  doAsk
-        else fallback
+    getFromRigctl inCmd getOutCmd fallback =
+        ifM (rigctldActive w) doGet fallback
      where
+        doGet = bracket (R.connect "localhost" 4532)
+                        R.disconnect
+                        doAsk
+
         doAsk st = do
             result <- runReaderT (R.ask inCmd) st
             either (\_ -> fallback)
                    getOutCmd
                    result
 
-    getOneEntry f opt = do
-        s <- entryGetText (f w)
-        if s == "" then return [] else return [opt, s]
+    getOneEntry f opt =
+        entryGetText (f w) >>= \s -> return [opt, s]
 
-    getTwoEntries f1 f2 opt = do
-        [s1, s2] <- mapM entryGetText [f1 w, f2 w]
-        if s1 == "" then return [] else
-            if s2 == "" then return [opt, s1] else return [opt, s1 ++ ":" ++ s2]
+    getTwoEntries f1 f2 opt =
+        mapM entryGetText [f1 w, f2 w] >>=
+        \lst -> case lst of
+                    ["", _]  -> return []
+                    [a, ""]  -> return [opt, a]
+                    [a, b]   -> return [opt, a ++ ":" ++ b]
 
     getCombo f opt = do
         text <- comboBoxGetActiveText (f w)
@@ -321,12 +324,11 @@ addQSOFromUI w addFunc = do
     -- would normally take.  This is a little lame, but it avoids having to come up with
     -- all that validation code again.
     cmdline <- processArgs (buildArgList w >>= handleOpts)
-
-    case optCall cmdline of
-        Just call   -> doAdd addFunc call cmdline
-        _           -> showErrorDialog "You must specify a call sign."
+    maybe (showErrorDialog "You must specify a call sign.")
+          (doAdd addFunc cmdline)
+          (optCall cmdline)
  where
-    doAdd fn call cmdline = do
+    doAdd fn cmdline call = do
         result <- fn cmdline
         case result of
             Left err    -> showErrorDialog err
