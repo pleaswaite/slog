@@ -13,7 +13,7 @@
 module Slog.DB(confirmQSO,
                findQSOByDateTime,
                addQSO,
-               getQSO,
+               getQSOByID,
                getAllQSOs,
                getUnconfirmedQSOs,
                getUnsentQSOs,
@@ -132,8 +132,8 @@ addQSO qso = do
     addToConfTable ndx = quickQuery' "INSERT INTO confirmations (qsoid) VALUES (?)" [ndx]
 
 -- | Given a 'qsoid', return a 'QSO' record from the database.
-getQSO :: Integer -> Transaction QSO
-getQSO qsoid =
+getQSOByID :: Integer -> Transaction QSO
+getQSOByID qsoid =
     head <$> map sqlToQSO <$> quickQuery' "SELECT * FROM qsos WHERE qsoid = ?" [H.toSql qsoid]
 
 -- | Given a unique ID for a 'QSO' (which should have first been obtained by calling

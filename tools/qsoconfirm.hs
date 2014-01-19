@@ -3,7 +3,7 @@ import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import Text.Printf(printf)
 
-import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSO, runTransaction, Transaction)
+import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSOByID, runTransaction, Transaction)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -48,7 +48,7 @@ logMessage qso =
 doConfirm :: QSLInfo -> Transaction ()
 doConfirm (date, time, qsl_date) = do
     qsoid <- findQSOByDateTime date (withoutSeconds time)
-    qso <- getQSO qsoid
+    qso <- getQSOByID qsoid
 
     confirmQSO qsoid qsl_date
     liftIO $ (putStrLn . logMessage) qso
