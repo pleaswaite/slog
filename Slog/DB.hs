@@ -11,6 +11,7 @@
 -- to this module is that most of these functions will call 'fail' on error, which does
 -- not result in very friendly behavior.  This needs to be fixed.
 module Slog.DB(confirmQSO,
+               findQSO,
                findQSOByDateTime,
                addQSO,
                getQSOByID,
@@ -25,6 +26,8 @@ module Slog.DB(confirmQSO,
 import Control.Applicative((<$>))
 import Control.Monad(sequence_, void)
 import Control.Monad.Reader
+import Data.List(intercalate)
+import Data.Maybe(catMaybes)
 import Data.Time.Clock
 import qualified Database.HDBC as H
 import Database.HDBC.Sqlite3(Connection, connectSqlite3)
@@ -97,19 +100,45 @@ prepDB dbh = do
                 \lotw_rdate TEXT, lotw_sdate TEXT)" []
     H.commit dbh
 
--- | Given a QSO date and time (in YYYYMMDD and HHMM format - see -- 'undashifyDate'
+-- | A generic way of finding the ID for a QSO.  This function can take at
+-- most a date, time, call sign, and frequency.  It returns the ID of the
+-- first QSO meeting the given criteria.  It is assumed that only one QSO
+-- can ever take place on a given frequency, with a given call sign, in a
+-- given minute.  This seems to be a pretty strong assumption.
+--
+-- Regardless, this function returns multiple IDs given that the caller may
+-- have only passed in some information - not enough to just return one value.
+--
+-- Note that the date and time must be given in YYYYMMDD and HHMM format -
+-- see 'undashifyDate' and 'uncolonifyTime'.
+findQSO :: Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Maybe Double -> Transaction [Integer]
+findQSO Nothing Nothing Nothing Nothing = return []
+findQSO date time call freq = let
+    parts = catMaybes [datePart date, timePart time, callPart call, freqPart freq]
+ in do
+    ndxs <- quickQuery' ("SELECT qsoid FROM qsos WHERE " ++
+                         intercalate " and " (map fst parts))
+                        (map snd parts)
+    return $ map H.fromSql (head ndxs)
+ where
+    datePart date = maybe Nothing (\d -> Just ("date = ?", H.toSql d)) date
+
+    timePart time = maybe Nothing (\t -> Just ("time = ?", H.toSql t)) time
+
+    callPart call = maybe Nothing (\c -> Just ("call = ?", H.toSql c)) call
+
+    freqPart freq = maybe Nothing (\f -> Just ("freq = ?", H.toSql f)) freq
+
+-- | Given a QSO date and time (in YYYYMMDD and HHMM format - see 'undashifyDate'
 -- and 'uncolonifyTime'), look up and return the unique ID for the first QSO found.
 -- It is assumed that only one QSO can ever happen in any given minute.
 -- FIXME:  If no QSO is found, fail is called.
 findQSOByDateTime :: ADIF.Date -> ADIF.Time -> Transaction Integer
 findQSOByDateTime date time = do
-    ndxs <- quickQuery' "SELECT qsoid FROM qsos WHERE date = ? and time = ?"
-                        [H.toSql $ date, H.toSql $ time]
-
-    -- There really better be only one result.
-    case ndxs of
-        [[ndx]] -> return $ H.fromSql ndx
-        _       -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
+    ndx <- findQSO (Just date) (Just time) Nothing Nothing
+    case ndx of
+        [i] -> return i
+        _   -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
 
 -- | Insert the new 'QSO' record into the database and return the new row's unique ID.
 -- If a row already exists with the record's date and time, an exception is raised.
@@ -119,9 +148,10 @@ addQSO qso = do
     addToQSOTable qso
 
     -- Get the qsoid assigned by the database so we can create the other tables.
-    qsoid <- findQSOByDateTime (qDate qso) (qTime qso)
-    addToConfTable (H.toSql qsoid)
-    return qsoid
+    qsoid <- findQSO (Just $ qDate qso) (Just $ qTime qso) (Just $ qCall qso) (Just $ qFreq qso)
+    case qsoid of
+        [ndx] -> addToConfTable (H.toSql ndx) >> return ndx
+        _     -> fail $ "Adding QSO for " ++ (qCall qso) ++ " on " ++ (show $ qFreq qso) ++ " failed."
  where
     addToQSOTable q = quickQuery' "INSERT INTO qsos (date, time, freq, rx_freq, mode, dxcc,\
                                                      \grid, state, name, notes, xc_in, xc_out,\
@@ -171,10 +201,11 @@ getUnsentQSOs =
 markQSOsAsSent :: [QSO] -> Transaction ()
 markQSOsAsSent qsos = do
     today <- liftIO getCurrentTime
-    ids <- mapM (\qso -> findQSOByDateTime (qDate qso) (qTime qso)) qsos
+    ids <- mapM (\qso -> findQSO (Just $ qDate qso) (Just $ qTime qso) (Just $ qCall qso) (Just $ qFreq qso)) qsos
 
     confStmt <- prepare "UPDATE confirmations SET lotw_sdate = ? WHERE qsoid = ?"
-    executeMany confStmt (map (\x -> [H.toSql $ undashifyDate $ show $ utctDay today, H.toSql x]) ids)
+    executeMany confStmt (map (\x -> [H.toSql $ undashifyDate $ show $ utctDay today, H.toSql x])
+                              (concat ids))
 
 --
 -- HELPER FUNCTIONS
