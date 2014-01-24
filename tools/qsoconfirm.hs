@@ -1,9 +1,10 @@
+import Control.Monad(when)
 import Control.Monad.Trans(liftIO)
 import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import Text.Printf(printf)
 
-import Slog.DB(confirmQSO, findQSOByDateTime, getUnconfirmedQSOs, getQSOByID, runTransaction, Transaction)
+import Slog.DB(confirmQSO, findQSO, getUnconfirmedQSOs, getQSOByID, runTransaction, Transaction)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -14,13 +15,31 @@ import Slog.Utils(colonifyTime, dashifyDate, withoutSeconds)
 
 import ToolLib.Config
 
-type QSLInfo = (ADIF.Date, ADIF.Time, ADIF.Date)
+data QSLInfo = QSLInfo { qiBand :: ADIF.Band,
+                         qiCall :: String,
+                         qiDate :: ADIF.Date,
+                         qiTime :: ADIF.Time,
+                         qiQSLDate :: ADIF.Date }
+
+instance Eq QSLInfo where
+    a == b = (qiBand a == qiBand b) &&
+             (qiCall a == qiCall b) &&
+             (qiDate a == qiDate b) &&
+             ((withoutSeconds $ qiTime a) == (withoutSeconds $ qiTime b))
 
 -- Extract the date and time of a QSO along with the QSL received date from the ADIF
 -- data.  Converting ADIF to a full QSO structure is just way too difficult to
 -- do, as the find* functions below illustrate.
-adifDateTime :: [ADIF.Field] -> Maybe QSLInfo
-adifDateTime fields = let
+mkQSLInfo :: [ADIF.Field] -> Maybe QSLInfo
+mkQSLInfo fields = let
+    findBand flds = find isBand flds >>= \(ADIF.Band b) -> Just b
+                    where isBand (ADIF.Band _) = True
+                          isBand _             = False
+
+    findCall flds = find isCall flds >>= \(ADIF.Call c) -> Just c
+                    where isCall (ADIF.Call _) = True
+                          isCall _             = False
+
     findDate flds = find isDate flds >>= \(ADIF.QSO_Date v) -> Just v
                     where isDate (ADIF.QSO_Date _) = True
                           isDate _                 = False
@@ -33,7 +52,11 @@ adifDateTime fields = let
                     where isTime (ADIF.TimeOn _) = True
                           isTime _               = False
  in
-    findQSLDate fields >>= \date -> Just (fromJust $ findDate fields, fromJust $ findTime fields, fromJust date)
+    findQSLDate fields >>= \date -> Just $ QSLInfo { qiBand = fromJust $ findBand fields,
+                                                     qiCall = fromJust $ findCall fields,
+                                                     qiDate = fromJust $ findDate fields,
+                                                     qiTime = fromJust $ findTime fields,
+                                                     qiQSLDate = fromJust date }
 
 logMessage :: QSO -> String
 logMessage qso =
@@ -46,32 +69,48 @@ logMessage qso =
     time = colonifyTime $ qTime qso
 
 doConfirm :: QSLInfo -> Transaction ()
-doConfirm (date, time, qsl_date) = do
-    qsoid <- findQSOByDateTime date (withoutSeconds time)
-    qso <- getQSOByID qsoid
+doConfirm qslInfo = do
+    -- LOTW gives us band information, but our database stores everything in terms of
+    -- frequency.  Thus we query the database for all QSOs matching time and call.  This
+    -- could possibly return multiple results, across multiple bands.  We'll find the
+    -- right one later.
+    ids <- findQSO (Just $ qiDate qslInfo)
+                   (Just $ withoutSeconds $ qiTime qslInfo)
+                   (Just $ qiCall qslInfo)
+                   Nothing
+    mapM_ confirmOne ids
+ where
+    confirmOne qsoid = do
+        qso <- getQSOByID qsoid
 
-    confirmQSO qsoid qsl_date
-    liftIO $ (putStrLn . logMessage) qso
+        -- If this QSO is on the same band as the QSLInfo object, it must be the one
+        -- we want to confirm.  This guard basically does the filtering that we wish
+        -- the database could have given us above, if we didn't have to work in terms
+        -- of frequency.
+        when (maybe False (qiBand qslInfo ==) (freqToBand $ qFreq qso))
+             (do confirmQSO qsoid (qiQSLDate qslInfo)
+                 liftIO $ (putStrLn . logMessage) qso)
 
 filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
 filterPreviousConfirmations qsos infos = let
     -- qsos is a list of unconfirmed QSO objects as understood by our local database.
-    -- Convert it into a list of QSLInfo tuples (where the third field doesn't really
-    -- matter).
-    unconfirmedDateTimes = map (\qso -> (qDate qso, qTime qso, qDate qso)) qsos
+    -- Convert it into a list of QSLInfo objects (where the qiQSLDate field doesn't
+    -- really matter).
+    unconfirmed = map (\qso -> QSLInfo { qiBand = fromJust $ freqToBand (qFreq qso),
+                                         qiCall = qCall qso,
+                                         qiDate = qDate qso,
+                                         qiTime = qTime qso,
+                                         qiQSLDate = qDate qso })
+                      qsos
  in
-    -- Then, remove all the info tuples that are not already confirmed.  This leaves
-    -- us with just a list of unconfirmed tuples which is suitable for feeding into
+    -- Then, remove all the QSLInfo objects that are not already confirmed.  This leaves
+    -- us with just a list of unconfirmed objects which is suitable for feeding into
     -- the database.
-    filter (`memberOf` unconfirmedDateTimes)
-           (catMaybes infos)
- where
-    memberOf _ [] = False
-    memberOf left@(lDate, lTime, _) ((rDate, rTime, _):lst) = (lDate == rDate && (withoutSeconds lTime) == (withoutSeconds rTime)) || left `memberOf` lst
+    filter (`elem` unconfirmed) (catMaybes infos)
 
 confirmQSOs :: [QSLInfo] -> Transaction ()
-confirmQSOs qsos = do
-    mapM_ doConfirm qsos
+confirmQSOs qsls = do
+    mapM_ doConfirm qsls
 
 main :: IO ()
 main = do
@@ -96,7 +135,7 @@ main = do
     case parseString str of
         Left err -> putStrLn $ printf "%s\n\nin input\n\n%s" (show err) str
         Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> let
-            infos = map adifDateTime adifs
+            infos = map mkQSLInfo adifs
             unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
          in
             runTransaction fp $ confirmQSOs unconfirmedInfos
