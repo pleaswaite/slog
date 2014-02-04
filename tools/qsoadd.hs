@@ -200,9 +200,6 @@ setDateTime :: ProgramWidgets -> IO ()
 setDateTime w = sequence_ [theDate >>= entrySetText (pwDate w),
                            theTime >>= entrySetText (pwTime w)]
 
-setDefaultMode :: EntryClass self => self -> IO ()
-setDefaultMode entry = entrySetText entry "SSB"
-
 -- This function is called when the Cancel button is clicked in order to blank
 -- out the UI and prepare it for starting over.  Expected user behavior is that
 -- Cancel is for when you've entered bad information and need to try again
@@ -212,10 +209,7 @@ clearUI w = do
     -- Blank out all the text entry widgets.
     mapM_ (flip entrySetText "")
           [pwCall w, pwRSTRcvd w, pwRSTSent w, pwExchangeRcvd w, pwExchangeSent w,
-           pwFrequency w, pwDate w, pwTime w]
-
-    -- Set the mode combo back to SSB.
-    setDefaultMode (pwMode w)
+           pwDate w, pwTime w]
 
     -- Set the current date/time checkbox back to active.
     toggleButtonSetActive (pwCurrentDT w) True
@@ -233,7 +227,8 @@ clearUI w = do
 -- function is called only once, upon program startup.
 initUI :: ProgramWidgets -> IO ()
 initUI w = do
-    setDefaultMode $ pwMode w
+    entrySetText (pwFrequency w) ""
+    entrySetText (pwMode w) "SSB"
     clearUI w
 
 rigctldActive :: ProgramWidgets -> IO Bool
