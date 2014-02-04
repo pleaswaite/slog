@@ -175,7 +175,7 @@ data ProgramWidgets = ProgramWidgets {
     pwRigctld :: CheckButton,
     pwCurrentDT :: CheckButton,
 
-    pwModeCombo :: ComboBox,
+    pwMode :: Entry,
 
     pwStatus :: Statusbar,
 
@@ -200,8 +200,8 @@ setDateTime :: ProgramWidgets -> IO ()
 setDateTime w = sequence_ [theDate >>= entrySetText (pwDate w),
                            theTime >>= entrySetText (pwTime w)]
 
-setDefaultMode :: ComboBoxClass self => self -> IO ()
-setDefaultMode combo = comboBoxSetActive combo 5
+setDefaultMode :: EntryClass self => self -> IO ()
+setDefaultMode entry = entrySetText entry "SSB"
 
 -- This function is called when the Cancel button is clicked in order to blank
 -- out the UI and prepare it for starting over.  Expected user behavior is that
@@ -215,7 +215,7 @@ clearUI w = do
            pwFrequency w, pwDate w, pwTime w]
 
     -- Set the mode combo back to SSB.
-    setDefaultMode (pwModeCombo w)
+    setDefaultMode (pwMode w)
 
     -- Set the current date/time checkbox back to active.
     toggleButtonSetActive (pwCurrentDT w) True
@@ -233,14 +233,7 @@ clearUI w = do
 -- function is called only once, upon program startup.
 initUI :: ProgramWidgets -> IO ()
 initUI w = do
-    -- Populate the mode combo box with our valid modes.  We don't want to
-    -- support all billion that ADIF does, since that'd be very unwieldy.
-    let combo = pwModeCombo w
-
-    comboBoxSetModelText combo
-    mapM_ (comboBoxAppendText combo) ["AM", "CW", "FM", "PSK31", "RTTY", "SSB"]
-    setDefaultMode combo
-
+    setDefaultMode $ pwMode w
     clearUI w
 
 rigctldActive :: ProgramWidgets -> IO Bool
@@ -263,7 +256,7 @@ setFreqModeSensitivity w = do
     else do
         active <- rigctldActive w
         mapM_ (flip widgetSetSensitive (not active))
-              [toWidget $ pwFrequency w, toWidget $ pwModeCombo w, toWidget $ pwFreqLabel w, toWidget $ pwModeLabel w]
+              [toWidget $ pwFrequency w, toWidget $ pwMode w, toWidget $ pwFreqLabel w, toWidget $ pwModeLabel w]
 
 -- If the checkbox is active, the individual date and time entries are not.  This
 -- is how we decide which way to get the time for the QSO.
@@ -285,7 +278,7 @@ buildArgList w = do
                              getDT (do t <- theTime ; return ["-t", t]) (getOneEntry pwTime "-t"),
                              getFromRigctl Ask.Mode
                                            (\(Tell.Mode mode _) -> return ["-m", show mode])
-                                           (getCombo pwModeCombo "-m")]
+                                           (getOneEntry pwMode "-m")]
  where
     getDT = ifM (currentDTActive w)
 
@@ -311,10 +304,6 @@ buildArgList w = do
                     ["", _]  -> return []
                     [a, ""]  -> return [opt, a]
                     [a, b]   -> return [opt, a ++ ":" ++ b]
-
-    getCombo f opt = do
-        text <- comboBoxGetActiveText (f w)
-        if isJust text then return [opt, fromJust text] else return []
 
 -- This function is called when the Add button is clicked in order to add a
 -- QSO into the database.
@@ -342,13 +331,13 @@ addQSOFromUI w addFunc = do
 
 loadWidgets :: Builder -> IO ProgramWidgets
 loadWidgets builder = do
-    [call, rstRcvd, rstSent, exchangeRcvd, exchangeSent, frequency,
+    [call, rstRcvd, rstSent, exchangeRcvd, exchangeSent, frequency, mode,
      date, time] <- mapM (getO castToEntry)
                              ["callEntry", "rstRcvdEntry", "rstSentEntry", "exchangeRcvdEntry",
-                              "exchangeSentEntry", "frequencyEntry", "dateEntry", "timeEntry"]
+                              "exchangeSentEntry", "frequencyEntry", "modeEntry",
+                              "dateEntry", "timeEntry"]
 
     [rigctld, currentDT] <- mapM (getO castToCheckButton) ["getFromRigCheckbox", "currentDateTimeCheckbox"]
-    [modeCombo] <- mapM (getO castToComboBox) ["modeComboBox"]
     [cancel, addButton] <- mapM (getO castToButton) ["cancelButton", "addButton"]
     [status] <- mapM (getO castToStatusbar) ["statusBar"]
 
@@ -356,7 +345,7 @@ loadWidgets builder = do
                                                           ["dateLabel", "timeLabel", "frequencyLabel", "modeLabel"]
 
     return $ ProgramWidgets call rstRcvd rstSent exchangeRcvd exchangeSent frequency
-                            date time rigctld currentDT modeCombo status dateLabel
+                            date time rigctld currentDT mode status dateLabel
                             timeLabel freqLabel modeLabel cancel addButton
  where
     getO cast = builderGetObject builder cast
