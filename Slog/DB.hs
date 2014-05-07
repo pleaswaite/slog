@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind -XLambdaCase #-}
 -- | This module interfaces with the sqlite3 database that makes up the data store of
 -- the library.  This database stores a serialized version of the 'QSO' record, plus
 -- some information about whether individual records have been uploaded to LOTW or
@@ -135,8 +135,7 @@ findQSO date time call freq = let
 -- FIXME:  If no QSO is found, fail is called.
 findQSOByDateTime :: ADIF.Date -> ADIF.Time -> Transaction Integer
 findQSOByDateTime date time = do
-    ndx <- findQSO (Just date) (Just time) Nothing Nothing
-    case ndx of
+    findQSO (Just date) (Just time) Nothing Nothing >>= \case
         [i] -> return i
         _   -> fail $ "No QSO found for " ++ (show date) ++ " " ++ (show time)
 
@@ -148,8 +147,7 @@ addQSO qso = do
     addToQSOTable qso
 
     -- Get the qsoid assigned by the database so we can create the other tables.
-    qsoid <- findQSO (Just $ qDate qso) (Just $ qTime qso) (Just $ qCall qso) (Just $ qFreq qso)
-    case qsoid of
+    findQSO (Just $ qDate qso) (Just $ qTime qso) (Just $ qCall qso) (Just $ qFreq qso) >>= \case
         [ndx] -> addToConfTable (H.toSql ndx) >> return ndx
         _     -> fail $ "Adding QSO for " ++ (qCall qso) ++ " on " ++ (show $ qFreq qso) ++ " failed."
  where

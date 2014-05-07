@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fno-warn-unused-do-bind #-}
-{-# LANGUAGE DoAndIfThenElse #-}
+{-# OPTIONS_GHC -fno-warn-unused-do-bind -XDoAndIfThenElse -XLambdaCase #-}
 import Control.Applicative((<$>))
 import Control.Exception(bracket)
 import Control.Monad(liftM, void)
@@ -148,9 +147,8 @@ handleOpts argv =
                         where header = "Usage: qsoadd [OPTIONS] file"
 
 splitArg :: String -> (Maybe String, Maybe String)
-splitArg s = 
-    if length eles == 1 then (Just $ eles !! 0, Nothing)
-    else (Just $ eles !! 0, Just $ eles !! 1)
+splitArg s | length eles == 1 = (Just $ eles !! 0, Nothing)
+           | otherwise        = (Just $ eles !! 0, Just $ eles !! 1)
  where
     eles = split ":" s
 
@@ -294,11 +292,10 @@ buildArgList w = do
         entryGetText (f w) >>= \s -> return [opt, s]
 
     getTwoEntries f1 f2 opt =
-        mapM entryGetText [f1 w, f2 w] >>=
-        \lst -> case lst of
-                    ["", _]  -> return []
-                    [a, ""]  -> return [opt, a]
-                    [a, b]   -> return [opt, a ++ ":" ++ b]
+        mapM entryGetText [f1 w, f2 w] >>= \case
+            ["", _]  -> return []
+            [a, ""]  -> return [opt, a]
+            [a, b]   -> return [opt, a ++ ":" ++ b]
 
 -- This function is called when the Add button is clicked in order to add a
 -- QSO into the database.
@@ -313,8 +310,7 @@ addQSOFromUI w addFunc = do
           (optCall cmdline)
  where
     doAdd fn cmdline call = do
-        result <- fn cmdline
-        case result of
+        fn cmdline >>= \case
             Left err    -> showErrorDialog err
             _           -> do clearUI w
                               void $ statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
@@ -455,7 +451,6 @@ main = do
 
     -- Are we running in graphical mode or cmdline mode?
     if optGraphical cmdline then runGUI conf
-    else do result <- lookupAndAddQSO conf cmdline
-            case result of
+    else do lookupAndAddQSO conf cmdline >>= \case
                 Left err   -> ioError (userError err)
                 Right _    -> return ()

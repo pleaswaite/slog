@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# OPTIONS_GHC -XPatternGuards -XScopedTypeVariables #-}
 -- | This module contains the top-level interface for communicating with a radio via
 -- the rigctld program.  While this module contains a function for starting rigctld, it
 -- is assumed in the Slog utilities that the user will have started it up before ever
@@ -55,10 +55,8 @@ disconnect :: Rig -> IO ()
 disconnect = hClose . socket
 
 errorCode :: String -> RigctldError
-errorCode s =
-    case stringToInteger s of
-        Just i    -> if i == 0 then NoError else RigError i
-        Nothing   -> NoError
+errorCode s | Just i <- stringToInteger s = if i == 0 then NoError else RigError i
+            | otherwise                   = NoError
 
 -- | Given a 'Slog.Rigctl.Commands.Ask.Command', ask the radio for a piece of information.  The result is either an
 -- error code or the matching 'Slog.Rigctl.Commands.Tell.Command' with information filled in.  Note that not every

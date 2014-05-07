@@ -1,3 +1,4 @@
+{-# OPTIONS_GHC -XLambdaCase #-}
 -- | The Lookup module provides a mechanism to query the <http://www.hamqth.com> website
 -- for information about a call sign.  Information is returned in a 'RadioAmateur'
 -- record.
@@ -82,10 +83,9 @@ data RAUses = Yes | No | Unknown
 type SessionID = String
 
 stringToRAUses :: String -> RAUses
-stringToRAUses s = case uppercase s of
-    "Y" -> Yes
-    "N" -> No
-    _   -> Unknown
+stringToRAUses s | uppercase s == "Y" = Yes
+                 | uppercase s == "N" = No
+                 | otherwise          = Unknown
 
 -- | Return an empty 'RadioAmateur' record - that is, one where all fields are
 -- initialize to 'Nothing' or an empty list.  This is useful when constructing a
@@ -203,20 +203,18 @@ responseIsValid xml | gotError xml = Nothing
 -- function will not succeed.
 lookupCall :: String -> SessionID -> IO (Maybe RadioAmateur)
 lookupCall call sid = do
-    let url = printf "http://www.hamqth.com/xml.php?id=%s&callsign=%s&prg=slog" sid call
-    result <- try (getXML url) :: IO (Either IOException String)
-
-    case result of
+    (try (getXML url) :: IO (Either IOException String)) >>= \case
         Right s   -> return $ parseXMLDoc s >>= responseIsValid >>= xmlToRadioAmateur
         _         -> return Nothing
+ where
+    url = printf "http://www.hamqth.com/xml.php?id=%s&callsign=%s&prg=slog" sid call
 
 -- | Given a user name and password, login to <http://www.hamqth.com> and return the
 -- returned session ID.  This operation may fail.  Be prepared.
 login :: String -> String -> IO (Maybe SessionID)
 login username pass = do
-    let url = printf "http://www.hamqth.com/xml.php?u=%s&p=%s" username pass
-    result <- try (getXML url) :: IO (Either IOException String)
-
-    case result of
+    (try (getXML url) :: IO (Either IOException String)) >>= \case
         Right xml -> return $ parseXMLDoc xml >>= getElementValue "session_id"
         _         -> return Nothing
+ where
+    url = printf "http://www.hamqth.com/xml.php?u=%s&p=%s" username pass
