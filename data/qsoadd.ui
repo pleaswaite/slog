@@ -162,7 +162,7 @@
             <child>
               <object class="GtkEntry" id="modeEntry">
                 <property name="visible">True</property>
-                <property name="can_focus">False</property>
+                <property name="can_focus">True</property>
               </object>
               <packing>
                 <property name="left_attach">3</property>
