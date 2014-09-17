@@ -113,7 +113,7 @@ opts = [
            "print program usage",
     Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",
-    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
+    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just $ uppercase arg }) "CALL")
            "their call sign (REQUIRED)",
     Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
            "mode used (REQUIRED)",
