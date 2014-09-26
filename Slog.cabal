@@ -54,6 +54,19 @@ library
                    HTTP,
                    MissingH
 
+executable editor
+  main-is:         editor.hs
+  hs-source-dirs:  tools
+
+  build-depends:   base,
+                   esqueleto,
+                   gtk,
+                   mtl,
+                   persistent-sqlite,
+                   persistent-template,
+                   text,
+                   Slog
+
 executable qsoadd
   main-is:         qsoadd.hs
   hs-source-dirs:  tools
