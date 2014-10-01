@@ -118,3 +118,13 @@ executable unworked
 
   build-depends:   base,
                    Slog
+
+executable slog
+  main-is:         slog.hs
+  hs-source-dirs:  tools
+
+  build-depends:   base,
+                   gtk,
+                   old-locale,
+                   time,
+                   Slog
