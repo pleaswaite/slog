@@ -39,10 +39,13 @@ library
                    containers,
                    convertible,
                    directory,
+                   esqueleto,
                    filepath,
                    mtl,
                    network,
                    parsec,
+                   persistent-sqlite,
+                   persistent-template,
                    process,
                    split,
                    text,
@@ -50,7 +53,6 @@ library
                    xml,
                    ConfigFile,
                    HDBC,
-                   HDBC-sqlite3,
                    HTTP,
                    MissingH
 
