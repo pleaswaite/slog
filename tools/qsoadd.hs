@@ -1,38 +1,19 @@
 {-# OPTIONS_GHC -fno-warn-unused-do-bind -XDoAndIfThenElse -XLambdaCase #-}
 import Control.Applicative((<$>))
-import Control.Exception(bracket)
-import Control.Monad(liftM, void)
-import Control.Monad.Reader(runReaderT)
-import Data.Maybe(fromJust, fromMaybe, isJust)
+import Data.Maybe(fromJust, fromMaybe)
 import Data.String.Utils(split)
-import Data.Time.Clock(UTCTime(..), getCurrentTime)
-import Data.Time.Format(formatTime)
-import Graphics.UI.Gtk hiding (get, set)
 import System.Exit(ExitCode(..), exitWith)
 import System.Console.GetOpt
 import System.Environment(getArgs)
-import System.Locale(defaultTimeLocale)
 
-import Slog.DB(addQSO, runTransaction)
+import Slog.DB(QsosId, addQSO)
 import Slog.DXCC(idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
 import Slog.QSO
-import qualified Slog.Rigctl.Commands.Ask as Ask
-import qualified Slog.Rigctl.Commands.Tell as Tell
-import qualified Slog.Rigctl.Rigctl as R
 import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
 import ToolLib.Config
-
---
--- MISCELLANEOUS
---
-
-ifM :: Monad m => m Bool -> m a -> m a -> m a
-ifM test exprA exprB = do
-    result <- test
-    if result then exprA else exprB
 
 --
 -- OPTION PROCESSING CODE
@@ -105,8 +86,6 @@ opts = [
                                                                      optRxFreq = maybe Nothing stringToDouble (snd sp) })
                                         "FREQ")
            "frequency used (or their freq:your freq for split mode) (REQUIRED)",
-    Option ['g'] ["graphical"]  (NoArg  (\opt -> return opt { optGraphical = True }))
-           "run in graphical mode",
     Option ['h'] ["help"]       (NoArg  (\_ -> do
                                                    putStrLn (usageInfo "qsoadd" opts)
                                                    exitWith ExitSuccess))
@@ -155,217 +134,6 @@ splitArg s | length eles == 1 = (Just $ eles !! 0, Nothing)
 processArgs argsFunc = do
     (actions, _) <- argsFunc
     foldl (>>=) (return defaultOptions) actions
-
---
--- UI CODE
---
-
-data ProgramWidgets = ProgramWidgets {
-    pwCall :: Entry,
-    pwRSTRcvd :: Entry,
-    pwRSTSent :: Entry,
-    pwExchangeRcvd :: Entry,
-    pwExchangeSent :: Entry,
-    pwFrequency :: Entry,
-    pwDate :: Entry,
-    pwTime :: Entry,
-
-    pwRigctld :: CheckButton,
-    pwCurrentDT :: CheckButton,
-
-    pwMode :: Entry,
-
-    pwStatus :: Statusbar,
-
-    pwDateLabel :: Label,
-    pwTimeLabel :: Label,
-    pwFreqLabel :: Label,
-    pwModeLabel :: Label,
-
-    pwCancel :: Button,
-    pwAdd :: Button }
-
-formatDateTime :: String -> UTCTime -> String
-formatDateTime spec utc = formatTime defaultTimeLocale spec utc
-
-theTime :: IO String
-theTime = liftM (formatDateTime "%R") getCurrentTime
-
-theDate :: IO String
-theDate = liftM (formatDateTime "%F") getCurrentTime
-
-setDateTime :: ProgramWidgets -> IO ()
-setDateTime w = sequence_ [theDate >>= entrySetText (pwDate w),
-                           theTime >>= entrySetText (pwTime w)]
-
--- This function is called when the Cancel button is clicked in order to blank
--- out the UI and prepare it for starting over.  Expected user behavior is that
--- Cancel is for when you've entered bad information and need to try again
--- (missed a QSO, etc.) and quitting the application is for when you want to quit.
-clearUI :: ProgramWidgets -> IO ()
-clearUI w = do
-    -- Blank out all the text entry widgets.
-    mapM_ (flip entrySetText "")
-          [pwCall w, pwRSTRcvd w, pwRSTSent w, pwExchangeRcvd w, pwExchangeSent w,
-           pwDate w, pwTime w]
-
-    -- Set the current date/time checkbox back to active.
-    toggleButtonSetActive (pwCurrentDT w) True
-
-    -- Set the rigctld checkbox to active, but only if it's running.
-    void $ toggleButtonSetActive (pwRigctld w) <$> R.isRigctldRunning
-    setFreqModeSensitivity w
-
-    -- Remove the status bar message.
-    statusbarRemoveAll (pwStatus w) 0
-
-    setDateTime w
-
--- Some UI setup is best done in code instead of in the glade file.  This
--- function is called only once, upon program startup.
-initUI :: ProgramWidgets -> IO ()
-initUI w = do
-    entrySetText (pwFrequency w) ""
-    entrySetText (pwMode w) "SSB"
-    clearUI w
-
-rigctldActive :: ProgramWidgets -> IO Bool
-rigctldActive w = toggleButtonGetActive (pwRigctld w)
-
-currentDTActive :: ProgramWidgets -> IO Bool
-currentDTActive w = toggleButtonGetActive (pwCurrentDT w)
-
--- If the checkbox is active, the individual frequency and mode entries are not.
--- This is how we decide whether to get this data from rigctld or not.
-setFreqModeSensitivity :: ProgramWidgets -> IO ()
-setFreqModeSensitivity w = do
-    running <- R.isRigctldRunning
-
-    -- If rigctld is not running, we shouldn't allow the user to even check
-    -- the box, though we should at least tell them why.
-    if not running then do
-        toggleButtonSetActive (pwRigctld w) False
-        void $ statusbarPush (pwStatus w) 0 "rigctld is not running."
-    else do
-        active <- rigctldActive w
-        mapM_ (flip widgetSetSensitive (not active))
-              [toWidget $ pwFrequency w, toWidget $ pwMode w, toWidget $ pwFreqLabel w, toWidget $ pwModeLabel w]
-
--- If the checkbox is active, the individual date and time entries are not.  This
--- is how we decide which way to get the time for the QSO.
-setDateTimeSensitivity :: ProgramWidgets -> IO ()
-setDateTimeSensitivity w = do
-    active <- currentDTActive w
-    mapM_ (flip widgetSetSensitive (not active))
-          [toWidget $ pwDate w, toWidget $ pwTime w, toWidget $ pwDateLabel w, toWidget $ pwTimeLabel w]
-
-buildArgList :: ProgramWidgets -> IO [String]
-buildArgList w = do
-    liftM concat $ sequence [getOneEntry pwCall "-l",
-                             getTwoEntries pwRSTRcvd pwRSTSent "-r",
-                             getTwoEntries pwExchangeRcvd pwExchangeSent "-x",
-                             getFromRigctl Ask.Frequency
-                                           (\(Tell.Frequency f) -> return ["-f", show f])
-                                           (getOneEntry pwFrequency "-f"),
-                             getDT (do d <- theDate ; return ["-d", d]) (getOneEntry pwDate "-d"),
-                             getDT (do t <- theTime ; return ["-t", t]) (getOneEntry pwTime "-t"),
-                             getFromRigctl Ask.Mode
-                                           (\(Tell.Mode mode _) -> return ["-m", show mode])
-                                           (getOneEntry pwMode "-m")]
- where
-    getDT = ifM (currentDTActive w)
-
-    getFromRigctl inCmd getOutCmd fallback =
-        ifM (rigctldActive w) doGet fallback
-     where
-        doGet = bracket (R.connect "localhost" 4532)
-                        R.disconnect
-                        doAsk
-
-        doAsk st = do
-            result <- runReaderT (R.ask inCmd) st
-            either (\_ -> fallback)
-                   getOutCmd
-                   result
-
-    getOneEntry f opt =
-        entryGetText (f w) >>= \s -> return [opt, s]
-
-    getTwoEntries f1 f2 opt =
-        mapM entryGetText [f1 w, f2 w] >>= \case
-            ["", _]  -> return []
-            [a, ""]  -> return [opt, a]
-            [a, b]   -> return [opt, a ++ ":" ++ b]
-
--- This function is called when the Add button is clicked in order to add a
--- QSO into the database.
-addQSOFromUI :: ProgramWidgets -> (Options -> IO (Either String Integer)) -> IO ()
-addQSOFromUI w addFunc = do
-    -- Convert the UI elements into a list of command line arguments, like the program
-    -- would normally take.  This is a little lame, but it avoids having to come up with
-    -- all that validation code again.
-    cmdline <- processArgs (buildArgList w >>= handleOpts)
-    maybe (showErrorDialog "You must specify a call sign.")
-          (doAdd addFunc cmdline)
-          (optCall cmdline)
- where
-    doAdd fn cmdline call = do
-        fn cmdline >>= \case
-            Left err    -> showErrorDialog err
-            _           -> do clearUI w
-                              void $ statusbarPush (pwStatus w) 0 ("QSO with " ++ call ++ " added to database.")
-
-    showErrorDialog msg =
-        bracket (messageDialogNew Nothing [DialogModal] MessageError ButtonsOk msg)
-                (widgetDestroy)
-                (\dlg -> void $ dialogRun dlg)
-
-loadWidgets :: Builder -> IO ProgramWidgets
-loadWidgets builder = do
-    [call, rstRcvd, rstSent, exchangeRcvd, exchangeSent, frequency, mode,
-     date, time] <- mapM (getO castToEntry)
-                             ["callEntry", "rstRcvdEntry", "rstSentEntry", "exchangeRcvdEntry",
-                              "exchangeSentEntry", "frequencyEntry", "modeEntry",
-                              "dateEntry", "timeEntry"]
-
-    [rigctld, currentDT] <- mapM (getO castToCheckButton) ["getFromRigCheckbox", "currentDateTimeCheckbox"]
-    [cancel, addButton] <- mapM (getO castToButton) ["cancelButton", "addButton"]
-    [status] <- mapM (getO castToStatusbar) ["statusBar"]
-
-    [dateLabel, timeLabel, freqLabel, modeLabel] <- mapM (getO castToLabel)
-                                                          ["dateLabel", "timeLabel", "frequencyLabel", "modeLabel"]
-
-    return $ ProgramWidgets call rstRcvd rstSent exchangeRcvd exchangeSent frequency
-                            date time rigctld currentDT mode status dateLabel
-                            timeLabel freqLabel modeLabel cancel addButton
- where
-    getO cast = builderGetObject builder cast
-
-runGUI :: Config -> IO ()
-runGUI conf = do
-    initGUI
-
-    -- Load the glade file.
-    builder <- builderNew
-    builderAddFromFile builder "data/qsoadd.ui"
-
-    widgets <- loadWidgets builder
-
-    -- Set up the initial state of the UI.
-    initUI widgets
-
-    -- Set up GTK signal handlers to do something.
-    window <- builderGetObject builder castToWindow "window1"
-    onDestroy window mainQuit
-
-    onClicked (pwCancel widgets) $ clearUI widgets
-    onClicked (pwAdd widgets) $ addQSOFromUI widgets (lookupAndAddQSO conf)
-    onToggled (pwRigctld widgets) $ setFreqModeSensitivity widgets
-    onToggled (pwCurrentDT widgets) $ setDateTimeSensitivity widgets
-
-    -- And away we go!
-    widgetShowAll window
-    mainGUI
 
 --
 -- FINALLY, THE MAIN PROGRAM
@@ -424,7 +192,7 @@ buildQSO ra opt = do
     Just v <!> _    = Right v
     _ <!> msg       = Left msg
 
-lookupAndAddQSO :: Config -> Options -> IO (Either String Integer)
+lookupAndAddQSO :: Config -> Options -> IO (Either String QsosId)
 lookupAndAddQSO conf cmdline = do
     -- Get the on-disk location of the database.
     let fp = confDB conf
@@ -432,7 +200,7 @@ lookupAndAddQSO conf cmdline = do
     ra <- doLookup call user password
     case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
         Left err  -> return $ Left err
-        Right qso -> do ndx <- runTransaction fp $ addQSO qso
+        Right qso -> do ndx <- addQSO fp qso
                         return $ Right ndx
  where
     -- We don't have to worry about call being Nothing here.  That's checked before
@@ -449,8 +217,6 @@ main = do
     -- Read in the config file.
     conf <- readConfig
 
-    -- Are we running in graphical mode or cmdline mode?
-    if optGraphical cmdline then runGUI conf
-    else do lookupAndAddQSO conf cmdline >>= \case
-                Left err   -> ioError (userError err)
-                Right _    -> return ()
+    lookupAndAddQSO conf cmdline >>= \case
+        Left err   -> ioError (userError err)
+        Right _    -> return ()

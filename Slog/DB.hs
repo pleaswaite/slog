@@ -14,7 +14,8 @@
 -- some information about whether individual records have been uploaded to LOTW or
 -- eQSL, whether a QSL card was received or sent, and whether records have been
 -- confirmed by the remote station.
-module Slog.DB(confirmQSO,
+module Slog.DB(QsosId,
+               confirmQSO,
                findQSO,
                findQSOByDateTime,
                addQSO,
