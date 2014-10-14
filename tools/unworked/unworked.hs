@@ -5,7 +5,7 @@ import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
+import Slog.DB(getAllQSOs, getUnconfirmedQSOs)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
 import Slog.QSO(QSO(qDXCC))
 
@@ -80,8 +80,8 @@ main = do
     let fp = confDB conf
 
     -- Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ runTransaction fp getAllQSOs
-    unconfirmed <- runTransaction fp getUnconfirmedQSOs
+    qsos <- liftM reverse $ getAllQSOs fp
+    unconfirmed <- getUnconfirmedQSOs fp
 
     -- If we are reporting based on only confirmed QSOs, remove unconfirmed
     -- ones from the list.  Otherwise, use all the QSOs in the log.
