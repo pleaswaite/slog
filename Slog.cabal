@@ -83,7 +83,6 @@ executable qsoconfirm
 
   build-depends:   base,
                    mtl,
-                   HDBC,
                    Slog
 
 executable qsoreport
