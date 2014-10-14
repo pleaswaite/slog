@@ -4,7 +4,7 @@ import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
+import Slog.DB(getAllQSOs, getUnconfirmedQSOs)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Utils(uppercase)
 
@@ -104,8 +104,8 @@ main = do
 
     -- Reporting is a multiple step process:
     -- (1) Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ runTransaction fp getAllQSOs
-    unconfirmed <- runTransaction fp getUnconfirmedQSOs
+    qsos <- liftM reverse $ getAllQSOs fp
+    unconfirmed <- getUnconfirmedQSOs fp
 
     -- (2) Construct a list of tuples:  a QSO, and a boolean saying whether it's
     -- been confirmed or not.
