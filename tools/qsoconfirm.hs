@@ -4,7 +4,7 @@ import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import Text.Printf(printf)
 
-import Slog.DB(confirmQSO, findQSO, getUnconfirmedQSOs, getQSOByID, runTransaction, Transaction)
+import Slog.DB(confirmQSO, findQSO, getUnconfirmedQSOs, getQSOByID)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -68,27 +68,27 @@ logMessage qso =
     date = dashifyDate $ qDate qso
     time = colonifyTime $ qTime qso
 
-doConfirm :: QSLInfo -> Transaction ()
-doConfirm qslInfo = do
+doConfirm :: FilePath -> QSLInfo -> IO ()
+doConfirm fp qslInfo = do
     -- LOTW gives us band information, but our database stores everything in terms of
     -- frequency.  Thus we query the database for all QSOs matching time and call.  This
     -- could possibly return multiple results, across multiple bands.  We'll find the
     -- right one later.
-    ids <- findQSO (Just $ qiDate qslInfo)
-                   (Just $ withoutSeconds $ qiTime qslInfo)
-                   (Just $ qiCall qslInfo)
-                   Nothing
+    ids <- findQSO fp (Just $ qiDate qslInfo)
+                      (Just $ withoutSeconds $ qiTime qslInfo)
+                      (Just $ qiCall qslInfo)
+                      Nothing
     mapM_ confirmOne ids
  where
     confirmOne qsoid = do
-        qso <- getQSOByID qsoid
+        qso <- getQSOByID fp qsoid
 
         -- If this QSO is on the same band as the QSLInfo object, it must be the one
         -- we want to confirm.  This guard basically does the filtering that we wish
         -- the database could have given us above, if we didn't have to work in terms
         -- of frequency.
         when (maybe False (qiBand qslInfo ==) (freqToBand $ qFreq qso))
-             (do confirmQSO qsoid (qiQSLDate qslInfo)
+             (do confirmQSO fp qsoid (qiQSLDate qslInfo)
                  liftIO $ (putStrLn . logMessage) qso)
 
 filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
@@ -108,9 +108,9 @@ filterPreviousConfirmations qsos infos = let
     -- the database.
     filter (`elem` unconfirmed) (catMaybes infos)
 
-confirmQSOs :: [QSLInfo] -> Transaction ()
-confirmQSOs qsls = do
-    mapM_ doConfirm qsls
+confirmQSOs :: FilePath -> [QSLInfo] -> IO ()
+confirmQSOs fp qsls = do
+    mapM_ (doConfirm fp) qsls
 
 main :: IO ()
 main = do
@@ -124,7 +124,7 @@ main = do
     -- that might be a whole lot of ADIF data.  However, there's really not a better way
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
-    unconfirmeds <- runTransaction fp getUnconfirmedQSOs
+    unconfirmeds <- getUnconfirmedQSOs fp
     let earliestUnconfirmed = dashifyDate . qDate $ unconfirmeds !! 0
 
     -- Grab the confirmed QSOs from LOTW.
@@ -138,4 +138,4 @@ main = do
             infos = map mkQSLInfo adifs
             unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
          in
-            runTransaction fp $ confirmQSOs unconfirmedInfos
+            confirmQSOs fp unconfirmedInfos
