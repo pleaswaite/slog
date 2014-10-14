@@ -9,8 +9,10 @@ import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
+import Slog.DB(getQSOsByCall)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
-import Slog.Utils(uppercase)
+import Slog.Utils(colonifyTime, dashifyDate, uppercase)
+import Slog.QSO(QSO(..))
 import ToolLib.Config
 
 --
@@ -97,9 +99,10 @@ blockUI widgets b = do
     mapM_ (\widget -> set widget [ widgetSensitive := not b ])
           [wLookup widgets, wClear widgets, wAdd widgets]
 
-createPreviousArea widgets = do
-    let view = wPreviousView widgets
-    store <- listStoreNew ([] :: [PreviousRow])
+-- Create the columns and renderers for the previous QSOs with a given call area.
+-- This function should only be called once or each column will appear multiple times.
+createPreviousArea :: ListStore PreviousRow -> TreeView -> IO ()
+createPreviousArea store view = do
     treeViewSetModel view store
 
     -- DATE
@@ -141,9 +144,26 @@ createPreviousArea widgets = do
         col <- treeViewColumnNew
         cell <- cellRendererTextNew
         cellLayoutPackStart col cell True
-        cellLayoutSetAttributes col cell model $ \row -> [ cellText := fn row ]
+        cellLayoutSetAttributes col cell model $ \row -> [ cellText := fn row,
+                                                           cellXPad := 6 ]
         treeViewColumnSetTitle col title
         return col
+
+populatePreviousArea :: ListStore PreviousRow -> [QSO] -> IO ()
+populatePreviousArea store qsos = do
+    -- Clear out any previously existing model.
+    listStoreClear store
+
+    -- Populate the new model.
+    mapM_ (\q -> listStoreAppend store $ PreviousRow { pDate=dashifyDate $ qDate q,
+                                                       pTime=colonifyTime $ qTime q,
+                                                       pCall=qCall q,
+                                                       pFreq=qFreq q,
+                                                       pRxFreq=qRxFreq q,
+                                                       pMode=show $ qMode q,
+                                                       pAntenna=qAntenna q,
+                                                       pConfirmed=False })
+          qsos
 
 --
 -- FUNCTIONS FOR QUERYING WIDGET STATE
@@ -168,8 +188,8 @@ currentToggled widgets = do
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
 -- handler so the lookup can proceed while the UI continues to refresh.
-lookupCallsign :: Widgets -> Config -> IO Bool
-lookupCallsign widgets conf = do
+lookupCallsign :: Widgets -> ListStore PreviousRow -> Config -> IO Bool
+lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
     ra <- lookup (uppercase call)
                  (confQTHUser conf)
@@ -181,6 +201,9 @@ lookupCallsign widgets conf = do
     -- Return false to remove this handler from the main loop.
     return False
  where
+    -- The on-disk database location.
+    fp = confDB conf
+
     lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
     lookup call user pass = do
         sid <- login user pass
@@ -195,9 +218,14 @@ lookupCallsign widgets conf = do
         when (raLOTW ra' == Just Yes) $ addCheckToTable (wNewQSOGrid widgets) 1 7
 
         -- Put their call, dxcc entity, and grid in the appropriate labels.
-        when (isJust $ raCall ra')    $ set (wPrevious widgets) [ frameLabel := "Previous contacts with " ++ call ]
-        when (isJust $ raCountry ra') $ set (wDXCC widgets)     [ frameLabel := (fromJust . raCountry) ra' ++ " status" ]
-        when (isJust $ raGrid ra')    $ set (wGrid widgets)     [ frameLabel := shortGrid ++ " status" ]
+        when (isJust $ raCall ra')    $ set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
+        when (isJust $ raCountry ra') $ set (wDXCC widgets)     [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
+        when (isJust $ raGrid ra')    $ set (wGrid widgets)     [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
+
+        -- Populate the list of previous QSOs we've had with this person.
+        when (isJust $ raCall ra') $ do
+            qsos <- getQSOsByCall fp call
+            populatePreviousArea store qsos
      where
         call = uppercase . fromJust $ raCall ra'
 
@@ -254,9 +282,9 @@ clearUI widgets = do
     set (wCurrent widgets) [ toggleButtonActive := True ]
 
     -- Set the titles on the various frames to something boring.
-    set (wPrevious widgets) [ frameLabel := "Previous contacts with remote station" ]
-    set (wDXCC widgets)     [ frameLabel := "Entity status" ]
-    set (wGrid widgets)     [ frameLabel := "Grid status" ]
+    set (wPrevious widgets) [ widgetSensitive := False, frameLabel := "Previous contacts with remote station" ]
+    set (wDXCC widgets)     [ widgetSensitive := False, frameLabel := "Entity status" ]
+    set (wGrid widgets)     [ widgetSensitive := False, frameLabel := "Grid status" ]
 
     -- Display the current date and time as the default values.
     setDateTime widgets
@@ -286,18 +314,19 @@ runGUI conf = do
     builderAddFromFile builder "data/slog.ui"
     widgets <- loadWidgets builder
 
-    -- Create some stores.
-    createPreviousArea widgets
-
     -- Set up GTK signal handlers to do something.
     window <- builderGetObject builder castToWindow "window1"
     onDestroy window mainQuit
+
+    -- Create the previous QSOs view stuff.
+    store <- listStoreNew ([] :: [PreviousRow])
+    createPreviousArea store (wPreviousView widgets)
 
     on (wCurrent widgets) toggled (currentToggled widgets)
     on (wClear widgets) buttonActivated (clearUI widgets)
     on (wLookup widgets) buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
                                                                    (blockUI widgets False)
-                                                                   (lookupCallsign widgets conf))
+                                                                   (lookupCallsign widgets store conf))
                                                          priorityDefaultIdle)
 
     -- Initialize the widgets to their first state.

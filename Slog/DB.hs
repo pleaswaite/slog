@@ -21,6 +21,7 @@ module Slog.DB(QsosId,
                addQSO,
                getQSOByID,
                getAllQSOs,
+               getQSOsByCall,
                getUnconfirmedQSOs,
                getUnsentQSOs,
                markQSOsAsSent)
@@ -73,6 +74,10 @@ share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
     deriving Eq Show
 |]
 
+--
+-- FINDING THE ID FOR A GIVEN QSO
+--
+
 -- | A generic way of finding the ID for a QSO.  This function can take at
 -- most a date, time, call sign, and frequency.  It returns the ID of the
 -- first QSO meeting the given criteria.  It is assumed that only one QSO
@@ -106,20 +111,9 @@ findQSOByDateTime filename date time = runSqlite (pack filename) $ do
     if null rows then return Nothing
     else return $ Just $ unValue $ head rows
 
--- | Insert the new 'QSO' record into the database and return the new row's unique ID.
--- If a row already exists with the record's date and time, an exception is raised.
-addQSO :: FilePath -> QSO -> IO QsosId
-addQSO filename qso = runSqlite (pack filename) $ do
-    -- First, add the new QSO to the qsos table.
-    qsoid <- insert $ Qsos (qDate qso) (qTime qso) (qFreq qso) (qRxFreq qso) (show $ qMode qso)
-                           (fmap fromInteger $ qDXCC qso) (qGrid qso) (qState qso) (qName qso) (qNotes qso)
-                           (qXcIn qso) (qXcOut qso) (qRST_Rcvd qso) (qRST_Sent qso)
-                           (fmap fromInteger $ qITU qso) (fmap fromInteger $ qWAZ qso) (uppercase $ qCall qso)
-                           (fmap show $ qPropMode qso) (qSatName qso) (qAntenna qso)
-
-    -- And then add a reference in the confirmations table.
-    insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing
-    return qsoid
+--
+-- FINDING A QSO OBJECT
+--
 
 -- | Given a 'qsoid', return a 'QSO' record from the database.
 getQSOByID :: FilePath -> QsosId -> IO QSO
@@ -129,21 +123,18 @@ getQSOByID filename qsoid = runSqlite (pack filename) $ do
                                      return q
     return $ (sqlToQSO . entityVal) (head rows)
 
--- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
--- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
--- 'QSO' record has been confirmed.  A confirmed record is one where the local station has
--- recorded an entry in the log, and the remote station has recorded and uploaded a
--- matching entry in their log.
-confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
-confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $ do
-    update $ \r -> do
-        set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
-        where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
-
 -- | Return a list of all 'QSO' records in the database, sorted by date and time.
 getAllQSOs :: FilePath -> IO [QSO]
 getAllQSOs filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \q -> do orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
+                                     return q
+    return $ map (sqlToQSO . entityVal) rows
+
+-- | Return a list of all 'QSO' records in the database for a given call sign.
+getQSOsByCall :: FilePath -> String -> IO [QSO]
+getQSOsByCall filename call = runSqlite (pack filename) $ do
+    rows <- select $ from $ \q -> do where_ (q ^. QsosCall ==. (val call))
+                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                      return q
     return $ map (sqlToQSO . entityVal) rows
 
@@ -163,6 +154,40 @@ getUnsentQSOs filename = runSqlite (pack filename) $ do
                                                      where_ (isNothing $ c ^. ConfirmationsLotw_sdate)
                                                      return q
     return $ map (sqlToQSO . entityVal) rows
+
+--
+-- MODIFYING THE DATABASE
+--
+
+-- | Insert the new 'QSO' record into the database and return the new row's unique ID.
+-- If a row already exists with the record's date and time, an exception is raised.
+addQSO :: FilePath -> QSO -> IO QsosId
+addQSO filename qso = runSqlite (pack filename) $ do
+    -- First, add the new QSO to the qsos table.
+    qsoid <- insert $ Qsos (qDate qso) (qTime qso) (qFreq qso) (qRxFreq qso) (show $ qMode qso)
+                           (fmap fromInteger $ qDXCC qso) (qGrid qso) (qState qso) (qName qso) (qNotes qso)
+                           (qXcIn qso) (qXcOut qso) (qRST_Rcvd qso) (qRST_Sent qso)
+                           (fmap fromInteger $ qITU qso) (fmap fromInteger $ qWAZ qso) (uppercase $ qCall qso)
+                           (fmap show $ qPropMode qso) (qSatName qso) (qAntenna qso)
+
+    -- And then add a reference in the confirmations table.
+    insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing
+    return qsoid
+
+--
+-- DEALING WITH CONFIRMATIONS
+--
+
+-- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
+-- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
+-- 'QSO' record has been confirmed.  A confirmed record is one where the local station has
+-- recorded an entry in the log, and the remote station has recorded and uploaded a
+-- matching entry in their log.
+confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
+confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $ do
+    update $ \r -> do
+        set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
+        where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
 
 -- | Given a list of previously unsent 'QSO' records (perhaps as returned by 'getUnsentQSOs'),
 -- mark them as uploaded to LOTW in the database.  It is expected this function will be

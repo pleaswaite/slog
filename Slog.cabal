@@ -123,4 +123,5 @@ executable slog
                    gtk,
                    old-locale,
                    time,
+                   utf8-string,
                    Slog
