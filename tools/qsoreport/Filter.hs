@@ -12,8 +12,6 @@ module Filter(byBand,
               byWAZ)
  where
 
-import Data.Maybe(isJust)
-
 import Slog.DB(QsosId)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -28,8 +26,7 @@ byCall call (_, qso, _) = uppercase call == uppercase (qCall qso)
 
 byConfirmed :: Bool -> (QsosId, QSO, Confirmation) -> Bool
 byConfirmed conf (_, _, conf') =
-    if isJust $ qLOTW_RDate conf' then conf
-    else False
+    if isConfirmed conf' then conf else False
 
 byDigital :: (QsosId, QSO, Confirmation) -> Bool
 byDigital (_, qso, _) = ADIF.digitalMode (qMode qso)

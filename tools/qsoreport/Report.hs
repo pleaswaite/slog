@@ -5,7 +5,7 @@ module Report(reportAll,
  where
 
 import Data.List(groupBy, nubBy, sortBy)
-import Data.Maybe(isJust, listToMaybe)
+import Data.Maybe(listToMaybe)
 import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
@@ -28,10 +28,8 @@ resultToRow (_, q, c) =
              td $ toHtml (qGrid q),
              td $ toHtml (maybe "" show $ qITU q),
              td $ toHtml (maybe "" show $ qWAZ q),
-             td $ toHtml (if isConfirmed then "Y" else "")
+             td $ toHtml (if isConfirmed c then "Y" else "")
      ]
- where
-    isConfirmed = isJust $ qLOTW_RDate c
 
 -- This header is suitable for printing out general queries - dumping all logged QSOs,
 -- dumping all QSOs for a specific band or specific call, etc.
@@ -56,7 +54,7 @@ report caption results = concatHtml [
     toHtml $ show nQSOs ++ " " ++ caption ++ ", " ++ show nConfirmed ++ " confirmed" ]
  where
     nQSOs = length results
-    nConfirmed = length $ filter (isJust . qLOTW_RDate) (map third results)
+    nConfirmed = length $ filter isConfirmed (map third results)
 
     results' = map resultToRow results
 

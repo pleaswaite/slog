@@ -1,8 +1,12 @@
 -- | This module exports the most basic data types used throughout the Slog library
 -- and utilities.
-module Slog.QSO where
+module Slog.QSO(QSO(..),
+                Confirmation(..),
+                isConfirmed,
+                qsoToADIF)
+  where
 
-import Data.Maybe(catMaybes, fromJust, isNothing)
+import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 
 -- Some of these types are pretty useful everywhere.  Perhaps they should move
 -- up into a non-ADIF specific module.
@@ -53,6 +57,11 @@ data Confirmation = Confirmation {
     qLOTW_RDate   :: Maybe ADIF.Date,
     qLOTW_SDate   :: Maybe ADIF.Date }
  deriving (Eq, Show, Read)
+
+-- | Given a 'Confirmation' record, determine if it has actually been confirmed or not.
+-- For our purposes, this means confirmed in LOTW.
+isConfirmed :: Confirmation -> Bool
+isConfirmed c = isJust $ qLOTW_RDate c
 
 -- | Given a 'QSO' record, attempt to convert it into a list of ADIF fields.  This is
 -- used to grab QSOs out of the database and upload them to LOTW.
