@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 
+import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad(liftM, when, void)
 import Data.Maybe(fromJust, isJust)
@@ -9,10 +10,13 @@ import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
-import Slog.DB(getQSOsByCall)
+import Slog.DB(DBResult, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
+import Slog.DXCC(idFromName)
+import Slog.Formats.ADIF.Types(Band(..))
+import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
 import Slog.Utils(colonifyTime, dashifyDate, uppercase)
-import Slog.QSO(QSO(..))
+import Slog.QSO(Confirmation(..), QSO(..))
 import ToolLib.Config
 
 --
@@ -91,6 +95,27 @@ addCheckToTable tbl col row = do
     widgetShowAll tbl
     return ()
 
+addEntityCheck :: Widgets -> Maybe Band -> IO ()
+addEntityCheck widgets band | band == Just Band160M = addCheckToTable (wDXCCGrid widgets) 0  2
+                            | band == Just Band80M  = addCheckToTable (wDXCCGrid widgets) 1  2
+                            | band == Just Band60M  = addCheckToTable (wDXCCGrid widgets) 2  2
+                            | band == Just Band40M  = addCheckToTable (wDXCCGrid widgets) 3  2
+                            | band == Just Band30M  = addCheckToTable (wDXCCGrid widgets) 4  2
+                            | band == Just Band20M  = addCheckToTable (wDXCCGrid widgets) 5  2
+                            | band == Just Band17M  = addCheckToTable (wDXCCGrid widgets) 6  2
+                            | band == Just Band15M  = addCheckToTable (wDXCCGrid widgets) 7  2
+                            | band == Just Band12M  = addCheckToTable (wDXCCGrid widgets) 8  2
+                            | band == Just Band10M  = addCheckToTable (wDXCCGrid widgets) 9  2
+                            | band == Just Band6M   = addCheckToTable (wDXCCGrid widgets) 10 2
+                            | otherwise        = return ()
+
+addGridCheck :: Widgets -> Maybe Band -> IO ()
+addGridCheck widgets band | band == Just Band6M        = addCheckToTable (wGridGrid widgets) 0 2
+                          | band == Just Band2M        = addCheckToTable (wGridGrid widgets) 1 2
+                          | band == Just Band1Point25M = addCheckToTable (wGridGrid widgets) 2 2
+                          | band == Just Band70CM      = addCheckToTable (wGridGrid widgets) 3 2
+                          | otherwise             = return ()
+
 blockUI :: Widgets -> Bool -> IO ()
 blockUI widgets b = do
     -- The "not" is here because it reads a lot better to write "blockUI True" than to pass
@@ -98,6 +123,14 @@ blockUI widgets b = do
     set (wCurrent widgets) [ widgetSensitive := not b ]
     mapM_ (\widget -> set widget [ widgetSensitive := not b ])
           [wLookup widgets, wClear widgets, wAdd widgets]
+
+clearChecks :: Widgets -> IO ()
+clearChecks widgets =
+    mapM_ (\cont -> containerForeach cont (removeImage cont))
+          [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets]
+ where
+    removeImage container widget = do
+        when (isA widget gTypeImage) $ do containerRemove container widget
 
 -- Create the columns and renderers for the previous QSOs with a given call area.
 -- This function should only be called once or each column will appear multiple times.
@@ -149,21 +182,21 @@ createPreviousArea store view = do
         treeViewColumnSetTitle col title
         return col
 
-populatePreviousArea :: ListStore PreviousRow -> [QSO] -> IO ()
-populatePreviousArea store qsos = do
+populatePreviousArea :: ListStore PreviousRow -> [DBResult] -> IO ()
+populatePreviousArea store results = do
     -- Clear out any previously existing model.
     listStoreClear store
 
     -- Populate the new model.
-    mapM_ (\q -> listStoreAppend store $ PreviousRow { pDate=dashifyDate $ qDate q,
-                                                       pTime=colonifyTime $ qTime q,
-                                                       pCall=qCall q,
-                                                       pFreq=qFreq q,
-                                                       pRxFreq=qRxFreq q,
-                                                       pMode=show $ qMode q,
-                                                       pAntenna=qAntenna q,
-                                                       pConfirmed=False })
-          qsos
+    mapM_ (\(_, q, c) -> listStoreAppend store $ PreviousRow { pDate=dashifyDate $ qDate q,
+                                                               pTime=colonifyTime $ qTime q,
+                                                               pCall=qCall q,
+                                                               pFreq=qFreq q,
+                                                               pRxFreq=qRxFreq q,
+                                                               pMode=show $ qMode q,
+                                                               pAntenna=qAntenna q,
+                                                               pConfirmed=isConfirmed c})
+          results
 
 --
 -- FUNCTIONS FOR QUERYING WIDGET STATE
@@ -213,21 +246,51 @@ lookupCallsign widgets store conf = do
         statusbarPush (wStatus widgets) 0 ("Lookup of " ++ call ++ " finished.")
 
         -- And now that we've discovered something, we can update the UI to reflect what we found.
+        -- We start with clearing out the checkmarks.  This is so you can lookup a call, see what
+        -- previous contacts may have been made, and then do another lookup without first having
+        -- to hit the clear button.
+        clearChecks widgets
 
         -- If they're a LOTW user, put a nice big check mark image in there.
         when (raLOTW ra' == Just Yes) $ addCheckToTable (wNewQSOGrid widgets) 1 7
 
-        -- Put their call, dxcc entity, and grid in the appropriate labels.
-        when (isJust $ raCall ra')    $ set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
-        when (isJust $ raCountry ra') $ set (wDXCC widgets)     [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
-        when (isJust $ raGrid ra')    $ set (wGrid widgets)     [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
-
-        -- Populate the list of previous QSOs we've had with this person.
+        -- Put their call in the label, and then populate the list of previous QSOs we've
+        -- had with this station.
         when (isJust $ raCall ra') $ do
-            qsos <- getQSOsByCall fp call
-            populatePreviousArea store qsos
+            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
+
+            results <- getQSOsByCall fp call
+            populatePreviousArea store results
+
+        -- Put their call in the label, and then add check marks in for DXCC entity
+        -- and grid confirmations.
+        when (isJust $ raCountry ra') $ do
+            set (wDXCC widgets) [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
+
+            let dxcc = raCountry ra' >>= idFromName
+            when (isJust dxcc) $ do
+                -- Get a list of all QSOs we've had with this entity, narrow it down to just what's
+                -- been confirmed, and then put checkmarks in where appropriate.
+                results <- filter confirmed <$> getQSOsByDXCC fp (fromInteger $ fromJust dxcc)
+                let confirmedBands = map getBand results
+                mapM_ (addEntityCheck widgets) confirmedBands
+
+        -- FIXME: This is not necessarily the right grid.  We really need to know the grid they're
+        -- in first, since a station could be in a different grid than their QTH.  We won't know that
+        -- until asking them personally or looking at the cluster, though.  For now this will have
+        -- to do.
+        when (isJust $ raGrid ra') $ do
+            set (wGrid widgets) [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
+
+            results <- filter confirmed <$> getQSOsByGrid fp shortGrid
+            let confirmedBands = map getBand results
+            mapM_ (addGridCheck widgets) confirmedBands
      where
         call = uppercase . fromJust $ raCall ra'
+
+        confirmed (_, _, c) = isJust $ qLOTW_RDate c
+
+        getBand (_, q, _) = freqToBand $ qFreq q
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 
@@ -293,17 +356,13 @@ clearUI widgets = do
     statusbarRemoveAll (wStatus widgets) 0
 
     -- Remove all checkmarks images found in the various tables.
-    mapM_ (\cont -> containerForeach cont (removeImage cont))
-          [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets]
+    clearChecks widgets
  where
     entryWidgets = [wCall widgets, wAntenna widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                     wXCSent widgets, wDate widgets, wTime widgets]
 
     setDateTime w = sequence_ [theDate >>= entrySetText (wDate w),
                                theTime >>= entrySetText (wTime w)]
-
-    removeImage container widget = do
-        when (isA widget gTypeImage) $ do containerRemove container widget
 
 runGUI :: Config -> IO ()
 runGUI conf = do
