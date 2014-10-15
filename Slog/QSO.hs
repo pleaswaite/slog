@@ -46,12 +46,12 @@ data QSO = QSO {
 -- of another table in the database, but is much less widely used than the 'QSO'
 -- record.
 data Confirmation = Confirmation {
-    qQSL_RDate    :: ADIF.Date,
-    qQSL_SDate    :: ADIF.Date,
-    qQSL_RcvdVia  :: ADIF.SentVia,
-    qQSL_SentVia  :: ADIF.SentVia,
-    qLOTW_RDate   :: ADIF.Date,
-    qLOTW_SDate   :: ADIF.Date }
+    qQSL_RDate    :: Maybe ADIF.Date,
+    qQSL_SDate    :: Maybe ADIF.Date,
+    qQSL_RcvdVia  :: Maybe ADIF.SentVia,
+    qQSL_SentVia  :: Maybe ADIF.SentVia,
+    qLOTW_RDate   :: Maybe ADIF.Date,
+    qLOTW_SDate   :: Maybe ADIF.Date }
  deriving (Eq, Show, Read)
 
 -- | Given a 'QSO' record, attempt to convert it into a list of ADIF fields.  This is
