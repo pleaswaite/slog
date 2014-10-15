@@ -4,7 +4,7 @@ import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs)
+import Slog.DB(DBResult, getAllQSOs)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Utils(uppercase)
 
@@ -12,14 +12,13 @@ import ToolLib.Config
 
 import qualified Filter as F
 import Report(reportAll, reportChallenge, reportDXCC, reportVUCC)
-import Types(ConfirmInfo)
 
 --
 -- OPTION PROCESSING CODE
 --
 
-type FilterFunc = (ConfirmInfo -> Bool)
-type ReportFunc = ([ConfirmInfo] -> Html)
+type FilterFunc = (DBResult -> Bool)
+type ReportFunc = ([DBResult] -> Html)
 
 data Options = Options {
     optFilter :: [FilterFunc],
@@ -103,22 +102,16 @@ main = do
     let fp = confDB conf
 
     -- Reporting is a multiple step process:
-    -- (1) Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ getAllQSOs fp
-    unconfirmed <- getUnconfirmedQSOs fp
+    -- (1) Get all QSOs.
+    results <- liftM reverse $ getAllQSOs fp
 
-    -- (2) Construct a list of tuples:  a QSO, and a boolean saying whether it's
-    -- been confirmed or not.
-    let confirms = map (`notElem` unconfirmed) qsos
-    let ci = zip qsos confirms
-
-    -- (3) Filter the results based on band, call, or whatever else was requested
+    -- (2) Filter the results based on band, call, or whatever else was requested
     -- on the command line.
-    let ci' = foldl (flip filter) ci (optFilter cmdline)
+    let results' = foldl (flip filter) results (optFilter cmdline)
 
-    -- (4) Convert to HTML based upon whatever header and body formatting was requested
+    -- (3) Convert to HTML based upon whatever header and body formatting was requested
     -- on the command line.  This is what makes it a report.
-    let html = showHtml $ (optReport cmdline) ci'
+    let html = showHtml $ (optReport cmdline) results'
 
     -- (5) Display.
     putStrLn html

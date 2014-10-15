@@ -5,32 +5,33 @@ module Report(reportAll,
  where
 
 import Data.List(groupBy, nubBy, sortBy)
-import Data.Maybe(listToMaybe)
+import Data.Maybe(isJust, listToMaybe)
 import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
+import Slog.DB(DBResult, second, third)
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
 import Slog.Utils(colonifyTime, dashifyDate)
 
-import Types(ConfirmInfo)
-
 -- This defines a row in a general query table, fitting the header given below.
-qsoToRow :: (QSO, Bool) -> HtmlTable
-qsoToRow (qso, isConfirmed) =
-    besides [td $ toHtml (dashifyDate $ qDate qso),
-             td $ toHtml (colonifyTime $ qTime qso),
-             td $ toHtml (qCall qso),
-             td $ toHtml (show $ qFreq qso),
-             td $ toHtml (show $ qMode qso),
-             td $ toHtml (qDXCC qso >>= entityFromID >>= Just . dxccEntity),
-             td $ toHtml (qGrid qso),
-             td $ toHtml (maybe "" show $ qITU qso),
-             td $ toHtml (maybe "" show $ qWAZ qso),
+resultToRow :: DBResult -> HtmlTable
+resultToRow (_, q, c) =
+    besides [td $ toHtml (dashifyDate $ qDate q),
+             td $ toHtml (colonifyTime $ qTime q),
+             td $ toHtml (qCall q),
+             td $ toHtml (show $ qFreq q),
+             td $ toHtml (show $ qMode q),
+             td $ toHtml (qDXCC q >>= entityFromID >>= Just . dxccEntity),
+             td $ toHtml (qGrid q),
+             td $ toHtml (maybe "" show $ qITU q),
+             td $ toHtml (maybe "" show $ qWAZ q),
              td $ toHtml (if isConfirmed then "Y" else "")
      ]
+ where
+    isConfirmed = isJust $ qLOTW_RDate c
 
 -- This header is suitable for printing out general queries - dumping all logged QSOs,
 -- dumping all QSOs for a specific band or specific call, etc.
@@ -48,22 +49,22 @@ tableHeader =
              (th $ toHtml "Confirmed")
      ]
 
-report :: String -> [ConfirmInfo] -> Html
-report caption ci = concatHtml [
+report :: String -> [DBResult] -> Html
+report caption results = concatHtml [
     table ! [border 1] << (toHtml tableBody),
     br,
     toHtml $ show nQSOs ++ " " ++ caption ++ ", " ++ show nConfirmed ++ " confirmed" ]
  where
     nQSOs = length results
-    nConfirmed = length $ filter id (map snd ci)
+    nConfirmed = length $ filter (isJust . qLOTW_RDate) (map third results)
 
-    results = map qsoToRow ci
+    results' = map resultToRow results
 
     tableBody = if null results then tableHeader
-                else tableHeader `above` aboves results
+                else tableHeader `above` aboves results'
 
 -- Just dump all logged QSOs to HTML.
-reportAll :: [ConfirmInfo] -> Html
+reportAll :: [DBResult] -> Html
 reportAll = report "QSOs logged"
 
 -- The DXCC challenge award requires a lot of special code.
@@ -138,8 +139,8 @@ challengeHeader = besides $ [th $ toHtml "DXCC"] ++ map (th . toHtml . show) cha
                       ADIF.Band20M, ADIF.Band17M, ADIF.Band15M, ADIF.Band12M, ADIF.Band10M,
                       ADIF.Band6M]
 
-reportChallenge :: [ConfirmInfo] -> Html
-reportChallenge ci = table ! [border 1] << (toHtml tableBody)
+reportChallenge :: [DBResult] -> Html
+reportChallenge results = table ! [border 1] << (toHtml tableBody)
  where
     dxccSorter qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
         (Just a, Just b) -> nameA `compare` nameB
@@ -165,19 +166,20 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
             Just ADIF.Band6M        -> rec { c6M = (c6M rec) ++ [entry] }
             _                       -> rec
 
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    -- Since this function doesn't use report, we can really just get rid of all the
+    -- qsoid and confirmation stuff.
+    qsos = map second results
 
     -- Create a new list where each element is a list of all QSOs for a specific
     -- DXCC entity.
-    dxccBuckets = groupBy dxccGrouper (sortBy dxccSorter ci')
+    dxccBuckets = groupBy dxccGrouper (sortBy dxccSorter qsos)
 
     -- Then convert that list into a list of tuples.  The first element is a ChallengeRec
     -- where each element holds a list of QSOs for a single band.  The second element
     -- is the first QSO, from which we can extract the DXCC entity later on.
     bandDxccBuckets = map (\bucket -> (createRecords bucket, bucket !! 0)) dxccBuckets
 
-    results = map recToRow bandDxccBuckets
+    results' = map recToRow bandDxccBuckets
     totals = countUp mkCountRec bandDxccBuckets
      where
         a ++? b = a + (if not (null b) then 1 else 0)
@@ -199,40 +201,34 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
                        map (\band -> th $ toHtml $ show (band rec))
                            [n160M, n80M, n40M, n30M, n20M, n17M, n15M, n12M, n10M, n6M]
 
-    tableBody = if null results then challengeHeader
-                else challengeHeader `above` aboves results `above` (reportTotals totals)
+    tableBody = if null results' then challengeHeader
+                else challengeHeader `above` aboves results' `above` (reportTotals totals)
 
 -- Dump all logged QSOs for various DXCC awards.  The results of this can be filtered down
 -- further by band or mode to get the sub-awards.
-reportDXCC :: [ConfirmInfo] -> Html
-reportDXCC ci = report "DXCC QSOs logged" (zip uniq $ repeat True)
+reportDXCC :: [DBResult] -> Html
+reportDXCC results = report "DXCC QSOs logged" uniq
  where
-    dxccEq qsoA qsoB = qDXCC qsoA == qDXCC qsoB
-
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    dxccEq (_, qsoA, _) (_, qsoB, _) = qDXCC qsoA == qDXCC qsoB
 
     -- Reduce the list to only unique entities.
-    uniq = nubBy dxccEq ci'
+    uniq = nubBy dxccEq results
 
 -- Dump all logged QSOs for the VUCC award.
-reportVUCC :: [ConfirmInfo] -> Html
-reportVUCC ci = report "VUCC QSOs logged" (zip uniq $ repeat True)
+reportVUCC :: [DBResult] -> Html
+reportVUCC results  = report "VUCC QSOs logged" uniq
  where
     -- Due to the way the VUCC award works, we cannot rely on the grid square given by
     -- doing a lookup.  The other station could be in a different grid than their QTH.
     -- Thus, we need to use the grid from the exchange.  For ease of reporting, though,
     -- I'm just going to stick that value back into the grid field so the rest of the
     -- reporting code does not need to be changed.
-    modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qXcIn qso)
+    modifyGrid (i, q, c) = (i, maybe q (\grid -> q { qGrid = Just $ take 4 grid }) (qXcIn q), c)
 
-    gridsEq qsoA qsoB = qGrid qsoA == qGrid qsoB
-
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    gridsEq (_, qsoA, _) (_, qsoB, _) = qGrid qsoA == qGrid qsoB
 
     -- Grab everything 50 MHz and up.
-    sixAndUp = filter (\qso -> maybe False (>= ADIF.Band6M) (freqToBand $ qFreq qso)) ci'
+    sixAndUp = filter (\(_, q, _) -> maybe False (>= ADIF.Band6M) (freqToBand $ qFreq q)) results
 
     -- Reduce the grid element of each QSO to just four characters.
     trimmedGrids = map modifyGrid sixAndUp
