@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import Control.Monad(liftM)
 import Data.List((\\), nub, sort)
 import Data.Maybe(catMaybes, mapMaybe)
@@ -54,6 +56,7 @@ handleOpts argv =
         (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header opts))
                         where header = "Usage: unworked [OPTIONS]"
 
+processArgs :: Monad m => m ([Options -> m Options], t) -> m Options
 processArgs argsFunc = do
     (actions, _) <- argsFunc
     foldl (>>=) (return defaultOptions) actions

@@ -1,8 +1,9 @@
+{-# OPTIONS_GHC -Wall #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 import Control.Applicative((<$>))
 import Control.Exception(IOException, catch, finally)
 import Data.List(intersperse)
-import Prelude hiding(catch)
 import System.Directory(getTemporaryDirectory, removeFile)
 import System.IO
 

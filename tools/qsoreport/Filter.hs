@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Filter(byBand,
               byCall,
               byConfirmed,

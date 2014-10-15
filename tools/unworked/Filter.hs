@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Filter(dxccByContinent,
               dxccByNone,
               qsoByBand,
@@ -5,9 +7,9 @@ module Filter(dxccByContinent,
  where
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DXCC(DXCC(dxccContinent), entityFromID)
+import Slog.DXCC(DXCC(dxccContinent))
 import Slog.Formats.ADIF.Utils(freqToBand)
-import Slog.QSO(QSO(qDXCC, qFreq), QSO)
+import Slog.QSO(QSO(qFreq), QSO)
 
 dxccByContinent :: ADIF.Continent -> DXCC -> Bool
 dxccByContinent cont dxcc = cont == (dxccContinent dxcc)

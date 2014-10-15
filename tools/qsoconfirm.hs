@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import Control.Monad(when)
 import Control.Monad.Trans(liftIO)
 import Data.List(find)
@@ -80,7 +82,7 @@ doConfirm fp qslInfo = do
                           Nothing
     mapM_ confirmOne results
  where
-    confirmOne (i, q, c) = do
+    confirmOne (i, q, _) = do
         -- If this QSO is on the same band as the QSLInfo object, it must be the one
         -- we want to confirm.  This guard basically does the filtering that we wish
         -- the database could have given us above, if we didn't have to work in terms

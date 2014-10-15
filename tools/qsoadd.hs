@@ -1,5 +1,7 @@
-{-# OPTIONS_GHC -fno-warn-unused-do-bind -XDoAndIfThenElse -XLambdaCase #-}
-import Control.Applicative((<$>))
+{-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
+{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE LambdaCase #-}
+
 import Data.Maybe(fromJust, fromMaybe)
 import Data.String.Utils(split)
 import System.Exit(ExitCode(..), exitWith)
@@ -131,6 +133,7 @@ splitArg s | length eles == 1 = (Just $ eles !! 0, Nothing)
  where
     eles = split ":" s
 
+processArgs :: Monad m => m ([Options -> m Options], t) -> m Options
 processArgs argsFunc = do
     (actions, _) <- argsFunc
     foldl (>>=) (return defaultOptions) actions

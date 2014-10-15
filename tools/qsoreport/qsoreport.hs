@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import Control.Monad(liftM)
 import System.Console.GetOpt
 import System.Environment(getArgs)
