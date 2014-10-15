@@ -10,7 +10,7 @@ import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
-import Slog.DB(DBResult, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
+import Slog.DB(DBResult, getAllQSOs, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
 import Slog.DXCC(idFromName)
 import Slog.Formats.ADIF.Types(Band(..))
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -64,6 +64,7 @@ data Widgets = Widgets {
     wAdd :: Button,
 
     wPreviousView :: TreeView,
+    wAllView :: TreeView,
 
     wStatus :: Statusbar,
 
@@ -320,7 +321,7 @@ loadWidgets builder = do
 
     [lookupB, clearB, addB] <- mapM (getO castToButton) ["lookupButton", "clearButton", "addButton"]
 
-    [previousV] <- mapM (getO castToTreeView) ["previousTreeView"]
+    [previousV, allV] <- mapM (getO castToTreeView) ["previousTreeView", "allTreeView"]
 
     [status] <- mapM (getO castToStatusbar) ["statusBar"]
 
@@ -331,7 +332,7 @@ loadWidgets builder = do
                      dateLabel date timeLabel time
                      previous dxcc grid
                      lookupB clearB addB
-                     previousV
+                     previousV allV
                      status
                      newQSO dxccGrid gridGrid
  where
@@ -386,14 +387,22 @@ runGUI conf = do
     onDestroy window mainQuit
 
     -- Create the previous QSOs view stuff.
-    store <- listStoreNew ([] :: [DisplayRow])
-    initTreeView store (wPreviousView widgets)
+    previousStore <- listStoreNew ([] :: [DisplayRow])
+    initTreeView previousStore (wPreviousView widgets)
+
+    -- Create the all QSOs view stuff.  Unlike the previous QSOs view, we want to populate
+    -- this one right now.
+    allStore <- listStoreNew ([] :: [DisplayRow])
+    initTreeView allStore (wAllView widgets)
+
+    allQSOs <- getAllQSOs $ confDB conf
+    populateTreeView allStore allQSOs
 
     on (wCurrent widgets) toggled (currentToggled widgets)
     on (wClear widgets) buttonActivated (clearUI widgets)
     on (wLookup widgets) buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
                                                                    (blockUI widgets False)
-                                                                   (lookupCallsign widgets store conf))
+                                                                   (lookupCallsign widgets previousStore conf))
                                                          priorityDefaultIdle)
 
     -- Initialize the widgets to their first state.
