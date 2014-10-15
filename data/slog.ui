@@ -911,7 +911,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -938,7 +938,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -965,7 +965,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -992,7 +992,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1019,7 +1019,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1046,7 +1046,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1073,7 +1073,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1100,7 +1100,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1127,7 +1127,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1154,7 +1154,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1181,7 +1181,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1275,7 +1275,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1302,7 +1302,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1329,7 +1329,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
@@ -1356,7 +1356,7 @@
                             <property name="justify">GTK_JUSTIFY_LEFT</property>
                             <property name="wrap">False</property>
                             <property name="selectable">False</property>
-                            <property name="xalign">0</property>
+                            <property name="xalign">0.5</property>
                             <property name="yalign">0.5</property>
                             <property name="xpad">0</property>
                             <property name="ypad">0</property>
