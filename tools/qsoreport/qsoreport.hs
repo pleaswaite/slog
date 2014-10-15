@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
 
-import Control.Monad(liftM)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 import System.Exit(ExitCode(..), exitWith)
@@ -105,7 +104,7 @@ main = do
 
     -- Reporting is a multiple step process:
     -- (1) Get all QSOs.
-    results <- liftM reverse $ getAllQSOs fp
+    results <- getAllQSOs fp
 
     -- (2) Filter the results based on band, call, or whatever else was requested
     -- on the command line.
