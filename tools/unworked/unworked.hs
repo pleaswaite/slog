@@ -1,13 +1,13 @@
 import Control.Monad(liftM)
 import Data.List((\\), nub, sort)
-import Data.Maybe(catMaybes, mapMaybe)
+import Data.Maybe(catMaybes, isJust, mapMaybe)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs)
+import Slog.DB(getAllQSOs, second)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
-import Slog.QSO(QSO(qDXCC))
+import Slog.QSO(QSO(qDXCC), Confirmation(qLOTW_RDate))
 
 import ToolLib.Config
 
@@ -79,19 +79,18 @@ main = do
     -- Get the on-disk location of the database.
     let fp = confDB conf
 
-    -- Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ getAllQSOs fp
-    unconfirmed <- getUnconfirmedQSOs fp
+    -- Get all QSOs as (id, QSO, Confirmation) tuples.
+    results <- liftM reverse $ getAllQSOs fp
 
     -- If we are reporting based on only confirmed QSOs, remove unconfirmed
     -- ones from the list.  Otherwise, use all the QSOs in the log.
-    let qsos' = if optConfirmedOnly cmdline then qsos \\ unconfirmed
-                else qsos
+    let qsos = if optConfirmedOnly cmdline then map second $ filter (\(_, _, c) -> isJust $ qLOTW_RDate c) results
+               else map second results
 
     -- Reduce the list of worked QSOs down to just those on the given band
     -- (or whatever) we want to consider.  Then, convert that into a list of
     -- DXCC entity IDs that have not been worked.
-    let unworked = unworkedIDs $ foldl (flip filter) qsos' (optFilterQSO cmdline)
+    let unworked = unworkedIDs $ foldl (flip filter) qsos (optFilterQSO cmdline)
 
     -- And then we need to convert the list of entity numbers into a list of
     -- entity objects.  This is roundabout because DXCC doesn't expose the
