@@ -16,7 +16,7 @@ import Slog.Formats.ADIF.Types(Band(..))
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
 import Slog.Utils(colonifyTime, dashifyDate, uppercase)
-import Slog.QSO(Confirmation(..), QSO(..))
+import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 import ToolLib.Config
 
 --
@@ -72,14 +72,17 @@ data Widgets = Widgets {
     wGridGrid :: Table
  }
 
-data PreviousRow = PreviousRow { pDate      :: String,
-                                 pTime      :: String,
-                                 pCall      :: String,
-                                 pFreq      :: Double,
-                                 pRxFreq    :: Maybe Double,
-                                 pMode      :: String,
-                                 pAntenna   :: Maybe String,
-                                 pConfirmed :: Bool }
+-- The data type stored in a ListStore and displayed in one of two places:  On the main
+-- screen as part of the previous QSOs with a given call, and on the secondary screen as
+-- part of the all QSOs list.
+data DisplayRow = DisplayRow { dDate      :: String,
+                               dTime      :: String,
+                               dCall      :: String,
+                               dFreq      :: Double,
+                               dRxFreq    :: Maybe Double,
+                               dMode      :: String,
+                               dAntenna   :: Maybe String,
+                               dConfirmed :: Bool }
 
 --
 -- UI HELPERS
@@ -133,46 +136,48 @@ clearChecks widgets =
         when (isA widget gTypeImage) $ do containerRemove container widget
 
 -- Create the columns and renderers for the previous QSOs with a given call area.
--- This function should only be called once or each column will appear multiple times.
-createPreviousArea :: ListStore PreviousRow -> TreeView -> IO ()
-createPreviousArea store view = do
+-- Create the columns and renderers for a given TreeView, leaving it ready to be filled
+-- with data.  This function should only be called once or each column will appear
+-- multiple times.
+initTreeView :: ListStore DisplayRow -> TreeView -> IO ()
+initTreeView store view = do
     treeViewSetModel view store
 
     -- DATE
-    dateCol <- newTextColumn store "Date" pDate
+    dateCol <- newTextColumn store "Date" dDate
     treeViewAppendColumn view dateCol
 
     -- TIME
-    timeCol <- newTextColumn store "Time" pTime
+    timeCol <- newTextColumn store "Time" dTime
     treeViewAppendColumn view timeCol
 
     -- CALL SIGN
-    callCol <- newTextColumn store "Call" pCall
+    callCol <- newTextColumn store "Call" dCall
     treeViewAppendColumn view callCol
 
     -- FREQUENCY & RX FREQUENCY
-    freqCol <- newTextColumn store "Frequency" (show . pFreq)
+    freqCol <- newTextColumn store "Frequency" (show . dFreq)
     treeViewAppendColumn view freqCol
-    rxFreqCol <- newTextColumn store "Rcvd Frequency" $ \row -> maybe "" show (pRxFreq row)
+    rxFreqCol <- newTextColumn store "Rcvd Frequency" $ \row -> maybe "" show (dRxFreq row)
     treeViewAppendColumn view rxFreqCol
 
     -- MODE
-    modeCol <- newTextColumn store "Mode" pMode
+    modeCol <- newTextColumn store "Mode" dMode
     treeViewAppendColumn view modeCol
 
     -- ANTENNA
-    antennaCol <- newTextColumn store "Antenna" $ \row -> maybe "" id (pAntenna row)
+    antennaCol <- newTextColumn store "Antenna" $ \row -> maybe "" id (dAntenna row)
     treeViewAppendColumn view antennaCol
 
     -- CONFIRMED
     uploadedCol <- treeViewColumnNew
     uploadedCell <- cellRendererToggleNew
     cellLayoutPackStart uploadedCol uploadedCell False
-    cellLayoutSetAttributes uploadedCol uploadedCell store $ \row -> [ cellToggleActive := pConfirmed row ]
+    cellLayoutSetAttributes uploadedCol uploadedCell store $ \row -> [ cellToggleActive := dConfirmed row ]
     treeViewAppendColumn view uploadedCol
     treeViewColumnSetTitle uploadedCol "Confirmed?"
  where
-    newTextColumn :: ListStore PreviousRow -> String -> (PreviousRow -> String) -> IO TreeViewColumn
+    newTextColumn :: ListStore DisplayRow -> String -> (DisplayRow -> String) -> IO TreeViewColumn
     newTextColumn model title fn = do
         col <- treeViewColumnNew
         cell <- cellRendererTextNew
@@ -182,20 +187,23 @@ createPreviousArea store view = do
         treeViewColumnSetTitle col title
         return col
 
-populatePreviousArea :: ListStore PreviousRow -> [DBResult] -> IO ()
-populatePreviousArea store results = do
+-- Given an existing ListStore, add all the results to it.  This populates the view that should have
+-- been created earlier with initTreeView .  This function can be called as many times as needed
+-- since it will first clear out the store.
+populateTreeView :: ListStore DisplayRow -> [DBResult] -> IO ()
+populateTreeView store results = do
     -- Clear out any previously existing model.
     listStoreClear store
 
     -- Populate the new model.
-    mapM_ (\(_, q, c) -> listStoreAppend store $ PreviousRow { pDate=dashifyDate $ qDate q,
-                                                               pTime=colonifyTime $ qTime q,
-                                                               pCall=qCall q,
-                                                               pFreq=qFreq q,
-                                                               pRxFreq=qRxFreq q,
-                                                               pMode=show $ qMode q,
-                                                               pAntenna=qAntenna q,
-                                                               pConfirmed=isConfirmed c})
+    mapM_ (\(_, q, c) -> listStoreAppend store $ DisplayRow { dDate=dashifyDate $ qDate q,
+                                                              dTime=colonifyTime $ qTime q,
+                                                              dCall=qCall q,
+                                                              dFreq=qFreq q,
+                                                              dRxFreq=qRxFreq q,
+                                                              dMode=show $ qMode q,
+                                                              dAntenna=qAntenna q,
+                                                              dConfirmed=isConfirmed c})
           results
 
 --
@@ -221,7 +229,7 @@ currentToggled widgets = do
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
 -- handler so the lookup can proceed while the UI continues to refresh.
-lookupCallsign :: Widgets -> ListStore PreviousRow -> Config -> IO Bool
+lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
 lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
     ra <- lookup (uppercase call)
@@ -260,7 +268,7 @@ lookupCallsign widgets store conf = do
             set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
 
             results <- getQSOsByCall fp call
-            populatePreviousArea store results
+            populateTreeView store results
 
         -- Put their call in the label, and then add check marks in for DXCC entity
         -- and grid confirmations.
@@ -378,8 +386,8 @@ runGUI conf = do
     onDestroy window mainQuit
 
     -- Create the previous QSOs view stuff.
-    store <- listStoreNew ([] :: [PreviousRow])
-    createPreviousArea store (wPreviousView widgets)
+    store <- listStoreNew ([] :: [DisplayRow])
+    initTreeView store (wPreviousView widgets)
 
     on (wCurrent widgets) toggled (currentToggled widgets)
     on (wClear widgets) buttonActivated (clearUI widgets)
