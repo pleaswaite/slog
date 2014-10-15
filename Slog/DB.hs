@@ -14,20 +14,24 @@
 -- some information about whether individual records have been uploaded to LOTW or
 -- eQSL, whether a QSL card was received or sent, and whether records have been
 -- confirmed by the remote station.
-module Slog.DB(QsosId,
+module Slog.DB(DBResult,
+               QsosId,
                confirmQSO,
                findQSO,
                findQSOByDateTime,
                addQSO,
-               getQSOByID,
                getAllQSOs,
                getQSOsByCall,
+               getQSOsByDXCC,
+               getQSOsByGrid,
                getUnconfirmedQSOs,
                getUnsentQSOs,
-               markQSOsAsSent)
+               markQSOsAsSent,
+               first, second, third)
  where
 
 import Control.Monad.Trans(liftIO)
+import Data.List(isPrefixOf)
 import Data.Text(pack)
 import Data.Time.Clock
 import Database.Esqueleto hiding(count)
@@ -74,86 +78,118 @@ share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
     deriving Eq Show
 |]
 
+-- | The result for any query from the database.  Turns out different parts of the library and
+-- tools want a different piece of this, and have therefore cobbled together their own methods for
+-- getting and combining this data.  So they'll just all get it all now and can decide which parts
+-- are useful and which are not.
+type DBResult = (QsosId, QSO, Confirmation)
+
+-- Extract elements out of the DBResult tuple.
+first :: (a, b, c) -> a
+first  (a, _, _) = a
+
+second :: (a, b, c) -> b
+second (_, b, _) = b
+
+third :: (a, b, c) -> c
+third  (_, _, c) = c
+
 --
 -- FINDING THE ID FOR A GIVEN QSO
 --
 
 -- | A generic way of finding the ID for a QSO.  This function can take at
--- most a date, time, call sign, and frequency.  It returns the ID of the
--- first QSO meeting the given criteria.  It is assumed that only one QSO
+-- most a date, time, call sign, and frequency.  It returns the 'DBResult'
+-- of all QSOs meeting the given criteria.  It is assumed that only one QSO
 -- can ever take place on a given frequency, with a given call sign, in a
 -- given minute.  This seems to be a pretty strong assumption.
 --
--- Regardless, this function returns multiple IDs given that the caller may
--- have only passed in some information - not enough to just return one value.
---
 -- Note that the date and time must be given in YYYYMMDD and HHMM format -
 -- see 'undashifyDate' and 'uncolonifyTime'.
-findQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Maybe Double -> IO [QsosId]
+findQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Maybe Double -> IO [DBResult]
 findQSO _ Nothing Nothing Nothing Nothing = return []
 findQSO filename date time call freq = runSqlite (pack filename) $ do
-    rows <- select $ from $ \q -> do where_ (((isNothing $ val date) ||. ((just $ q ^. QsosDate) ==. val date)) &&.
-                                             ((isNothing $ val time) ||. ((just $ q ^. QsosTime) ==. val time)) &&.
-                                             ((isNothing $ val call) ||. ((just $ q ^. QsosCall) ==. val call)) &&.
-                                             ((isNothing $ val freq) ||. ((just $ q ^. QsosFreq) ==. val freq)))
-                                     return (q ^. QsosId)
-    return $ map unValue rows
+    rows <- select $ from $ \(q `InnerJoin` c) -> do on(q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     where_ (((isNothing $ val date) ||. ((just $ q ^. QsosDate) ==. val date)) &&.
+                                                             ((isNothing $ val time) ||. ((just $ q ^. QsosTime) ==. val time)) &&.
+                                                             ((isNothing $ val call) ||. ((just $ q ^. QsosCall) ==. val call)) &&.
+                                                             ((isNothing $ val freq) ||. ((just $ q ^. QsosFreq) ==. val freq)))
+                                                     return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
 -- | Given a QSO date and time (in YYYYMMDD and HHMM format - see 'undashifyDate'
--- and 'uncolonifyTime'), look up and return the unique ID for the first QSO found.
+-- and 'uncolonifyTime'), look up and return the 'DBResult' for the first QSO found.
 -- It is assumed that only one QSO can ever happen in any given minute.
-findQSOByDateTime :: FilePath -> ADIF.Date -> ADIF.Time -> IO (Maybe QsosId)
+findQSOByDateTime :: FilePath -> ADIF.Date -> ADIF.Time -> IO (Maybe DBResult)
 findQSOByDateTime filename date time = runSqlite (pack filename) $ do
-    rows <- select $ from $ \q -> do where_ ((q ^. QsosDate ==. val date) &&.
-                                             (q ^. QsosTime ==. val time))
-                                     limit 1
-                                     return (q ^. QsosId)
+    rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     where_ ((q ^. QsosDate ==. val date) &&.
+                                                             (q ^. QsosTime ==. val time))
+                                                     limit 1
+                                                     return (q ^. QsosId, q, c)
     if null rows then return Nothing
-    else return $ Just $ unValue $ head rows
+    else return $ Just $ fmtTuple $ head rows
 
 --
 -- FINDING A QSO OBJECT
 --
 
--- | Given a 'qsoid', return a 'QSO' record from the database.
-getQSOByID :: FilePath -> QsosId -> IO QSO
-getQSOByID filename qsoid = runSqlite (pack filename) $ do
-    rows <- select $ from $ \q -> do where_ (q ^. QsosId ==. (val qsoid))
-                                     limit 1
-                                     return q
-    return $ (sqlToQSO . entityVal) (head rows)
-
--- | Return a list of all 'QSO' records in the database, sorted by date and time.
-getAllQSOs :: FilePath -> IO [QSO]
+-- | Return a list of all 'DBResult' records in the database, sorted by date and time.
+getAllQSOs :: FilePath -> IO [DBResult]
 getAllQSOs filename = runSqlite (pack filename) $ do
-    rows <- select $ from $ \q -> do orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                     return q
-    return $ map (sqlToQSO . entityVal) rows
+    rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
+                                                     return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
--- | Return a list of all 'QSO' records in the database for a given call sign.
-getQSOsByCall :: FilePath -> String -> IO [QSO]
+-- | Return a list of all 'DBResult' records in the database for a given call sign.
+getQSOsByCall :: FilePath -> String -> IO [DBResult]
 getQSOsByCall filename call = runSqlite (pack filename) $ do
-    rows <- select $ from $ \q -> do where_ (q ^. QsosCall ==. (val call))
-                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                     return q
-    return $ map (sqlToQSO . entityVal) rows
+    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                    where_ (q ^. QsosCall ==. (val call))
+                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
+                                                    return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
--- | Return a list of all 'QSO' records that have not yet been confirmed with LOTW.
-getUnconfirmedQSOs :: FilePath -> IO [QSO]
+-- | Return a list of all 'DBResult' records in the database for a given DXCC entity.
+getQSOsByDXCC :: FilePath -> Int -> IO [DBResult]
+getQSOsByDXCC filename dxcc = runSqlite (pack filename) $ do
+    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                    where_ (q ^. QsosDxcc ==. (just $ val dxcc))
+                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
+                                                    return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
+
+-- | Return a list of all 'DBResult' records in the database for a given grid.
+getQSOsByGrid :: FilePath -> String -> IO [DBResult]
+getQSOsByGrid filename grid = do
+    -- We want to compare short grids, but the full six-digit one could potentially be stored
+    -- in the database.  Unfortunately I see no way of making esqueleto's "like" operator work
+    -- with the potentially empty QsosGrid column.  So I have to do this the stupid way.
+    results <- getAllQSOs filename
+    return $ filter (\(_, q, _) ->  grid' `isPrefixOf` (maybe "" (uppercase . take 4) (qGrid q)))
+                    results
+ where
+    grid' = uppercase $ take 4 grid
+
+-- | Return a list of all 'DBResult' records that have not yet been confirmed with LOTW.  In
+-- this case, the 'Confirmation' portion of the 'DBResult' is redundant information (given that
+-- all results will be unconfirmed QSOs), but is returned for consistency.
+getUnconfirmedQSOs :: FilePath -> IO [DBResult]
 getUnconfirmedQSOs filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ (isNothing $ c ^. ConfirmationsLotw_rdate)
                                                      orderBy [asc (c ^. ConfirmationsLotw_sdate)]
-                                                     return q
-    return $ map (sqlToQSO . entityVal) rows
+                                                     return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
--- | Return a list of all 'QSO' records that have not been uploaded to LOTW.
-getUnsentQSOs :: FilePath -> IO [QSO]
+-- | Return a list of all 'DBResult' records that have not been uploaded to LOTW.
+getUnsentQSOs :: FilePath -> IO [DBResult]
 getUnsentQSOs filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ (isNothing $ c ^. ConfirmationsLotw_sdate)
-                                                     return q
-    return $ map (sqlToQSO . entityVal) rows
+                                                     return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
 --
 -- MODIFYING THE DATABASE
@@ -178,25 +214,23 @@ addQSO filename qso = runSqlite (pack filename) $ do
 -- DEALING WITH CONFIRMATIONS
 --
 
--- | Given a unique ID for a 'QSO' (which should have first been obtained by calling
--- 'findQSOByDateTime') and a confirmation date, update the database to reflect that the
--- 'QSO' record has been confirmed.  A confirmed record is one where the local station has
--- recorded an entry in the log, and the remote station has recorded and uploaded a
--- matching entry in their log.
+-- | Given a unique 'QsosId' for a 'QSO' (which should have first been obtained by calling
+-- one of the various findQSO functions and grabbing the first value out of the 'DBResult'
+-- tuple, update the database to reflect that the 'QSO' record has been confirmed.  A confirmed
+-- record is one where the local station has recorded an entry in the log, and the remote
+-- station has recorded and uploaded a matching entry in their log.
 confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
 confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $ do
     update $ \r -> do
         set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
         where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
 
--- | Given a list of previously unsent 'QSO' records (perhaps as returned by 'getUnsentQSOs'),
--- mark them as uploaded to LOTW in the database.  It is expected this function will be
--- called after 'LOTW.upload', as it makes sense to have the uploading succeed before
--- marking as sent.
-markQSOsAsSent :: FilePath -> [QSO] -> IO ()
-markQSOsAsSent filename qsos = do
-    ids <- mapM (\qso -> findQSO filename (Just $ qDate qso) (Just $ qTime qso) (Just $ qCall qso) (Just $ qFreq qso)) qsos
-    mapM_ (markOne filename) (concat ids)
+-- | Given a list of 'QsosId' values corresponding to previously unsent 'QSO' records, mark them
+-- as uploaded to LOTW in the database.  It is expected this function will be called after
+-- 'LOTW.upload', as it makes sense t ohave the uploading succeed before marking as sent.
+markQSOsAsSent :: FilePath -> [QsosId] -> IO ()
+markQSOsAsSent filename ids = do
+    mapM_ (markOne filename) ids
  where
     markOne :: FilePath -> QsosId -> IO ()
     markOne fn qsoid = do
@@ -210,6 +244,10 @@ markQSOsAsSent filename qsos = do
 --
 -- HELPER FUNCTIONS
 --
+
+fmtTuple :: (Value t, Entity Qsos, Entity Confirmations) -> (t, QSO, Confirmation)
+fmtTuple (i, q, c) =
+    (unValue i, sqlToQSO $ entityVal q, sqlToConf $ entityVal c)
 
 sqlToQSO :: Qsos -> QSO
 sqlToQSO q =
@@ -233,3 +271,12 @@ sqlToQSO q =
         (fmap (\p -> read p :: ADIF.Propagation) (qsosProp_mode q))
         (qsosSat_name q)
         (qsosAntenna q)
+
+sqlToConf :: Confirmations -> Confirmation
+sqlToConf c =
+    Confirmation (confirmationsQsl_rdate c)
+                 (confirmationsQsl_sdate c)
+                 (fmap (\r -> read r :: ADIF.SentVia) (confirmationsQsl_rcvd_via c))
+                 (fmap (\r -> read r :: ADIF.SentVia) (confirmationsQsl_sent_via c))
+                 (confirmationsLotw_rdate c)
+                 (confirmationsLotw_sdate c)
