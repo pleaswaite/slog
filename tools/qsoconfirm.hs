@@ -4,7 +4,7 @@ import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import Text.Printf(printf)
 
-import Slog.DB(confirmQSO, findQSO, getUnconfirmedQSOs, getQSOByID)
+import Slog.DB(DBResult, confirmQSO, findQSO, getUnconfirmedQSOs, second)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -74,34 +74,32 @@ doConfirm fp qslInfo = do
     -- frequency.  Thus we query the database for all QSOs matching time and call.  This
     -- could possibly return multiple results, across multiple bands.  We'll find the
     -- right one later.
-    ids <- findQSO fp (Just $ qiDate qslInfo)
-                      (Just $ withoutSeconds $ qiTime qslInfo)
-                      (Just $ qiCall qslInfo)
-                      Nothing
-    mapM_ confirmOne ids
+    results <- findQSO fp (Just $ qiDate qslInfo)
+                          (Just $ withoutSeconds $ qiTime qslInfo)
+                          (Just $ qiCall qslInfo)
+                          Nothing
+    mapM_ confirmOne results
  where
-    confirmOne qsoid = do
-        qso <- getQSOByID fp qsoid
-
+    confirmOne (i, q, c) = do
         -- If this QSO is on the same band as the QSLInfo object, it must be the one
         -- we want to confirm.  This guard basically does the filtering that we wish
         -- the database could have given us above, if we didn't have to work in terms
         -- of frequency.
-        when (maybe False (qiBand qslInfo ==) (freqToBand $ qFreq qso))
-             (do confirmQSO fp qsoid (qiQSLDate qslInfo)
-                 liftIO $ (putStrLn . logMessage) qso)
+        when (maybe False (qiBand qslInfo ==) (freqToBand $ qFreq q))
+             (do confirmQSO fp i (qiQSLDate qslInfo)
+                 liftIO $ (putStrLn . logMessage) q)
 
-filterPreviousConfirmations :: [QSO] -> [Maybe QSLInfo] -> [QSLInfo]
-filterPreviousConfirmations qsos infos = let
-    -- qsos is a list of unconfirmed QSO objects as understood by our local database.
+filterPreviousConfirmations :: [DBResult] -> [Maybe QSLInfo] -> [QSLInfo]
+filterPreviousConfirmations results infos = let
+    -- results is a list of unconfirmed QSO objects as understood by our local database.
     -- Convert it into a list of QSLInfo objects (where the qiQSLDate field doesn't
     -- really matter).
-    unconfirmed = map (\qso -> QSLInfo { qiBand = fromJust $ freqToBand (qFreq qso),
-                                         qiCall = qCall qso,
-                                         qiDate = qDate qso,
-                                         qiTime = qTime qso,
-                                         qiQSLDate = qDate qso })
-                      qsos
+    unconfirmed = map (\(_, q, _) -> QSLInfo { qiBand = fromJust $ freqToBand (qFreq q),
+                                               qiCall = qCall q,
+                                               qiDate = qDate q,
+                                               qiTime = qTime q,
+                                               qiQSLDate = qDate q })
+                      results
  in
     -- Then, remove all the QSLInfo objects that are not already confirmed.  This leaves
     -- us with just a list of unconfirmed objects which is suitable for feeding into
@@ -124,8 +122,8 @@ main = do
     -- that might be a whole lot of ADIF data.  However, there's really not a better way
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
-    unconfirmeds <- getUnconfirmedQSOs fp
-    let earliestUnconfirmed = dashifyDate . qDate $ unconfirmeds !! 0
+    unconfirmedResults <- getUnconfirmedQSOs fp
+    let earliestUnconfirmed = dashifyDate . qDate $ second  $ unconfirmedResults !! 0
 
     -- Grab the confirmed QSOs from LOTW.
     str <- download earliestUnconfirmed (confUsername conf) (confPassword conf)
@@ -136,6 +134,6 @@ main = do
         Left err -> putStrLn $ printf "%s\n\nin input\n\n%s" (show err) str
         Right (ADIF.ADIFFile {ADIF.fileBody=adifs}) -> let
             infos = map mkQSLInfo adifs
-            unconfirmedInfos = filterPreviousConfirmations unconfirmeds infos
+            unconfirmedInfos = filterPreviousConfirmations unconfirmedResults infos
          in
             confirmQSOs fp unconfirmedInfos
