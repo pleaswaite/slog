@@ -257,12 +257,14 @@ currentToggled widgets = do
 lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
 lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
-    ra <- lookup (uppercase call)
-                 (confQTHUser conf)
-                 (confQTHPass conf)
 
-    -- Strip off the Maybe bit from the result now.
-    when (isJust ra) $ updateUI (fromJust ra)
+    when (not $ null call) $ do
+        ra <- lookup (uppercase call)
+                     (confQTHUser conf)
+                     (confQTHPass conf)
+
+        -- Strip off the Maybe bit from the result now.
+        when (isJust ra) $ updateUI (fromJust ra)
 
     -- Return false to remove this handler from the main loop.
     return False

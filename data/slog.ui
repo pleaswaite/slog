@@ -258,7 +258,7 @@
                       <object class="GtkButton" id="lookupButton">
                         <property name="visible">True</property>
                         <property name="can_focus">True</property>
-                        <property name="label" translatable="yes">Lookup</property>
+                        <property name="label" translatable="yes">_Lookup</property>
                         <property name="use_underline">True</property>
                         <property name="relief">GTK_RELIEF_NORMAL</property>
                         <property name="focus_on_click">True</property>
@@ -779,7 +779,7 @@
                             <property name="visible">True</property>
                             <property name="can_default">True</property>
                             <property name="can_focus">True</property>
-                            <property name="label" translatable="yes">Clear</property>
+                            <property name="label" translatable="yes">_Clear</property>
                             <property name="use_underline">True</property>
                             <property name="relief">GTK_RELIEF_NORMAL</property>
                             <property name="focus_on_click">True</property>
@@ -791,7 +791,7 @@
                             <property name="visible">True</property>
                             <property name="can_default">True</property>
                             <property name="can_focus">True</property>
-                            <property name="label" translatable="yes">Add</property>
+                            <property name="label" translatable="yes">_Add</property>
                             <property name="use_underline">True</property>
                             <property name="relief">GTK_RELIEF_NORMAL</property>
                             <property name="focus_on_click">True</property>
