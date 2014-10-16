@@ -236,10 +236,7 @@ dbToDR (_, q, c) = DisplayRow { dDate=dashifyDate $ qDate q,
 -- since it will first clear out the store.
 populateTreeView :: ListStore DisplayRow -> [DBResult] -> IO ()
 populateTreeView store results = do
-    -- Clear out any previously existing model.
     listStoreClear store
-
-    -- Populate the new model.
     mapM_ (\result -> listStoreAppend store $ dbToDR result) results
 
 --
@@ -454,11 +451,10 @@ lookupCallsign widgets store conf = do
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
 -- but that would mean passing the store all over the place.
-updateAllQSOsView :: ListStore DisplayRow -> Config -> ContextId -> String -> IO ()
-updateAllQSOsView store conf _ str =
-    when (" added to database." `isSuffixOf` str) $ do
-        result <- getLatestQSO (confDB conf)
-        listStorePrepend store $ dbToDR result
+updateAllQSOsView :: ListStore DisplayRow -> Config -> IO ()
+updateAllQSOsView store conf = do
+    result <- getLatestQSO (confDB conf)
+    listStorePrepend store $ dbToDR result
 
 --
 -- INIT UI
@@ -558,6 +554,7 @@ runGUI conf = do
     -- Install a bunch of signal handlers.
     on (wCurrent widgets) toggled         (currentToggled widgets)
     on (wClear widgets)   buttonActivated (clearUI widgets)
+    on (wClear widgets)   buttonActivated (populateTreeView previousStore [])
     on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
     on (wLookup widgets)  buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
                                                                     (blockUI widgets False)
@@ -567,7 +564,9 @@ runGUI conf = do
     -- This signal is how we watch for a new QSO being added to the database
     -- and then updating the view of all QSOs.  This is to prevent having to
     -- pass stores all around.
-    on (wStatus widgets)  textPushed      (updateAllQSOsView allStore conf)
+    on (wStatus widgets)  textPushed      (\_ str -> when (" added to database." `isSuffixOf` str) $ do
+                                                         updateAllQSOsView allStore conf
+                                                         populateTreeView previousStore [])
 
     -- Initialize the widgets to their first state.
     clearUI widgets
