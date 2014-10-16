@@ -312,7 +312,7 @@ addQSOFromUI widgets conf = do
     if not (null failures) then do statusbarRemoveAll (wStatus widgets) 0
                                    void $ statusbarPush (wStatus widgets) 0 (head failures)
     else do
-        call <- uppercase <$> get (wCall widgets) entryText
+        call <- get (wCall widgets) entryText
 
         -- Oh, we also have to look up the call sign yet again.  There's nowhere to store
         -- a previous lookup, and there's not any guarantee a lookup has been performed.  Some
@@ -383,9 +383,7 @@ lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
 
     when (not $ null call) $ do
-        ra <- lookup (uppercase call)
-                     (confQTHUser conf)
-                     (confQTHPass conf)
+        ra <- lookup call (confQTHUser conf) (confQTHPass conf)
 
         -- Strip off the Maybe bit from the result now.
         when (isJust ra) $ updateUI (fromJust ra)
@@ -397,7 +395,7 @@ lookupCallsign widgets store conf = do
     fp = confDB conf
 
     updateUI ra' = do
-        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ call ++ " finished.")
+        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ (uppercase call) ++ " finished.")
 
         -- And now that we've discovered something, we can update the UI to reflect what we found.
         -- We start with clearing out the checkmarks.  This is so you can lookup a call, see what
@@ -411,7 +409,7 @@ lookupCallsign widgets store conf = do
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
         when (isJust $ raCall ra') $ do
-            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
+            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ (uppercase call) ]
 
             results <- getQSOsByCall fp call
             populateTreeView store results
@@ -440,7 +438,7 @@ lookupCallsign widgets store conf = do
             let confirmedBands = map getBand results
             mapM_ (addGridCheck widgets) confirmedBands
      where
-        call = uppercase . fromJust $ raCall ra'
+        call = fromJust $ raCall ra'
 
         confirmed (_, _, c) = isJust $ qLOTW_RDate c
 

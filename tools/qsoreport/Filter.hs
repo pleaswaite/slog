@@ -18,13 +18,12 @@ import Slog.DB(QsosId)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
-import Slog.Utils(uppercase)
 
 byBand :: ADIF.Band -> (QsosId, QSO, Confirmation) -> Bool
 byBand band (_, qso, _) = maybe False (band ==) (freqToBand $ qFreq qso)
 
 byCall :: String -> (QsosId, QSO, Confirmation) -> Bool
-byCall call (_, qso, _) = uppercase call == uppercase (qCall qso)
+byCall call (_, qso, _) = call == qCall qso
 
 byConfirmed :: Bool -> (QsosId, QSO, Confirmation) -> Bool
 byConfirmed conf (_, _, conf') =

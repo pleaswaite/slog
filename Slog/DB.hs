@@ -110,12 +110,14 @@ findQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> May
 findQSO _ Nothing Nothing Nothing Nothing = return []
 findQSO filename date time call freq = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on(q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                     where_ (((isNothing $ val date) ||. ((just $ q ^. QsosDate) ==. val date)) &&.
-                                                             ((isNothing $ val time) ||. ((just $ q ^. QsosTime) ==. val time)) &&.
-                                                             ((isNothing $ val call) ||. ((just $ q ^. QsosCall) ==. val call)) &&.
-                                                             ((isNothing $ val freq) ||. ((just $ q ^. QsosFreq) ==. val freq)))
+                                                     where_ (((isNothing $ val date)  ||. ((just $ q ^. QsosDate) ==. val date)) &&.
+                                                             ((isNothing $ val time)  ||. ((just $ q ^. QsosTime) ==. val time)) &&.
+                                                             ((isNothing $ val call') ||. ((just $ q ^. QsosCall) ==. val call')) &&.
+                                                             ((isNothing $ val freq)  ||. ((just $ q ^. QsosFreq) ==. val freq)))
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
+ where
+    call' = fmap uppercase call
 
 -- | Given a QSO date and time (in YYYYMMDD and HHMM format - see 'undashifyDate'
 -- and 'uncolonifyTime'), look up and return the 'DBResult' for the first QSO found.
@@ -146,7 +148,7 @@ getAllQSOs filename = runSqlite (pack filename) $ do
 getQSOsByCall :: FilePath -> String -> IO [DBResult]
 getQSOsByCall filename call = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosCall ==. (val call))
+                                                    where_ (q ^. QsosCall ==. (val $ uppercase call))
                                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                     return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
@@ -200,11 +202,22 @@ getUnsentQSOs filename = runSqlite (pack filename) $ do
 addQSO :: FilePath -> QSO -> IO QsosId
 addQSO filename qso = runSqlite (pack filename) $ do
     -- First, add the new QSO to the qsos table.
-    qsoid <- insert $ Qsos (qDate qso) (qTime qso) (qFreq qso) (qRxFreq qso) (show $ qMode qso)
-                           (fmap fromInteger $ qDXCC qso) (qGrid qso) (qState qso) (qName qso) (qNotes qso)
-                           (qXcIn qso) (qXcOut qso) (qRST_Rcvd qso) (qRST_Sent qso)
-                           (fmap fromInteger $ qITU qso) (fmap fromInteger $ qWAZ qso) (uppercase $ qCall qso)
-                           (fmap show $ qPropMode qso) (qSatName qso) (qAntenna qso)
+    qsoid <- insert $ Qsos (qDate qso) (qTime qso)
+                           (qFreq qso) (qRxFreq qso)
+                           (show $ qMode qso)
+                           (fmap fromInteger (qDXCC qso))
+                           (fmap uppercase (qGrid qso))
+                           (qState qso)
+                           (qName qso)
+                           (qNotes qso)
+                           (qXcIn qso) (qXcOut qso)
+                           (qRST_Rcvd qso) (qRST_Sent qso)
+                           (fmap fromInteger (qITU qso))
+                           (fmap fromInteger (qWAZ qso))
+                           (uppercase $ qCall qso)
+                           (fmap show (qPropMode qso))
+                           (qSatName qso)
+                           (qAntenna qso)
 
     -- And then add a reference in the confirmations table.
     insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing

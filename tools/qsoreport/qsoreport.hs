@@ -7,7 +7,6 @@ import Text.XHtml.Strict(Html, showHtml)
 
 import Slog.DB(DBResult, getAllQSOs)
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.Utils(uppercase)
 
 import ToolLib.Config
 
@@ -40,7 +39,7 @@ opts :: [OptDescr OptAction]
 opts = [
     Option [] ["filter-band"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byBand (read arg :: ADIF.Band))) "BAND")
            "filter by band",
-    Option [] ["filter-call"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byCall $ uppercase arg)) "CALL")
+    Option [] ["filter-call"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byCall arg)) "CALL")
            "filter QSOs by call sign",
     Option [] ["filter-confirmed"]      (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed True)))
            "filter confirmed QSOs",
