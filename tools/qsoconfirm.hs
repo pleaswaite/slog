@@ -6,7 +6,7 @@ import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
 import Text.Printf(printf)
 
-import Slog.DB(DBResult, confirmQSO, findQSO, getUnconfirmedQSOs, second)
+import Slog.DB(DBResult, confirmQSO, getQSO, getUnconfirmedQSOs, second)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -76,10 +76,10 @@ doConfirm fp qslInfo = do
     -- frequency.  Thus we query the database for all QSOs matching time and call.  This
     -- could possibly return multiple results, across multiple bands.  We'll find the
     -- right one later.
-    results <- findQSO fp (Just $ qiDate qslInfo)
-                          (Just $ withoutSeconds $ qiTime qslInfo)
-                          (Just $ qiCall qslInfo)
-                          Nothing
+    results <- getQSO fp (Just $ qiDate qslInfo)
+                         (Just $ withoutSeconds $ qiTime qslInfo)
+                         (Just $ qiCall qslInfo)
+                         Nothing
     mapM_ confirmOne results
  where
     confirmOne (i, q, _) = do

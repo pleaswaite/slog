@@ -17,9 +17,8 @@
 module Slog.DB(DBResult,
                QsosId,
                confirmQSO,
-               findQSO,
-               findQSOByDateTime,
                addQSO,
+               getQSO,
                getAllQSOs,
                getQSOsByCall,
                getQSOsByDXCC,
@@ -95,7 +94,7 @@ third :: (a, b, c) -> c
 third  (_, _, c) = c
 
 --
--- FINDING THE ID FOR A GIVEN QSO
+-- QUERYING FOR QSOs
 --
 
 -- | A generic way of finding the ID for a QSO.  This function can take at
@@ -106,9 +105,9 @@ third  (_, _, c) = c
 --
 -- Note that the date and time must be given in YYYYMMDD and HHMM format -
 -- see 'undashifyDate' and 'uncolonifyTime'.
-findQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Maybe Double -> IO [DBResult]
-findQSO _ Nothing Nothing Nothing Nothing = return []
-findQSO filename date time call freq = runSqlite (pack filename) $ do
+getQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Maybe Double -> IO [DBResult]
+getQSO _ Nothing Nothing Nothing Nothing = return []
+getQSO filename date time call freq = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on(q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ (((isNothing $ val date)  ||. ((just $ q ^. QsosDate) ==. val date)) &&.
                                                              ((isNothing $ val time)  ||. ((just $ q ^. QsosTime) ==. val time)) &&.
@@ -118,23 +117,6 @@ findQSO filename date time call freq = runSqlite (pack filename) $ do
     return $ map fmtTuple rows
  where
     call' = fmap uppercase call
-
--- | Given a QSO date and time (in YYYYMMDD and HHMM format - see 'undashifyDate'
--- and 'uncolonifyTime'), look up and return the 'DBResult' for the first QSO found.
--- It is assumed that only one QSO can ever happen in any given minute.
-findQSOByDateTime :: FilePath -> ADIF.Date -> ADIF.Time -> IO (Maybe DBResult)
-findQSOByDateTime filename date time = runSqlite (pack filename) $ do
-    rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                     where_ ((q ^. QsosDate ==. val date) &&.
-                                                             (q ^. QsosTime ==. val time))
-                                                     limit 1
-                                                     return (q ^. QsosId, q, c)
-    if null rows then return Nothing
-    else return $ Just $ fmtTuple $ head rows
-
---
--- FINDING A QSO OBJECT
---
 
 -- | Return a list of all 'DBResult' records in the database, sorted by date and time.
 getAllQSOs :: FilePath -> IO [DBResult]
