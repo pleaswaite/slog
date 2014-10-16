@@ -11,7 +11,7 @@ import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
 import Slog.DB(DBResult, getAllQSOs, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
-import Slog.DXCC(idFromName)
+import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
 import Slog.Formats.ADIF.Types(Band(..))
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
@@ -82,6 +82,10 @@ data DisplayRow = DisplayRow { dDate      :: String,
                                dFreq      :: Double,
                                dRxFreq    :: Maybe Double,
                                dMode      :: String,
+                               dDXCC      :: Maybe Integer,
+                               dGrid      :: Maybe String,
+                               dXcIn      :: Maybe String,
+                               dXcOut     :: Maybe String,
                                dAntenna   :: Maybe String,
                                dConfirmed :: Bool }
 
@@ -166,6 +170,22 @@ initTreeView store view = do
     modeCol <- newTextColumn store "Mode" dMode
     treeViewAppendColumn view modeCol
 
+    -- DXCC
+    dxccCol <- newTextColumn store "DXCC" $ \row -> if (isJust $ dDXCC row) then maybe "" dxccEntity (entityFromID $ fromJust $ dDXCC row)
+                                                    else ""
+    treeViewAppendColumn view dxccCol
+
+    -- GRID
+    gridCol <- newTextColumn store "Grid" $ \row -> maybe "" id (dGrid row)
+    treeViewAppendColumn view gridCol
+
+    -- EXCHANGE
+    xcInCol <- newTextColumn store "Rcvd XC" $ \row -> maybe "" id (dXcIn row)
+    treeViewAppendColumn view xcInCol
+
+    xcOutCol <- newTextColumn store "XC" $ \row -> maybe "" id (dXcOut row)
+    treeViewAppendColumn view xcOutCol
+
     -- ANTENNA
     antennaCol <- newTextColumn store "Antenna" $ \row -> maybe "" id (dAntenna row)
     treeViewAppendColumn view antennaCol
@@ -203,6 +223,10 @@ populateTreeView store results = do
                                                               dFreq=qFreq q,
                                                               dRxFreq=qRxFreq q,
                                                               dMode=show $ qMode q,
+                                                              dDXCC=qDXCC q,
+                                                              dGrid=qGrid q,
+                                                              dXcIn=qXcIn q,
+                                                              dXcOut=qXcOut q,
                                                               dAntenna=qAntenna q,
                                                               dConfirmed=isConfirmed c})
           results
