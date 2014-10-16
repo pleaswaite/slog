@@ -1,21 +1,23 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
+{-# LANGUAGE DoAndIfThenElse #-}
 
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad(liftM, when, void)
-import Data.Maybe(fromJust, isJust)
+import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
+import qualified Data.Text as T
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
 import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
-import Slog.DB(DBResult, getAllQSOs, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
+import Slog.DB(DBResult, addQSO, getAllQSOs, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
-import Slog.Formats.ADIF.Types(Band(..))
+import Slog.Formats.ADIF.Types(Band(..), Mode)
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
-import Slog.Utils(colonifyTime, dashifyDate, uppercase)
+import Slog.Utils
 import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 import ToolLib.Config
 
@@ -88,6 +90,11 @@ data DisplayRow = DisplayRow { dDate      :: String,
                                dXcOut     :: Maybe String,
                                dAntenna   :: Maybe String,
                                dConfirmed :: Bool }
+
+lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
+lookup call user pass = do
+    sid <- login user pass
+    maybe (return Nothing) (lookupCall call) sid
 
 --
 -- UI HELPERS
@@ -232,6 +239,60 @@ populateTreeView store results = do
           results
 
 --
+-- INPUT CHECKS
+--
+
+infixr 1 <??>
+
+(<??>) :: Bool -> String -> Maybe String
+False <??> _ = Nothing
+True  <??> s = Just s
+
+checkRequiredText :: Entry -> String -> IO (Maybe String)
+checkRequiredText entry errorStr = do
+    s <- get entry entryText
+    return $ T.null s <??> errorStr
+
+checkCall :: Widgets -> IO (Maybe String)
+checkCall widgets = checkRequiredText (wCall widgets) "Call sign is empty."
+
+checkFreq :: Widgets -> IO (Maybe String)
+checkFreq widgets = do
+    s <- get (wFreq widgets) entryText
+    return $ T.null s || (isNothing $ stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band."
+
+checkRxFreq :: Widgets -> IO (Maybe String)
+checkRxFreq widgets = do
+    s <- get (wRxFreq widgets) entryText
+    return $ (not $ T.null s) && (isNothing $ stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
+
+checkMode :: Widgets -> IO (Maybe String)
+checkMode widgets = do
+    s <- get (wMode widgets) entryText
+    return $ T.null s || (null (reads (uppercase $ T.unpack s) :: [(Mode, String)])) <??> "Mode is empty or is not a valid mode."
+
+checkAntenna :: Widgets -> IO (Maybe String)
+checkAntenna widgets = checkRequiredText (wAntenna widgets) "Antenna is empty."
+
+checkRxRST :: Widgets -> IO (Maybe String)
+checkRxRST widgets = checkRequiredText (wRSTRcvd widgets) "Received RST is empty."
+
+checkRST :: Widgets -> IO (Maybe String)
+checkRST widgets = checkRequiredText (wRSTSent widgets) "Sent RST is empty."
+
+-- FIXME: we could be smarter about this
+checkDate :: Widgets -> IO (Maybe String)
+checkDate widgets = checkRequiredText (wDate widgets) "Date is empty."
+
+-- FIXME: we could be smarter about this
+checkTime :: Widgets -> IO (Maybe String)
+checkTime widgets = checkRequiredText (wTime widgets) "Time is empty."
+
+addQSOChecks :: [Widgets -> IO (Maybe String)]
+addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkMode, checkAntenna, checkRxRST, checkRST,
+                checkDate, checkTime]
+
+--
 -- FUNCTIONS FOR QUERYING WIDGET STATE
 --
 
@@ -241,6 +302,69 @@ currentActive w = get (wCurrent w) toggleButtonActive
 --
 -- SIGNAL HANDLERS
 --
+
+addQSOFromUI :: Widgets -> Config -> IO ()
+addQSOFromUI widgets conf = do
+    -- First, check everything the user put into the UI.  If anything's wrong, display an error
+    -- message in the info bar and bail out.
+    failures <- catMaybes <$> (sequence $ map ($ widgets) addQSOChecks)
+
+    if not (null failures) then do statusbarRemoveAll (wStatus widgets) 0
+                                   void $ statusbarPush (wStatus widgets) 0 (head failures)
+    else do
+        call <- uppercase <$> get (wCall widgets) entryText
+
+        -- Oh, we also have to look up the call sign yet again.  There's nowhere to store
+        -- a previous lookup, and there's not any guarantee a lookup has been performed.  Some
+        -- of the data we get back will get put into the database.
+        ra <- lookup call (confQTHUser conf) (confQTHPass conf)
+
+        -- And then a bunch of annoying UI field grabbing.
+        date <- undashifyDate <$> get (wDate widgets) entryText
+        time <- uncolonifyTime <$> get (wTime widgets) entryText
+        freq <- get (wFreq widgets) entryText
+        rxFreq <- getMaybe (wRxFreq widgets)
+        mode <- get (wMode widgets) entryText
+        xcIn <- getMaybe (wXCRcvd widgets)
+        xcOut <- getMaybe (wXCSent widgets)
+        rstIn <- get (wRSTRcvd widgets) entryText
+        rstOut <- get (wRSTSent widgets) entryText
+        antenna <- getMaybe (wAntenna widgets)
+
+        -- We've got everything we need now, so assemble a new QSO record.  We can assume that
+        -- all the UI fields have something in them, since that was the point of the failure
+        -- checking at the beginning of this function.
+        let q = QSO { qDate     = date,
+                      qTime     = time,
+                      qFreq     = fromJust $ stringToDouble freq,
+                      qRxFreq   = maybe Nothing stringToDouble rxFreq,
+                      qMode     = (fst . head) (reads (uppercase $ T.unpack mode) :: [(Mode, String)]),
+                      qDXCC     = maybe Nothing (\ra' -> raCountry ra' >>= idFromName) ra,
+                      qGrid     = maybe Nothing raGrid ra,
+                      qState    = maybe Nothing raUSState ra,
+                      qName     = maybe Nothing raNick ra,
+                      qNotes    = Nothing,
+                      qXcIn     = xcIn,
+                      qXcOut    = xcOut,
+                      qRST_Rcvd = rstIn,
+                      qRST_Sent = rstOut,
+                      qITU      = maybe Nothing raITU ra,
+                      qWAZ      = maybe Nothing raWAZ ra,
+                      qCall     = call,
+                      qPropMode = Nothing,
+                      qSatName  = Nothing,
+                      qAntenna  = antenna }
+
+        -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
+        -- go around and update the list of all QSOs to include the latest.
+        addQSO (confDB conf) q
+        statusbarPush (wStatus widgets) 0 ("QSO with " ++ call ++ " added to database.")
+        clearUI widgets
+ where
+    getMaybe :: Entry -> IO (Maybe String)
+    getMaybe entry = do
+        s <- get entry entryText
+        return $ if null s then Nothing else Just s
 
 -- When the "Use current date & time" button is toggled, change sensitivity on widgets underneath it.
 currentToggled :: Widgets -> IO ()
@@ -271,11 +395,6 @@ lookupCallsign widgets store conf = do
  where
     -- The on-disk database location.
     fp = confDB conf
-
-    lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
-    lookup call user pass = do
-        sid <- login user pass
-        maybe (return Nothing) (lookupCall call) sid
 
     updateUI ra' = do
         statusbarPush (wStatus widgets) 0 ("Lookup of " ++ call ++ " finished.")
@@ -393,7 +512,7 @@ clearUI widgets = do
     -- Remove all checkmarks images found in the various tables.
     clearChecks widgets
  where
-    entryWidgets = [wCall widgets, wAntenna widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
+    entryWidgets = [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                     wXCSent widgets, wDate widgets, wTime widgets]
 
     setDateTime w = sequence_ [theDate >>= entrySetText (wDate w),
@@ -424,12 +543,13 @@ runGUI conf = do
     allQSOs <- getAllQSOs $ confDB conf
     populateTreeView allStore allQSOs
 
-    on (wCurrent widgets) toggled (currentToggled widgets)
-    on (wClear widgets) buttonActivated (clearUI widgets)
-    on (wLookup widgets) buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
-                                                                   (blockUI widgets False)
-                                                                   (lookupCallsign widgets previousStore conf))
-                                                         priorityDefaultIdle)
+    on (wCurrent widgets) toggled         (currentToggled widgets)
+    on (wClear widgets)   buttonActivated (clearUI widgets)
+    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
+    on (wLookup widgets)  buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
+                                                                    (blockUI widgets False)
+                                                                    (lookupCallsign widgets previousStore conf))
+                                                          priorityDefaultIdle)
 
     -- Initialize the widgets to their first state.
     clearUI widgets
