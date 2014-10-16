@@ -20,6 +20,7 @@ module Slog.DB(DBResult,
                addQSO,
                getQSO,
                getAllQSOs,
+               getLatestQSO,
                getQSOsByCall,
                getQSOsByDXCC,
                getQSOsByGrid,
@@ -125,6 +126,15 @@ getAllQSOs filename = runSqlite (pack filename) $ do
                                                      orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
+
+-- | Return the most recently added 'DBResult' record.  This is basically for updating the UI
+-- without having to tear down a store and rebuild it from scratch.
+getLatestQSO :: FilePath -> IO DBResult
+getLatestQSO filename = runSqlite (pack filename) $ do
+    rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     limit 1
+                                                     return (q ^. QsosId, q, c)
+    return $ fmtTuple $ head rows
 
 -- | Return a list of all 'DBResult' records in the database for a given call sign.
 getQSOsByCall :: FilePath -> String -> IO [DBResult]

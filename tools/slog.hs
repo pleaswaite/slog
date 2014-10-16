@@ -4,6 +4,7 @@
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad(liftM, when, void)
+import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 import qualified Data.Text as T
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
@@ -12,7 +13,7 @@ import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
 
-import Slog.DB(DBResult, addQSO, getAllQSOs, getQSOsByCall, getQSOsByDXCC, getQSOsByGrid)
+import Slog.DB
 import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
 import Slog.Formats.ADIF.Types(Band(..), Mode)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -215,6 +216,21 @@ initTreeView store view = do
         treeViewColumnSetTitle col title
         return col
 
+-- Convert a DBResult tuple into a DisplayRow record, suitable for adding into a view.
+dbToDR :: DBResult -> DisplayRow
+dbToDR (_, q, c) = DisplayRow { dDate=dashifyDate $ qDate q,
+                                dTime=colonifyTime $ qTime q,
+                                dCall=qCall q,
+                                dFreq=qFreq q,
+                                dRxFreq=qRxFreq q,
+                                dMode=show $ qMode q,
+                                dDXCC=qDXCC q,
+                                dGrid=qGrid q,
+                                dXcIn=qXcIn q,
+                                dXcOut=qXcOut q,
+                                dAntenna=qAntenna q,
+                                dConfirmed=isConfirmed c }
+
 -- Given an existing ListStore, add all the results to it.  This populates the view that should have
 -- been created earlier with initTreeView .  This function can be called as many times as needed
 -- since it will first clear out the store.
@@ -224,19 +240,7 @@ populateTreeView store results = do
     listStoreClear store
 
     -- Populate the new model.
-    mapM_ (\(_, q, c) -> listStoreAppend store $ DisplayRow { dDate=dashifyDate $ qDate q,
-                                                              dTime=colonifyTime $ qTime q,
-                                                              dCall=qCall q,
-                                                              dFreq=qFreq q,
-                                                              dRxFreq=qRxFreq q,
-                                                              dMode=show $ qMode q,
-                                                              dDXCC=qDXCC q,
-                                                              dGrid=qGrid q,
-                                                              dXcIn=qXcIn q,
-                                                              dXcOut=qXcOut q,
-                                                              dAntenna=qAntenna q,
-                                                              dConfirmed=isConfirmed c})
-          results
+    mapM_ (\result -> listStoreAppend store $ dbToDR result) results
 
 --
 -- INPUT CHECKS
@@ -446,6 +450,16 @@ lookupCallsign widgets store conf = do
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 
+-- When a message is pushed into the status bar, check it to see if it's the message that'd be
+-- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
+-- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
+-- but that would mean passing the store all over the place.
+updateAllQSOsView :: ListStore DisplayRow -> Config -> ContextId -> String -> IO ()
+updateAllQSOsView store conf _ str =
+    when (" added to database." `isSuffixOf` str) $ do
+        result <- getLatestQSO (confDB conf)
+        listStorePrepend store $ dbToDR result
+
 --
 -- INIT UI
 --
@@ -541,6 +555,7 @@ runGUI conf = do
     allQSOs <- getAllQSOs $ confDB conf
     populateTreeView allStore allQSOs
 
+    -- Install a bunch of signal handlers.
     on (wCurrent widgets) toggled         (currentToggled widgets)
     on (wClear widgets)   buttonActivated (clearUI widgets)
     on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
@@ -548,6 +563,11 @@ runGUI conf = do
                                                                     (blockUI widgets False)
                                                                     (lookupCallsign widgets previousStore conf))
                                                           priorityDefaultIdle)
+
+    -- This signal is how we watch for a new QSO being added to the database
+    -- and then updating the view of all QSOs.  This is to prevent having to
+    -- pass stores all around.
+    on (wStatus widgets)  textPushed      (updateAllQSOsView allStore conf)
 
     -- Initialize the widgets to their first state.
     clearUI widgets
