@@ -6,7 +6,7 @@ module Slog.Cluster( Spot(..),
 
 import Control.Exception(IOException, try)
 import Control.Monad.State
-import Data.List(findIndex)
+import Data.List(elemIndex)
 import Data.List.Split(splitOn)
 import Data.Maybe(fromJust, mapMaybe)
 import Network.HTTP
@@ -68,7 +68,7 @@ grabSpots :: IO String
 grabSpots = do
     let url = "http://hamqth.com/dxc_csv.php?limit=25"
     result <- try ((simpleHTTP $ getRequest url) >>= getResponseBody) :: IO (Either IOException String)
-    return $ either (\_ -> "") (id) result
+    return $ either (\_ -> "") id result
 
 -- Given a list of new spots and the latest spot we previously grabbed, return all the spots that
 -- are newer.
@@ -76,7 +76,7 @@ removeOldSpots :: [Spot] -> Spot -> [Spot]
 removeOldSpots newSpots latestOld =
     maybe newSpots
           (flip take newSpots)
-          (findIndex (== latestOld) newSpots)
+          (elemIndex latestOld newSpots)
 
 -- | Return a list of the DX cluster spots that have appeared since the last time
 -- this function was called.

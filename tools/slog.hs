@@ -1,9 +1,13 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
+{-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
+{-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
+
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
-import Control.Monad(liftM, when, void)
+import Control.Monad(liftM, unless, void, when)
+import qualified Data.Foldable as F
 import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 import qualified Data.Text as T
@@ -27,7 +31,7 @@ import ToolLib.Config
 --
 
 formatDateTime :: String -> UTCTime -> String
-formatDateTime spec utc = formatTime defaultTimeLocale spec utc
+formatDateTime = formatTime defaultTimeLocale
 
 theTime :: IO String
 theTime = liftM (formatDateTime "%R") getCurrentTime
@@ -145,8 +149,8 @@ clearChecks widgets =
     mapM_ (\cont -> containerForeach cont (removeImage cont))
           [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets]
  where
-    removeImage container widget = do
-        when (isA widget gTypeImage) $ do containerRemove container widget
+    removeImage container widget =
+        when (isA widget gTypeImage) $ containerRemove container widget
 
 -- Create the columns and renderers for the previous QSOs with a given call area.
 -- Create the columns and renderers for a given TreeView, leaving it ready to be filled
@@ -308,7 +312,7 @@ addQSOFromUI :: Widgets -> Config -> IO ()
 addQSOFromUI widgets conf = do
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
-    failures <- catMaybes <$> (sequence $ map ($ widgets) addQSOChecks)
+    failures <- catMaybes <$> (mapM ($ widgets) addQSOChecks)
 
     if not (null failures) then do statusbarRemoveAll (wStatus widgets) 0
                                    void $ statusbarPush (wStatus widgets) 0 (head failures)
@@ -359,8 +363,8 @@ addQSOFromUI widgets conf = do
         -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
         -- go around and update the list of all QSOs to include the latest.
         addQSO (confDB conf) q
-        statusbarPush (wStatus widgets) 0 ("QSO with " ++ call ++ " added to database.")
         clearUI widgets
+        void $ statusbarPush (wStatus widgets) 0 ("QSO with " ++ (uppercase call) ++ " added to database.")
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -383,11 +387,11 @@ lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
 lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
 
-    when (not $ null call) $ do
+    unless (null call) $ do
         ra <- lookup call (confQTHUser conf) (confQTHPass conf)
 
         -- Strip off the Maybe bit from the result now.
-        when (isJust ra) $ updateUI (fromJust ra)
+        F.forM_ ra updateUI
 
     -- Return false to remove this handler from the main loop.
     return False

@@ -27,7 +27,7 @@ byCall call (_, qso, _) = call == qCall qso
 
 byConfirmed :: Bool -> (QsosId, QSO, Confirmation) -> Bool
 byConfirmed conf (_, _, conf') =
-    if isConfirmed conf' then conf else False
+    isConfirmed conf' && conf
 
 byDigital :: (QsosId, QSO, Confirmation) -> Bool
 byDigital (_, qso, _) = ADIF.digitalMode (qMode qso)

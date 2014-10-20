@@ -1,4 +1,5 @@
-{-# OPTIONS_GHC -XLambdaCase #-}
+{-# LANGUAGE LambdaCase #-}
+
 -- | The Lookup module provides a mechanism to query the <http://www.hamqth.com> website
 -- for information about a call sign.  Information is returned in a 'RadioAmateur'
 -- record.
@@ -15,6 +16,7 @@ module Slog.Lookup.Lookup(RadioAmateur(..),
  where
 
 import Control.Exception(IOException, try)
+import Control.Monad(mplus)
 import Data.Maybe(catMaybes, isJust)
 import Network.HTTP
 import Text.Printf(printf)
@@ -153,9 +155,9 @@ xmlToRadioAmateur xml = Just $
                    raDOK         = xml <?> "dok" >>= stringToInteger,
                    raIOTA        = xml <?> "iota" >>= stringToInteger,
                    raQSLVia      = xml <?> "qsl_via",
-                   raLOTW        = maybe Nothing (Just . stringToRAUses) (xml <?> "lotw"),
-                   raQSL         = maybe Nothing (Just . stringToRAUses) (xml <?> "qsl"),
-                   raEQSL        = maybe Nothing (Just . stringToRAUses) (xml <?> "eqsl"),
+                   raLOTW        = fmap stringToRAUses (xml <?> "lotw"),
+                   raQSL         = fmap stringToRAUses (xml <?> "qsl"),
+                   raEQSL        = fmap stringToRAUses (xml <?> "eqsl"),
                    raEMail       = xml <?> "email",
                    raJabber      = xml <?> "jabber",
                    raICQ         = xml <?> "icq" >>= stringToInteger,
@@ -170,7 +172,7 @@ xmlToRadioAmateur xml = Just $
                    raContinent   = xml <?> "continent" >>= \c -> Just (read c :: A.Continent),
                    raUTCOffset   = xml <?> "utc_offset" >>= stringToInteger }
  where
-    x <?> e = maybe Nothing Just (getElementValue e x)
+    x <?> e = mplus (getElementValue e x) Nothing
 
 -- We can't just use a straight-up == on QNames here because qURI is set and
 -- the default comparison takes that into account, so anything made with unqual
@@ -202,7 +204,7 @@ responseIsValid xml | gotError xml = Nothing
 -- a 'RadioAmateur' record if successful.  If you do not call 'login' first, this
 -- function will not succeed.
 lookupCall :: String -> SessionID -> IO (Maybe RadioAmateur)
-lookupCall call sid = do
+lookupCall call sid =
     (try (getXML url) :: IO (Either IOException String)) >>= \case
         Right s   -> return $ parseXMLDoc s >>= responseIsValid >>= xmlToRadioAmateur
         _         -> return Nothing
@@ -212,7 +214,7 @@ lookupCall call sid = do
 -- | Given a user name and password, login to <http://www.hamqth.com> and return the
 -- returned session ID.  This operation may fail.  Be prepared.
 login :: String -> String -> IO (Maybe SessionID)
-login username pass = do
+login username pass =
     (try (getXML url) :: IO (Either IOException String)) >>= \case
         Right xml -> return $ parseXMLDoc xml >>= getElementValue "session_id"
         _         -> return Nothing

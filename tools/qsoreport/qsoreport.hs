@@ -2,7 +2,7 @@
 
 import System.Console.GetOpt
 import System.Environment(getArgs)
-import System.Exit(ExitCode(..), exitWith)
+import System.Exit(exitSuccess)
 import Text.XHtml.Strict(Html, showHtml)
 
 import Slog.DB(DBResult, getAllQSOs)
@@ -70,7 +70,7 @@ opts = [
            "display VUCC progress",
 
     Option ['h'] ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
-                                                           exitWith ExitSuccess))
+                                                           exitSuccess))
            "print program usage"
  ]
 

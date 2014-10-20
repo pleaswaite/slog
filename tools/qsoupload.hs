@@ -19,10 +19,10 @@ type UploadFuncTy = FilePath -> IO ()
 
 withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
 withTempFile pattern func = do
-    tempdir <- catch (getTemporaryDirectory) (\(_ :: IOException) -> return ".")
+    tempdir <- catch getTemporaryDirectory (\(_ :: IOException) -> return ".")
     (tempfile, temph) <- openTempFile tempdir pattern
     finally (func tempfile temph)
-            (do removeFile tempfile)
+            (removeFile tempfile)
 
 writeAndUpload :: String -> SignFuncTy -> UploadFuncTy -> FilePath -> Handle -> IO ()
 writeAndUpload adifs signFunc uploadFunc tempname temph = do
@@ -30,7 +30,7 @@ writeAndUpload adifs signFunc uploadFunc tempname temph = do
     hClose temph
     signedFile <- signFunc tempname
     finally (uploadFunc signedFile)
-            (do removeFile signedFile)
+            (removeFile signedFile)
 
 main :: IO ()
 main = do

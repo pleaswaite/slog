@@ -82,7 +82,7 @@ doConfirm fp qslInfo = do
                          Nothing
     mapM_ confirmOne results
  where
-    confirmOne (i, q, _) = do
+    confirmOne (i, q, _) =
         -- If this QSO is on the same band as the QSLInfo object, it must be the one
         -- we want to confirm.  This guard basically does the filtering that we wish
         -- the database could have given us above, if we didn't have to work in terms
@@ -109,8 +109,8 @@ filterPreviousConfirmations results infos = let
     filter (`elem` unconfirmed) (catMaybes infos)
 
 confirmQSOs :: FilePath -> [QSLInfo] -> IO ()
-confirmQSOs fp qsls = do
-    mapM_ (doConfirm fp) qsls
+confirmQSOs fp =
+    mapM_ (doConfirm fp)
 
 main :: IO ()
 main = do

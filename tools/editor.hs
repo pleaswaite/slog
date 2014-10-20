@@ -14,9 +14,10 @@ import Database.Esqueleto hiding(count, on)
 import Database.Persist.Sqlite(runSqlite)
 import Database.Persist.TH
 import Data.List(sort)
-import Data.Maybe(fromJust, isJust)
-import Data.Text(pack)
+import Data.Maybe(fromJust, fromMaybe, isJust)
+import Data.Text(Text, pack)
 import Graphics.UI.Gtk hiding(get, set)
+
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID, idFromName)
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Utils(stringToDouble, stringToInteger, uppercase)
@@ -92,7 +93,7 @@ readDB filename = runSqlite (pack filename) $ do
 -- or not.  It is recommended to call editedRows first.
 updateOne :: FilePath -> Row -> IO ()
 updateOne filename row = runSqlite (pack filename) $ do
-    liftIO $ putStrLn $ show row
+    liftIO $ print row
     update $ \r -> do
         set r [ QsosDate =. (val $ rDate row),
                 QsosTime =. (val $ rTime row),
@@ -112,7 +113,7 @@ updateOne filename row = runSqlite (pack filename) $ do
     -- For now, only support going from uploaded to not uploaded.  That's okay because
     -- typically this program will be used to re-upload things that failed.  I can't really
     -- see why you'd want to mark previously not uploaded things as uploaded.
-    unless (rUploaded row) $ do
+    unless (rUploaded row) $
         update $ \r -> do
             set r [ ConfirmationsLotw_sdate =. (val Nothing) ]
             where_ (r ^.ConfirmationsQsoid ==. (val $ rQsoid row))
@@ -190,7 +191,7 @@ addColumns store view = do
                                                                   cellComboTextModel := (dxccModel, makeColumnIdString 0) ]
     on dxccCell edited $ editedCell store (\row text -> row { rDXCC=fmap fromInteger (idFromName text), rEdited=True })
     treeViewAppendColumn view dxccColumn
-    treeViewColumnSetTitle dxccColumn "DXCC"
+    treeViewColumnSetTitle dxccColumn ("DXCC" :: Text)
 
     -- ITU
     (ituCol, ituCell) <- newTextColumn store "ITU" $ \row -> maybe "" show (rITU row)
@@ -205,7 +206,7 @@ addColumns store view = do
     treeViewAppendColumn view wazCol
 
     -- ANTENNA
-    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> maybe "" id (rAntenna row)
+    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> fromMaybe (rAntenna row)
     on antCell edited $ editedCell store (\row text -> row { rAntenna=Just text, rEdited=True })
     treeViewAppendColumn view antCol
 
@@ -217,7 +218,7 @@ addColumns store view = do
     on uploadedCell cellToggled $ toggledCell store (\row -> if rUploaded row then row { rUploaded=False, rEdited=True }
                                                              else row)
     treeViewAppendColumn view uploadedCol
-    treeViewColumnSetTitle uploadedCol "Uploaded?"
+    treeViewColumnSetTitle uploadedCol ("Uploaded?" :: Text)
  where
     -- Create and return a new text column and cell renderer, setting a bunch of attributes
     -- along the way.  The fn argument is used to set additional parameters, such as how
@@ -244,7 +245,7 @@ addColumns store view = do
     -- fn does the hard part of actually doing the editing, since we moight want to do some sort of
     -- sanity checking on the cell's contents instead of blindly cramming it into a row.
     editedCell :: ListStore Row -> (Row -> String -> Row) -> TreePath -> String -> IO ()
-    editedCell model fn path text = do
+    editedCell model fn path text =
         withTreePath model path $ \model' ndx -> do cur <- listStoreGetValue model' ndx
                                                     listStoreSetValue model' ndx (fn cur text)
 
@@ -253,8 +254,8 @@ addColumns store view = do
     -- got to get converted.  (2) There's obviously no text stored in the model for a toggled cell, so
     -- argument numbers are different everywhere.
     toggledCell :: ListStore Row -> (Row -> Row) -> String -> IO ()
-    toggledCell model fn path = do
-        withTreePath model (stringToTreePath path) $
+    toggledCell model fn path =
+        withTreePath model (stringToTreePath $ pack path) $
                      \model' ndx -> do cur <- listStoreGetValue model' ndx
                                        listStoreSetValue model' ndx (fn cur)
 
@@ -263,8 +264,7 @@ addColumns store view = do
     -- takes care to check various error conditions and default to 291 (USA) on error.
     defaultEntityText :: Maybe Int -> String
     defaultEntityText (Just i) = let i' = toInteger i
-                                 in  if i' `elem` entityIDs then entityNameFromID i'
-                                     else                        entityNameFromID 291
+                                 in  entityNameFromID (if i' `elem` entityIDs then i' else 291)
     defaultEntityText _        = entityNameFromID 291
 
     entityNameFromID :: Integer -> String
@@ -278,40 +278,40 @@ runGUI pairs = do
     builder <- builderNew
     builderAddFromFile builder "/home/chris/src/slog/data/editor.ui"
 
-    window <- builderGetObject builder castToWindow "mainWindow"
+    window <- builderGetObject builder castToWindow ("mainWindow" :: Text)
     onDestroy window mainQuit
 
     -- Create the store here.  The glade format recognized is pretty lame, so I have to do
     -- all the construction by hand instead of in glade.  Oh well.
     store <- listStoreNew ([] :: [Row])
-    view <- builderGetObject builder castToTreeView "qsoView"
+    view <- builderGetObject builder castToTreeView ("qsoView" :: Text)
 
     addColumns store view
 
     -- Add everything into the store.
-    mapM (\(q, c) -> listStoreAppend store $ Row { rQsoid=qsosQsoid q,
-                                                   rDate=qsosDate q,
-                                                   rTime=qsosTime q,
-                                                   rCall=qsosCall q,
-                                                   rFreq=qsosFreq q,
-                                                   rRxFreq=qsosRx_freq q,
-                                                   rMode=qsosMode q,
-                                                   rRSTRcvd=qsosRst_rcvd q,
-                                                   rRSTSent=qsosRst_sent q,
-                                                   rDXCC=qsosDxcc q,
-                                                   rITU=qsosItu q,
-                                                   rWAZ=qsosWaz q,
-                                                   rAntenna=qsosAntenna q,
-                                                   rUploaded=isJust $ confirmationsLotw_sdate c,
-                                                   rEdited=False }
-         )
-         pairs
+    mapM_ (\(q, c) -> listStoreAppend store $ Row { rQsoid=qsosQsoid q,
+                                                    rDate=qsosDate q,
+                                                    rTime=qsosTime q,
+                                                    rCall=qsosCall q,
+                                                    rFreq=qsosFreq q,
+                                                    rRxFreq=qsosRx_freq q,
+                                                    rMode=qsosMode q,
+                                                    rRSTRcvd=qsosRst_rcvd q,
+                                                    rRSTSent=qsosRst_sent q,
+                                                    rDXCC=qsosDxcc q,
+                                                    rITU=qsosItu q,
+                                                    rWAZ=qsosWaz q,
+                                                    rAntenna=qsosAntenna q,
+                                                    rUploaded=isJust $ confirmationsLotw_sdate c,
+                                                    rEdited=False }
+          )
+          pairs
 
     -- Finally, hook up the view and store.
     treeViewSetModel view store
 
     -- Make the buttons do something.
-    [cancelButton, okButton] <-  mapM (builderGetObject builder castToButton) ["cancelButton", "okButton"]
+    [cancelButton, okButton] <-  mapM (builderGetObject builder castToButton) ["cancelButton" :: Text, "okButton" :: Text]
     on cancelButton buttonActivated mainQuit
     on okButton buttonActivated (updateEdited store >> mainQuit)
 

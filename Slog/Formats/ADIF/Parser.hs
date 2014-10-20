@@ -48,7 +48,7 @@ stringToField (name, len, ty) datum = case name of
     "EQSL_SDATE"        -> Eqsl_SDate $ Just datum
     "EQSL_QSL_RCVD"     -> Eqsl_Received (read datum :: ReceivedStatus)
     "EQSL_QSL_SENT"     -> Eqsl_Sent (read datum :: SentStatus)
-    "FORCE_INT"         -> ForceInt $ if datum == "Y" then True else False
+    "FORCE_INT"         -> ForceInt $ datum == "Y"
     "FREQ"              -> Freq (read datum :: Double)
     "FREQ_RX"           -> Freq (read datum :: Double)
     "GRIDSQUARE"        -> Grid datum
@@ -104,7 +104,7 @@ stringToField (name, len, ty) datum = case name of
     "QSO_COMPLETE"      -> QSO_Complete (read datum :: Complete)
     "QSO_DATE"          -> QSO_Date datum
     "QSO_DATE_OFF"      -> QSO_DateOff datum
-    "QSO_RANDOM"        -> QSO_Random $ if datum == "Y" then True else False
+    "QSO_RANDOM"        -> QSO_Random $ datum == "Y"
     "QTH"               -> QTH datum
     "RIG"               -> Rig $ split "\n\r" datum
     "RST_RCVD"          -> RST_Received datum
@@ -121,7 +121,7 @@ stringToField (name, len, ty) datum = case name of
     "STATION_CALLSIGN"  -> StationCall datum
     "STX"               -> Serial (read datum :: Integer)
     "STX_STRING"        -> SerialString datum
-    "SWL"               -> SWL $ if datum == "Y" then True else False
+    "SWL"               -> SWL $ datum == "Y"
     "TEN_TEN"           -> TenTen (read datum :: Double)
     "TIME_OFF"          -> TimeOff datum
     "TIME_ON"           -> TimeOn datum

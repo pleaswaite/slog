@@ -1,4 +1,6 @@
-{-# OPTIONS_GHC -XPatternGuards -XScopedTypeVariables #-}
+{-# LANGUAGE PatternGuards #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+
 -- | This module contains the top-level interface for communicating with a radio via
 -- the rigctld program.  While this module contains a function for starting rigctld, it
 -- is assumed in the Slog utilities that the user will have started it up before ever
@@ -73,8 +75,8 @@ ask inCmd =
 
         case response of
             []      -> return $ Left $ RigError 1
-            [l1]    -> if "RPRT " `isPrefixOf` l1 then return $ Left $ errorCode (drop 5 l1)
-                       else return $ doAsk inCmd response
+            [li]    -> return $ if "RPRT " `isPrefixOf` l1 then Left $ errorCode (drop 5 l1)
+                                else doAsk inCmd response
             _       -> return $ doAsk inCmd response
  where
     serialized = ser inCmd
@@ -93,8 +95,8 @@ tell inCmd =
         response <- rd
 
         case response of
-            [l1]    -> if "RPRT " `isPrefixOf` l1 then return $ errorCode (drop 5 l1)
-                       else return NoError
+            [l1]    -> return $ if "RPRT " `isPrefixOf` l1 then errorCode (drop 5 l1)
+                                else NoError
             _       -> return $ RigError 1
  where
     serialized = ser inCmd

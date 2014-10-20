@@ -132,6 +132,7 @@ getAllQSOs filename = runSqlite (pack filename) $ do
 getLatestQSO :: FilePath -> IO DBResult
 getLatestQSO filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                      limit 1
                                                      return (q ^. QsosId, q, c)
     return $ fmtTuple $ head rows
@@ -225,7 +226,7 @@ addQSO filename qso = runSqlite (pack filename) $ do
 -- record is one where the local station has recorded an entry in the log, and the remote
 -- station has recorded and uploaded a matching entry in their log.
 confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
-confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $ do
+confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $
     update $ \r -> do
         set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
         where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
@@ -234,14 +235,14 @@ confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $ do
 -- as uploaded to LOTW in the database.  It is expected this function will be called after
 -- 'LOTW.upload', as it makes sense t ohave the uploading succeed before marking as sent.
 markQSOsAsSent :: FilePath -> [QsosId] -> IO ()
-markQSOsAsSent filename ids = do
-    mapM_ (markOne filename) ids
+markQSOsAsSent filename =
+    mapM_ (markOne filename)
  where
     markOne :: FilePath -> QsosId -> IO ()
     markOne fn qsoid = do
         today <- liftIO getCurrentTime
 
-        runSqlite (pack fn) $ do
+        runSqlite (pack fn) $
             update $ \r -> do
                 set r [ ConfirmationsLotw_sdate =. (val $ Just $ undashifyDate $ show $ utctDay today) ]
                 where_ (r ^. ConfirmationsQsoid ==. (val qsoid))

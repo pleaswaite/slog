@@ -4,7 +4,7 @@
 
 import Data.Maybe(fromJust, fromMaybe)
 import Data.String.Utils(split)
-import System.Exit(ExitCode(..), exitWith)
+import System.Exit(ExitCode(..), exitSuccess)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
@@ -90,7 +90,7 @@ opts = [
            "frequency used (or their freq:your freq for split mode) (REQUIRED)",
     Option ['h'] ["help"]       (NoArg  (\_ -> do
                                                    putStrLn (usageInfo "qsoadd" opts)
-                                                   exitWith ExitSuccess))
+                                                   exitSuccess))
            "print program usage",
     Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",

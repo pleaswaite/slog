@@ -2,7 +2,7 @@
 
 import Control.Monad(liftM)
 import Data.List((\\), nub, sort)
-import Data.Maybe(catMaybes, mapMaybe)
+import Data.Maybe(mapMaybe)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
@@ -69,7 +69,7 @@ processArgs argsFunc = do
 -- been worked.
 unworkedIDs :: [QSO] -> [Integer]
 unworkedIDs qsos =
-    entityIDs \\ (nub $ catMaybes (map qDXCC qsos))
+    entityIDs \\ (nub $ mapMaybe qDXCC qsos)
 
 main :: IO ()
 main = do
@@ -87,8 +87,8 @@ main = do
 
     -- If we are reporting based on only confirmed QSOs, remove unconfirmed
     -- ones from the list.  Otherwise, use all the QSOs in the log.
-    let qsos = if optConfirmedOnly cmdline then map second $ filter (\(_, _, c) -> isConfirmed c) results
-               else map second results
+    let qsos = map second $ if optConfirmedOnly cmdline then filter (\(_, _, c) -> isConfirmed c) results
+                            else results
 
     -- Reduce the list of worked QSOs down to just those on the given band
     -- (or whatever) we want to consider.  Then, convert that into a list of
