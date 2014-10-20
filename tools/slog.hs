@@ -264,12 +264,12 @@ checkCall widgets = checkRequiredText (wCall widgets) "Call sign is empty."
 checkFreq :: Widgets -> IO (Maybe String)
 checkFreq widgets = do
     s <- get (wFreq widgets) entryText
-    return $ T.null s || (isNothing $ stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band."
+    return $ T.null s || isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band."
 
 checkRxFreq :: Widgets -> IO (Maybe String)
 checkRxFreq widgets = do
     s <- get (wRxFreq widgets) entryText
-    return $ (not $ T.null s) && (isNothing $ stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
+    return $ not (T.null s) && isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
 
 checkMode :: Widgets -> IO (Maybe String)
 checkMode widgets = do

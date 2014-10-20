@@ -67,7 +67,7 @@ parseString s = mapMaybe parseOne (lines s)
 grabSpots :: IO String
 grabSpots = do
     let url = "http://hamqth.com/dxc_csv.php?limit=25"
-    result <- try ((simpleHTTP $ getRequest url) >>= getResponseBody) :: IO (Either IOException String)
+    result <- try (simpleHTTP (getRequest url) >>= getResponseBody) :: IO (Either IOException String)
     return $ either (const "") id result
 
 -- Given a list of new spots and the latest spot we previously grabbed, return all the spots that

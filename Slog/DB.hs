@@ -111,10 +111,10 @@ getQSO :: FilePath -> Maybe ADIF.Date -> Maybe ADIF.Time -> Maybe String -> Mayb
 getQSO _ Nothing Nothing Nothing Nothing = return []
 getQSO filename date time call freq = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on(q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                     where_ (((isNothing $ val date)  ||. ((just $ q ^. QsosDate) ==. val date)) &&.
-                                                             ((isNothing $ val time)  ||. ((just $ q ^. QsosTime) ==. val time)) &&.
-                                                             ((isNothing $ val call') ||. ((just $ q ^. QsosCall) ==. val call')) &&.
-                                                             ((isNothing $ val freq)  ||. ((just $ q ^. QsosFreq) ==. val freq)))
+                                                     where_ ((isNothing (val date)  ||. (just (q ^. QsosDate) ==. val date)) &&.
+                                                             (isNothing (val time)  ||. (just (q ^. QsosTime) ==. val time)) &&.
+                                                             (isNothing (val call') ||. (just (q ^. QsosCall) ==. val call')) &&.
+                                                             (isNothing (val freq)  ||. (just (q ^. QsosFreq) ==. val freq)))
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
  where
@@ -142,7 +142,7 @@ getLatestQSO filename = runSqlite (pack filename) $ do
 getQSOsByCall :: FilePath -> String -> IO [DBResult]
 getQSOsByCall filename call = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosCall ==. (val $ uppercase call))
+                                                    where_ (q ^. QsosCall ==. val (uppercase call))
                                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                     return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
@@ -151,7 +151,7 @@ getQSOsByCall filename call = runSqlite (pack filename) $ do
 getQSOsByDXCC :: FilePath -> Int -> IO [DBResult]
 getQSOsByDXCC filename dxcc = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosDxcc ==. (just $ val dxcc))
+                                                    where_ (q ^. QsosDxcc ==. just (val dxcc))
                                                     orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                     return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
@@ -229,7 +229,7 @@ addQSO filename qso = runSqlite (pack filename) $ do
 confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
 confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $
     update $ \r -> do
-        set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
+        set r [ ConfirmationsLotw_rdate =. val (Just qsl_date) ]
         where_ (r ^. ConfirmationsQsoid ==. val qsoid)
 
 -- | Given a list of 'QsosId' values corresponding to previously unsent 'QSO' records, mark them
@@ -245,7 +245,7 @@ markQSOsAsSent filename =
 
         runSqlite (pack fn) $
             update $ \r -> do
-                set r [ ConfirmationsLotw_sdate =. (val $ Just $ undashifyDate $ show $ utctDay today) ]
+                set r [ ConfirmationsLotw_sdate =. val (Just $ undashifyDate $ show $ utctDay today) ]
                 where_ (r ^. ConfirmationsQsoid ==. val qsoid)
 
 --

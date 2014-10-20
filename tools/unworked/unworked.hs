@@ -69,7 +69,7 @@ processArgs argsFunc = do
 -- been worked.
 unworkedIDs :: [QSO] -> [Integer]
 unworkedIDs qsos =
-    entityIDs \\ (nub $ mapMaybe qDXCC qsos)
+    entityIDs \\ nub (mapMaybe qDXCC qsos)
 
 main :: IO ()
 main = do

@@ -27,7 +27,7 @@ instance Eq QSLInfo where
     a == b = (qiBand a == qiBand b) &&
              (qiCall a == qiCall b) &&
              (qiDate a == qiDate b) &&
-             ((withoutSeconds $ qiTime a) == (withoutSeconds $ qiTime b))
+             (withoutSeconds (qiTime a) == withoutSeconds (qiTime b))
 
 -- Extract the date and time of a QSO along with the QSL received date from the ADIF
 -- data.  Converting ADIF to a full QSO structure is just way too difficult to

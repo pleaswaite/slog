@@ -183,7 +183,7 @@ elementHasName qn ele = qName qn == (qName . elName) ele
 -- Given a URL, fetch and return the body.  This will raise an IO exception on
 -- error, so be ready to handle that.
 getXML :: String -> IO String
-getXML url = (simpleHTTP $ getRequest url) >>= getResponseBody
+getXML url = simpleHTTP (getRequest url) >>= getResponseBody
 
 -- Given an XML element name and a processed document, lookup the element's value
 -- and return that.

@@ -96,20 +96,20 @@ updateOne :: FilePath -> Row -> IO ()
 updateOne filename row = runSqlite (pack filename) $ do
     liftIO $ print row
     update $ \r -> do
-        set r [ QsosDate =. (val $ rDate row),
-                QsosTime =. (val $ rTime row),
-                QsosCall =. (val $ rCall row),
-                QsosFreq =. (val $ rFreq row),
-                QsosRx_freq =. (val $ rRxFreq row),
-                QsosMode =. (val $ rMode row),
-                QsosRst_rcvd =. (val $ rRSTRcvd row),
-                QsosRst_sent =. (val $ rRSTSent row),
-                QsosDxcc =. (val $ rDXCC row),
-                QsosItu =. (val $ rITU row),
-                QsosWaz =. (val $ rWAZ row),
-                QsosAntenna =. (val $ rAntenna row)
+        set r [ QsosDate =. val (rDate row),
+                QsosTime =. val (rTime row),
+                QsosCall =. val (rCall row),
+                QsosFreq =. val (rFreq row),
+                QsosRx_freq =. val (rRxFreq row),
+                QsosMode =. val (rMode row),
+                QsosRst_rcvd =. val (rRSTRcvd row),
+                QsosRst_sent =. val (rRSTSent row),
+                QsosDxcc =. val (rDXCC row),
+                QsosItu =. val (rITU row),
+                QsosWaz =. val (rWAZ row),
+                QsosAntenna =. val (rAntenna row)
               ]
-        where_ (r ^. QsosQsoid ==. (val $ rQsoid row))
+        where_ (r ^. QsosQsoid ==. val (rQsoid row))
 
     -- For now, only support going from uploaded to not uploaded.  That's okay because
     -- typically this program will be used to re-upload things that failed.  I can't really
@@ -117,7 +117,7 @@ updateOne filename row = runSqlite (pack filename) $ do
     unless (rUploaded row) $
         update $ \r -> do
             set r [ ConfirmationsLotw_sdate =. val Nothing ]
-            where_ (r ^.ConfirmationsQsoid ==. (val $ rQsoid row))
+            where_ (r ^.ConfirmationsQsoid ==. val (rQsoid row))
 
 -- Return a list of all the rows in the store that were modified via the UI.  This then tells
 -- us what rows need to be written back into the database.

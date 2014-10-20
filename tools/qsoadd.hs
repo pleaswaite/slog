@@ -96,7 +96,7 @@ opts = [
            "their ITU zone",
     Option "l" ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
            "their call sign (REQUIRED)",
-    Option "m" ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
+    Option "m" ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just (read (uppercase arg) :: ADIF.Mode) }) "MODE")
            "mode used (REQUIRED)",
     Option "n" ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",

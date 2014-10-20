@@ -394,7 +394,7 @@ entityFromName name = find (\ent -> dxccEntity ent == name) (IntMap.elems dxccEn
 -- | Given a DXCC entity name, return the matching number, or 'Nothing' if none is found.
 idFromName :: String -> Maybe Integer
 idFromName name = let
-    search (i:lst) = if (dxccEntity $ dxccEntities IntMap.! i) == name then Just (fromIntegral i)
+    search (i:lst) = if dxccEntity (dxccEntities IntMap.! i) == name then Just (fromIntegral i)
                      else search lst
     search [] = Nothing
  in
