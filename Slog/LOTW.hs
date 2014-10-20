@@ -33,7 +33,7 @@ download date call password = do
         -- LOTW can send errors as an HTML chunk (not a full page), so that needs
         -- to be intercepted here.
         ExitSuccess     -> if "LoTW is Offline" `isInfixOf` stdout
-                           then fail $ "Fetching from LOTW failed: LOTW is offline"
+                           then fail "Fetching from LOTW failed: LOTW is offline"
                            else return stdout
         ExitFailure _   -> fail $ "Fetching from LOTW failed: " ++ stderr
 

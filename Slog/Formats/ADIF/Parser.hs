@@ -15,7 +15,7 @@ import Slog.Formats.ADIF.Types
 import Slog.Utils(uppercase)
 
 stringToInt :: String -> Int
-stringToInt s = fst $ (reads s :: [(Int, String)]) !! 0
+stringToInt s = fst $ head (reads s :: [(Int, String)])
 
 stringToField :: (String, Int, Maybe Char) -> String -> Field
 stringToField (name, len, ty) datum = case name of
@@ -128,20 +128,20 @@ stringToField (name, len, ty) datum = case name of
     "TX_PWR"            -> TxPower (read datum :: Integer)
     "VE_PROV"           -> Slog.Formats.ADIF.Types.State datum
     "WEB"               -> Web datum
-    _                   -> Appdef $ AppDefined {appName=name,
-                                                appLength=len,
-                                                appType=ty,
-                                                appValue=datum}
+    _                   -> Appdef AppDefined {appName=name,
+                                              appLength=len,
+                                              appType=ty,
+                                              appValue=datum}
 
 stringToHeaderField :: (String, Int, Maybe Char) -> String -> HeaderField
 stringToHeaderField (name, len, ty) datum = case name of
     "ADIF_VER"          -> Version datum
     "PROGRAMID"         -> ProgramID datum
     "PROGRAMVERSION"    -> ProgramVersion datum
-    _                   -> HeaderAppdef $ AppDefined {appName=name,
-                                                      appLength=len,
-                                                      appType=ty,
-                                                      appValue=datum}
+    _                   -> HeaderAppdef AppDefined {appName=name,
+                                                    appLength=len,
+                                                    appType=ty,
+                                                    appValue=datum}
 
 --
 -- PARSER HELPER FUNCTIONS
@@ -163,9 +163,9 @@ string' s = mapM_ char' s <?> s
 -- of records.
 file        =  do hdr <- header
                   body <- skipMany garbage *> recordList
-                  return $ ADIFFile {fileHeader=hdr, fileBody=body}
+                  return ADIFFile {fileHeader=hdr, fileBody=body}
            <|> do body <- recordList
-                  return $ ADIFFile {fileHeader=[], fileBody=body}
+                  return ADIFFile {fileHeader=[], fileBody=body}
 
 -- A header is an optional part of an ADIF file, but if it exists, it must start off with
 -- some non-bracket character.  That's the crucial piece of information here.  Then, there

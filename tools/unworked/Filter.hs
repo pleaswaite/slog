@@ -12,7 +12,7 @@ import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO(QSO(qFreq), QSO)
 
 dxccByContinent :: ADIF.Continent -> DXCC -> Bool
-dxccByContinent cont dxcc = cont == (dxccContinent dxcc)
+dxccByContinent cont dxcc = cont == dxccContinent dxcc
 
 dxccByNone :: DXCC -> Bool
 dxccByNone _ = True

@@ -75,7 +75,7 @@ ask inCmd =
 
         case response of
             []      -> return $ Left $ RigError 1
-            [li]    -> return $ if "RPRT " `isPrefixOf` l1 then Left $ errorCode (drop 5 l1)
+            [li]    -> return $ if "RPRT " `isPrefixOf` li then Left $ errorCode (drop 5 li)
                                 else doAsk inCmd response
             _       -> return $ doAsk inCmd response
  where

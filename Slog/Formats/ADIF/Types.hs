@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, MultiParamTypeClasses #-}
+
 -- | This module contains a wide variety of data types representing the
 -- guts of an ADIF file.  ADIF is the standard format for amateur radio log
 -- files, and is especially used as the import/export format for LOTW and
@@ -34,6 +35,8 @@ import Database.HDBC.SqlValue(SqlValue(SqlString))
 import Text.Printf(printf)
 
 import Slog.Utils(invert, uppercase)
+
+{-# ANN module "HLint: ignore Use camelCase" #-}
 
 --
 -- BASIC FIELD DATA TYPES

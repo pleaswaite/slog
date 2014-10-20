@@ -69,8 +69,8 @@ opts = [
     Option [] ["vucc"]                  (NoArg (\opt -> return (mkFilterAction opt (F.byConfirmed True)) { optReport = reportVUCC }))
            "display VUCC progress",
 
-    Option ['h'] ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
-                                                           exitSuccess))
+    Option "h" ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
+                                                         exitSuccess))
            "print program usage"
  ]
 
@@ -111,7 +111,7 @@ main = do
 
     -- (3) Convert to HTML based upon whatever header and body formatting was requested
     -- on the command line.  This is what makes it a report.
-    let html = showHtml $ (optReport cmdline) results'
+    let html = showHtml $ optReport cmdline results'
 
     -- (5) Display.
     putStrLn html

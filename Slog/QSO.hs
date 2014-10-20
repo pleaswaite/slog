@@ -13,6 +13,8 @@ import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 
+{-# ANN module "HLint: ignore Use camelCase" #-}
+
 -- | A 'QSO' is a record used to convey information about a single radio contact within
 -- the Slog library and utilities.  It is the interchange format between the database
 -- and the rest of the library.  In fact this record closely matches the layout of one
@@ -81,14 +83,14 @@ qsoToADIF qso = if isNothing band then [] else
     [ADIF.Band $ fromJust band] ++
 
     -- And now we add in everything that could potentially be set.
-    (catMaybes [qRxFreq qso >>= Just . ADIF.FreqRx,
-                qDXCC qso >>= Just . ADIF.Their_DXCC,
-                qGrid qso >>= Just . ADIF.Grid,
-                qState qso >>= Just . ADIF.State,
-                qName qso >>= Just . ADIF.Name,
-                qITU qso >>= Just . ADIF.ITUZ,
-                qWAZ qso >>= Just . ADIF.CQZ,
-                qPropMode qso >>= Just . ADIF.Propagation,
-                qSatName qso >>= Just . ADIF.SatelliteName])
+    catMaybes [qRxFreq qso >>= Just . ADIF.FreqRx,
+               qDXCC qso >>= Just . ADIF.Their_DXCC,
+               qGrid qso >>= Just . ADIF.Grid,
+               qState qso >>= Just . ADIF.State,
+               qName qso >>= Just . ADIF.Name,
+               qITU qso >>= Just . ADIF.ITUZ,
+               qWAZ qso >>= Just . ADIF.CQZ,
+               qPropMode qso >>= Just . ADIF.Propagation,
+               qSatName qso >>= Just . ADIF.SatelliteName]
  where
     band = freqToBand $ qFreq qso

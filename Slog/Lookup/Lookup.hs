@@ -133,7 +133,7 @@ emptyRadioAmateur = RadioAmateur {
 
 -- Given a parsed XML document, return a RadioAmateur record.
 xmlToRadioAmateur :: Element -> Maybe RadioAmateur
-xmlToRadioAmateur xml = Just $
+xmlToRadioAmateur xml = Just
     RadioAmateur { raCall        = xml <?> "callsign",
                    raNick        = xml <?> "nick",
                    raQTH         = xml <?> "qth",

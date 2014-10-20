@@ -30,6 +30,7 @@ module Slog.DB(DBResult,
                first, second, third)
  where
 
+import Control.Applicative((<$>))
 import Control.Monad.Trans(liftIO)
 import Data.List(isPrefixOf)
 import Data.Text(pack)
@@ -162,7 +163,7 @@ getQSOsByGrid filename grid = do
     -- in the database.  Unfortunately I see no way of making esqueleto's "like" operator work
     -- with the potentially empty QsosGrid column.  So I have to do this the stupid way.
     results <- getAllQSOs filename
-    return $ filter (\(_, q, _) ->  grid' `isPrefixOf` (maybe "" (uppercase . take 4) (qGrid q)))
+    return $ filter (\(_, q, _) ->  grid' `isPrefixOf` maybe "" (uppercase . take 4) (qGrid q))
                     results
  where
     grid' = uppercase $ take 4 grid
@@ -229,7 +230,7 @@ confirmQSO :: FilePath -> QsosId -> ADIF.Date -> IO ()
 confirmQSO filename qsoid qsl_date = runSqlite (pack filename) $
     update $ \r -> do
         set r [ ConfirmationsLotw_rdate =. (val $ Just qsl_date) ]
-        where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
+        where_ (r ^. ConfirmationsQsoid ==. val qsoid)
 
 -- | Given a list of 'QsosId' values corresponding to previously unsent 'QSO' records, mark them
 -- as uploaded to LOTW in the database.  It is expected this function will be called after
@@ -245,7 +246,7 @@ markQSOsAsSent filename =
         runSqlite (pack fn) $
             update $ \r -> do
                 set r [ ConfirmationsLotw_sdate =. (val $ Just $ undashifyDate $ show $ utctDay today) ]
-                where_ (r ^. ConfirmationsQsoid ==. (val qsoid))
+                where_ (r ^. ConfirmationsQsoid ==. val qsoid)
 
 --
 -- HELPER FUNCTIONS
@@ -262,7 +263,7 @@ sqlToQSO q =
         (qsosFreq q)
         (qsosRx_freq q)
         (read (qsosMode q) :: ADIF.Mode)
-        (fmap toInteger $ qsosDxcc q)
+        (toInteger <$> qsosDxcc q)
         (qsosGrid q)
         (qsosState q)
         (qsosName q)
@@ -271,8 +272,8 @@ sqlToQSO q =
         (qsosXc_out q)
         (qsosRst_rcvd q)
         (qsosRst_sent q)
-        (fmap toInteger $ qsosItu q)
-        (fmap toInteger $ qsosWaz q)
+        (toInteger <$> qsosItu q)
+        (toInteger <$> qsosWaz q)
         (qsosCall q)
         (fmap (\p -> read p :: ADIF.Propagation) (qsosProp_mode q))
         (qsosSat_name q)

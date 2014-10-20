@@ -4,7 +4,7 @@
 
 import Data.Maybe(fromJust, fromMaybe)
 import Data.String.Utils(split)
-import System.Exit(ExitCode(..), exitSuccess)
+import System.Exit(exitSuccess)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
@@ -35,8 +35,8 @@ data Options = Options {
     optNotes :: Maybe String,
     optXcIn :: Maybe String,
     optXcOut :: Maybe String,
-    optRST_Rcvd :: Maybe String,
-    optRST_Sent :: Maybe String,
+    optRSTRcvd :: Maybe String,
+    optRSTSent :: Maybe String,
     optITU :: Maybe Integer,
     optWAZ :: Maybe Integer,
     optCall :: Maybe String,
@@ -62,8 +62,8 @@ defaultOptions = Options {
     optNotes = Nothing,
     optXcIn = Nothing,
     optXcOut = Nothing,
-    optRST_Rcvd = Nothing,
-    optRST_Sent = Nothing,
+    optRSTRcvd = Nothing,
+    optRSTSent = Nothing,
     optITU = Nothing,
     optWAZ = Nothing,
     optCall = Nothing,
@@ -73,50 +73,50 @@ defaultOptions = Options {
 
 opts :: [OptDescr OptAction]
 opts = [
-    Option ['A'] ["antenna"]    (ReqArg (\arg opt -> return opt { optAntenna = Just arg }) "ANTENNA")
+    Option "A" ["antenna"]    (ReqArg (\arg opt -> return opt { optAntenna = Just arg }) "ANTENNA")
            "antenna used for QSO",
-    Option ['a'] ["satellite"]  (ReqArg (\arg opt -> return opt { optSatName = Just arg,
-                                                                  optPropMode = Just ADIF.SAT })
-                                        "SATELLITE")
+    Option "a" ["satellite"]  (ReqArg (\arg opt -> return opt { optSatName = Just arg,
+                                                                optPropMode = Just ADIF.SAT })
+                                      "SATELLITE")
            "name of satellite",
-    Option ['c'] ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
+    Option "c" ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
            "their DXCC entity",
-    Option ['d'] ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
+    Option "d" ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
            "date the QSO was made (in UTC) (REQUIRED)",
-    Option ['f'] ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optFreq = maybe Nothing stringToDouble (fst sp),
-                                                                     optRxFreq = maybe Nothing stringToDouble (snd sp) })
-                                        "FREQ")
+    Option "f" ["freq"]       (ReqArg (\arg opt -> do let sp = splitArg arg
+                                                      return opt { optFreq = maybe Nothing stringToDouble (fst sp),
+                                                                   optRxFreq = maybe Nothing stringToDouble (snd sp) })
+                                      "FREQ")
            "frequency used (or their freq:your freq for split mode) (REQUIRED)",
-    Option ['h'] ["help"]       (NoArg  (\_ -> do
-                                                   putStrLn (usageInfo "qsoadd" opts)
-                                                   exitSuccess))
+    Option "h" ["help"]       (NoArg  (\_ -> do
+                                                 putStrLn (usageInfo "qsoadd" opts)
+                                                 exitSuccess))
            "print program usage",
-    Option ['i'] ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
+    Option "i" ["itu"]        (ReqArg (\arg opt -> return opt { optITU = stringToInteger arg }) "ITU")
            "their ITU zone",
-    Option ['l'] ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
+    Option "l" ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
            "their call sign (REQUIRED)",
-    Option ['m'] ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
+    Option "m" ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just $ (read (uppercase arg) :: ADIF.Mode) }) "MODE")
            "mode used (REQUIRED)",
-    Option ['n'] ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
+    Option "n" ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",
-    Option ['o'] ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
+    Option "o" ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
            "notes",
-    Option ['r'] ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optRST_Rcvd = fst sp, optRST_Sent = snd sp })
-                                        "RST")
+    Option "r" ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
+                                                      return opt { optRSTRcvd = fst sp, optRSTSent = snd sp })
+                                      "RST")
            "rst rcvd:rst sent (REQUIRED)",
-    Option ['s'] ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
+    Option "s" ["state"]      (ReqArg (\arg opt -> return opt { optState = Just arg }) "STATE")
            "their state",
-    Option ['t'] ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
+    Option "t" ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
            "time the QSO was made (in UTC) (REQUIRED)",
-    Option ['q'] ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
+    Option "q" ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
            "their grid square",
-    Option ['w'] ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = stringToInteger arg }) "WAZ")
+    Option "w" ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = stringToInteger arg }) "WAZ")
            "their WAZ zone",
-    Option ['x'] ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
-                                                        return opt { optXcIn = fst sp, optXcOut = snd sp })
-                                        "EXCHANGE")
+    Option "x" ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
+                                                      return opt { optXcIn = fst sp, optXcOut = snd sp })
+                                      "EXCHANGE")
            "exchange rcvd:exchange sent"
  ]
 
@@ -128,8 +128,8 @@ handleOpts argv =
                         where header = "Usage: qsoadd [OPTIONS] file"
 
 splitArg :: String -> (Maybe String, Maybe String)
-splitArg s | length eles == 1 = (Just $ eles !! 0, Nothing)
-           | otherwise        = (Just $ eles !! 0, Just $ eles !! 1)
+splitArg s | length eles == 1 = (Just $ head eles, Nothing)
+           | otherwise        = (Just $ head eles, Just $ eles !! 1)
  where
     eles = split ":" s
 
@@ -155,8 +155,8 @@ buildQSO ra opt = do
     time <- optTime opt <!> "You must specify a time of the form HH:MM."
     freq <- optFreq opt <!> "You must specify a frequency."
     mode <- optMode opt <!> "You must specify a valid mode."
-    rstR <- optRST_Rcvd opt <!> "You must specify a received signal report."
-    rstS <- optRST_Sent opt <!> "You must specify a sent signal report."
+    rstR <- optRSTRcvd opt <!> "You must specify a received signal report."
+    rstS <- optRSTSent opt <!> "You must specify a sent signal report."
     call <- optCall opt ||| raCall ra <!> "You must specify a call sign."
     Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call)
  where

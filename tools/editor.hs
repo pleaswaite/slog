@@ -8,6 +8,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 import Control.Applicative((<$>))
+import Control.Arrow((***))
 import Control.Monad(unless, when)
 import Control.Monad.Trans(liftIO)
 import Database.Esqueleto hiding(count, on)
@@ -87,7 +88,7 @@ readDB filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q, c) -> do where_ (q ^. QsosQsoid ==. c ^. ConfirmationsQsoid)
                                           orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                           return (q, c)
-    return $ map (\(q, c) -> (entityVal q, entityVal c)) rows
+    return $ map (entityVal *** entityVal) rows
 
 -- Update a single row in the database.  This happens regardless of whether the row has changed
 -- or not.  It is recommended to call editedRows first.
@@ -115,7 +116,7 @@ updateOne filename row = runSqlite (pack filename) $ do
     -- see why you'd want to mark previously not uploaded things as uploaded.
     unless (rUploaded row) $
         update $ \r -> do
-            set r [ ConfirmationsLotw_sdate =. (val Nothing) ]
+            set r [ ConfirmationsLotw_sdate =. val Nothing ]
             where_ (r ^.ConfirmationsQsoid ==. (val $ rQsoid row))
 
 -- Return a list of all the rows in the store that were modified via the UI.  This then tells
@@ -268,7 +269,7 @@ addColumns store view = do
     defaultEntityText _        = entityNameFromID 291
 
     entityNameFromID :: Integer -> String
-    entityNameFromID = (dxccEntity . fromJust . entityFromID)
+    entityNameFromID = dxccEntity . fromJust . entityFromID
 
 runGUI :: [(Qsos, Confirmations)] -> IO ()
 runGUI pairs = do
@@ -289,21 +290,21 @@ runGUI pairs = do
     addColumns store view
 
     -- Add everything into the store.
-    mapM_ (\(q, c) -> listStoreAppend store $ Row { rQsoid=qsosQsoid q,
-                                                    rDate=qsosDate q,
-                                                    rTime=qsosTime q,
-                                                    rCall=qsosCall q,
-                                                    rFreq=qsosFreq q,
-                                                    rRxFreq=qsosRx_freq q,
-                                                    rMode=qsosMode q,
-                                                    rRSTRcvd=qsosRst_rcvd q,
-                                                    rRSTSent=qsosRst_sent q,
-                                                    rDXCC=qsosDxcc q,
-                                                    rITU=qsosItu q,
-                                                    rWAZ=qsosWaz q,
-                                                    rAntenna=qsosAntenna q,
-                                                    rUploaded=isJust $ confirmationsLotw_sdate c,
-                                                    rEdited=False }
+    mapM_ (\(q, c) -> listStoreAppend store Row { rQsoid=qsosQsoid q,
+                                                  rDate=qsosDate q,
+                                                  rTime=qsosTime q,
+                                                  rCall=qsosCall q,
+                                                  rFreq=qsosFreq q,
+                                                  rRxFreq=qsosRx_freq q,
+                                                  rMode=qsosMode q,
+                                                  rRSTRcvd=qsosRst_rcvd q,
+                                                  rRSTSent=qsosRst_sent q,
+                                                  rDXCC=qsosDxcc q,
+                                                  rITU=qsosItu q,
+                                                  rWAZ=qsosWaz q,
+                                                  rAntenna=qsosAntenna q,
+                                                  rUploaded=isJust $ confirmationsLotw_sdate c,
+                                                  rEdited=False }
           )
           pairs
 

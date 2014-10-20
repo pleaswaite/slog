@@ -41,11 +41,11 @@ mkFilterAction opt f =
 
 opts :: [OptDescr OptAction]
 opts = [
-    Option ['a'] ["all"]         (NoArg (\opt -> return opt {optConfirmedOnly = False }))
+    Option "a" ["all"]         (NoArg (\opt -> return opt {optConfirmedOnly = False }))
            "filter out all worked entities, not just confirmed",
-    Option [] ["filter-band"]    (ReqArg (\arg opt -> return $ mkFilterAction opt (F.qsoByBand (read arg :: ADIF.Band))) "BAND")
+    Option [] ["filter-band"]  (ReqArg (\arg opt -> return $ mkFilterAction opt (F.qsoByBand (read arg :: ADIF.Band))) "BAND")
            "filter by band",
-    Option [] ["filter-cont"]    (ReqArg (\arg opt -> return opt {optFilterDXCC = (F.dxccByContinent (read arg :: ADIF.Continent))}) "CONT")
+    Option [] ["filter-cont"]  (ReqArg (\arg opt -> return opt {optFilterDXCC = F.dxccByContinent (read arg :: ADIF.Continent)}) "CONT")
            "show only results for a given continent"
  ]
 

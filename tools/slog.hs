@@ -1,12 +1,9 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 
-{-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
-{-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
-
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
-import Control.Monad(liftM, unless, void, when)
+import Control.Monad((>=>), liftM, unless, void, when)
 import qualified Data.Foldable as F
 import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
@@ -25,6 +22,9 @@ import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
 import Slog.Utils
 import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 import ToolLib.Config
+
+{-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
+{-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
 
 --
 -- WORKING WITH TIME
@@ -183,7 +183,7 @@ initTreeView store view = do
     treeViewAppendColumn view modeCol
 
     -- DXCC
-    dxccCol <- newTextColumn store "DXCC" $ \row -> if (isJust $ dDXCC row) then maybe "" dxccEntity (entityFromID $ fromJust $ dDXCC row)
+    dxccCol <- newTextColumn store "DXCC" $ \row -> if isJust $ dDXCC row then maybe "" dxccEntity (entityFromID $ fromJust $ dDXCC row)
                                                     else ""
     treeViewAppendColumn view dxccCol
 
@@ -241,7 +241,7 @@ dbToDR (_, q, c) = DisplayRow { dDate=dashifyDate $ qDate q,
 populateTreeView :: ListStore DisplayRow -> [DBResult] -> IO ()
 populateTreeView store results = do
     listStoreClear store
-    mapM_ (\result -> listStoreAppend store $ dbToDR result) results
+    mapM_ (listStoreAppend store . dbToDR) results
 
 --
 -- INPUT CHECKS
@@ -274,7 +274,7 @@ checkRxFreq widgets = do
 checkMode :: Widgets -> IO (Maybe String)
 checkMode widgets = do
     s <- get (wMode widgets) entryText
-    return $ T.null s || (null (reads (uppercase $ T.unpack s) :: [(Mode, String)])) <??> "Mode is empty or is not a valid mode."
+    return $ T.null s || null (reads (uppercase $ T.unpack s) :: [(Mode, String)]) <??> "Mode is empty or is not a valid mode."
 
 checkAntenna :: Widgets -> IO (Maybe String)
 checkAntenna widgets = checkRequiredText (wAntenna widgets) "Antenna is empty."
@@ -312,7 +312,7 @@ addQSOFromUI :: Widgets -> Config -> IO ()
 addQSOFromUI widgets conf = do
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
-    failures <- catMaybes <$> (mapM ($ widgets) addQSOChecks)
+    failures <- catMaybes <$> mapM ($ widgets) addQSOChecks
 
     if not (null failures) then do statusbarRemoveAll (wStatus widgets) 0
                                    void $ statusbarPush (wStatus widgets) 0 (head failures)
@@ -344,7 +344,7 @@ addQSOFromUI widgets conf = do
                       qFreq     = fromJust $ stringToDouble freq,
                       qRxFreq   = maybe Nothing stringToDouble rxFreq,
                       qMode     = (fst . head) (reads (uppercase $ T.unpack mode) :: [(Mode, String)]),
-                      qDXCC     = maybe Nothing (\ra' -> raCountry ra' >>= idFromName) ra,
+                      qDXCC     = maybe Nothing (raCountry >=> idFromName) ra,
                       qGrid     = maybe Nothing raGrid ra,
                       qState    = maybe Nothing raUSState ra,
                       qName     = maybe Nothing raNick ra,
@@ -364,7 +364,7 @@ addQSOFromUI widgets conf = do
         -- go around and update the list of all QSOs to include the latest.
         addQSO (confDB conf) q
         clearUI widgets
-        void $ statusbarPush (wStatus widgets) 0 ("QSO with " ++ (uppercase call) ++ " added to database.")
+        void $ statusbarPush (wStatus widgets) 0 ("QSO with " ++ uppercase call ++ " added to database.")
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -400,7 +400,7 @@ lookupCallsign widgets store conf = do
     fp = confDB conf
 
     updateUI ra' = do
-        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ (uppercase call) ++ " finished.")
+        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ uppercase call ++ " finished.")
 
         -- And now that we've discovered something, we can update the UI to reflect what we found.
         -- We start with clearing out the checkmarks.  This is so you can lookup a call, see what
@@ -414,7 +414,7 @@ lookupCallsign widgets store conf = do
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
         when (isJust $ raCall ra') $ do
-            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ (uppercase call) ]
+            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ uppercase call ]
 
             results <- getQSOsByCall fp call
             populateTreeView store results
@@ -504,7 +504,7 @@ clearUI widgets = do
     -- Blank out most of the text entry widgets.  Mode we want to set back to SSB, and
     -- frequency/rx frequency we want to leave alone.  This makes it easier to operate
     -- as the station with a pile up.
-    mapM_ (flip set [ entryText := "" ]) entryWidgets
+    mapM_ (`set` [ entryText := "" ]) entryWidgets
     set (wMode widgets) [ entryText := "SSB" ]
 
     -- Set the current date/time checkbox back to active.

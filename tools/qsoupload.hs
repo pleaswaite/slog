@@ -3,7 +3,7 @@
 
 import Control.Applicative((<$>))
 import Control.Exception(IOException, catch, finally)
-import Data.List(intersperse)
+import Data.List(intercalate)
 import System.Directory(getTemporaryDirectory, removeFile)
 import System.IO
 
@@ -43,7 +43,7 @@ main = do
     -- Get all the un-uploaded QSOs and their matching ID numbers, and convert them to
     -- a string of ADIF data.  We'll save the IDs for marking in the database later.
     (ids, qsos) <- unzip <$> map (\(a, b, _) -> (a, b)) <$> getUnsentQSOs fp
-    let adifs = concat $ intersperse "\r\n" $ map (renderRecord . qsoToADIF) qsos
+    let adifs = intercalate "\r\n" $ map (renderRecord . qsoToADIF) qsos
 
     -- Then write out the temporary file, sign it, and upload it.
     withTempFile "new.adi" (writeAndUpload adifs (sign $ confQTH conf) upload)

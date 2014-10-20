@@ -54,11 +54,11 @@ mkQSLInfo fields = let
                     where isTime (ADIF.TimeOn _) = True
                           isTime _               = False
  in
-    findQSLDate fields >>= \date -> Just $ QSLInfo { qiBand = fromJust $ findBand fields,
-                                                     qiCall = fromJust $ findCall fields,
-                                                     qiDate = fromJust $ findDate fields,
-                                                     qiTime = fromJust $ findTime fields,
-                                                     qiQSLDate = fromJust date }
+    findQSLDate fields >>= \date -> Just QSLInfo { qiBand = fromJust $ findBand fields,
+                                                   qiCall = fromJust $ findCall fields,
+                                                   qiDate = fromJust $ findDate fields,
+                                                   qiTime = fromJust $ findTime fields,
+                                                   qiQSLDate = fromJust date }
 
 logMessage :: QSO -> String
 logMessage qso =
@@ -125,7 +125,7 @@ main = do
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
     unconfirmedResults <- getUnconfirmedQSOs fp
-    let earliestUnconfirmed = dashifyDate . qDate $ second  $ unconfirmedResults !! 0
+    let earliestUnconfirmed = dashifyDate . qDate $ second $ head unconfirmedResults
 
     -- Grab the confirmed QSOs from LOTW.
     str <- download earliestUnconfirmed (confUsername conf) (confPassword conf)
