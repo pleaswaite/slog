@@ -4,7 +4,6 @@
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
-import qualified Data.Foldable as F
 import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 import qualified Data.Text as T
@@ -388,10 +387,11 @@ lookupCallsign widgets store conf = do
     call <- get (wCall widgets) entryText
 
     unless (null call) $ do
-        ra <- lookup call (confQTHUser conf) (confQTHPass conf)
+        result <- lookup call (confQTHUser conf) (confQTHPass conf)
 
-        -- Strip off the Maybe bit from the result now.
-        F.forM_ ra updateUI
+        case result of
+            Nothing      -> void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ uppercase call)
+            Just result' -> updateUI result'
 
     -- Return false to remove this handler from the main loop.
     return False
