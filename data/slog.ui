@@ -369,26 +369,6 @@
                       </packing>
                     </child>
                     <child>
-                      <object class="GtkEntry" id="modeEntry">
-                        <property name="visible">True</property>
-                        <property name="can_focus">True</property>
-                        <property name="editable">True</property>
-                        <property name="visibility">True</property>
-                        <property name="max_length">0</property>
-                        <property name="text" translatable="yes">SSB</property>
-                        <property name="has_frame">True</property>
-                        <property name="invisible_char">&#x25CF;</property>
-                        <property name="activates_default">False</property>
-                      </object>
-                      <packing>
-                        <property name="left_attach">1</property>
-                        <property name="right_attach">2</property>
-                        <property name="top_attach">2</property>
-                        <property name="bottom_attach">3</property>
-                        <property name="y_options"/>
-                      </packing>
-                    </child>
-                    <child>
                       <object class="GtkLabel" id="rstRcvdLabel">
                         <property name="visible">True</property>
                         <property name="label" translatable="yes">&lt;b&gt;RST Rcvd&lt;/b&gt;</property>

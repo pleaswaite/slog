@@ -47,7 +47,6 @@ data Widgets = Widgets {
     wCall :: Entry,
     wFreq :: Entry,
     wRxFreq :: Entry,
-    wMode :: Entry,
     wRSTRcvd :: Entry,
     wRSTSent :: Entry,
     wXCRcvd :: Entry,
@@ -77,7 +76,8 @@ data Widgets = Widgets {
     wDXCCGrid :: Table,
     wGridGrid :: Table,
 
-    wAntenna :: ComboBox
+    wAntenna :: ComboBox,
+    wMode :: ComboBox
  }
 
 -- The data type stored in a ListStore and displayed in one of two places:  On the main
@@ -115,6 +115,20 @@ addAntennas tbl conf = do
                 3 4 2 3
                 [Fill] []
                 0 0
+
+    widgetShowAll combo
+    return combo
+
+addModes :: Table -> IO ComboBox
+addModes tbl = do
+    combo <- comboBoxNewText
+    mapM_ (\s -> comboBoxAppendText combo (T.pack s)) ["AM", "CW", "FM", "PSK31", "RTTY", "SSB"]
+    comboBoxSetActive combo 5
+
+    tableAttach tbl combo
+                    1 2 2 3
+                    [Fill] []
+                    0 0
 
     widgetShowAll combo
     return combo
@@ -289,11 +303,6 @@ checkRxFreq widgets = do
     s <- get (wRxFreq widgets) entryText
     return $ not (T.null s) && isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
 
-checkMode :: Widgets -> IO (Maybe String)
-checkMode widgets = do
-    s <- get (wMode widgets) entryText
-    return $ T.null s || null (reads (uppercase $ T.unpack s) :: [(Mode, String)]) <??> "Mode is empty or is not a valid mode."
-
 checkRxRST :: Widgets -> IO (Maybe String)
 checkRxRST widgets = checkRequiredText (wRSTRcvd widgets) "Received RST is empty."
 
@@ -309,7 +318,7 @@ checkTime :: Widgets -> IO (Maybe String)
 checkTime widgets = checkRequiredText (wTime widgets) "Time is empty."
 
 addQSOChecks :: [Widgets -> IO (Maybe String)]
-addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkMode, checkRxRST, checkRST, checkDate, checkTime]
+addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDate, checkTime]
 
 --
 -- FUNCTIONS FOR QUERYING WIDGET STATE
@@ -343,11 +352,11 @@ addQSOFromUI widgets conf = do
         time <- uncolonifyTime <$> get (wTime widgets) entryText
         freq <- get (wFreq widgets) entryText
         rxFreq <- getMaybe (wRxFreq widgets)
-        mode <- get (wMode widgets) entryText
         xcIn <- getMaybe (wXCRcvd widgets)
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
         rstOut <- get (wRSTSent widgets) entryText
+        mode <- comboBoxGetActiveText (wMode widgets)
         antenna <- comboBoxGetActiveText (wAntenna widgets)
 
         -- We've got everything we need now, so assemble a new QSO record.  We can assume that
@@ -357,7 +366,7 @@ addQSOFromUI widgets conf = do
                       qTime     = time,
                       qFreq     = fromJust $ stringToDouble freq,
                       qRxFreq   = maybe Nothing stringToDouble rxFreq,
-                      qMode     = (fst . head) (reads (uppercase $ T.unpack mode) :: [(Mode, String)]),
+                      qMode     = (fst . head) ((reads $ maybe "SSB" T.unpack mode) :: [(Mode, String)]),
                       qDXCC     = maybe Nothing (raCountry >=> idFromName) ra,
                       qGrid     = maybe Nothing raGrid ra,
                       qState    = maybe Nothing raUSState ra,
@@ -479,10 +488,10 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
-loadWidgets :: Builder -> ComboBox -> IO Widgets
-loadWidgets builder antennas = do
-    [call, freq, rxFreq, mode, rst_rcvd,
-     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO castToEntry) ["callEntry", "freqEntry", "rxFreqEntry", "modeEntry",
+loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
+loadWidgets builder antennas modes = do
+    [call, freq, rxFreq, rst_rcvd,
+     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO castToEntry) ["callEntry", "freqEntry", "rxFreqEntry",
                                                                          "rstRcvdEntry", "rstSentEntry",
                                                                          "xcRcvdEntry", "xcSentEntry", "dateEntry", "timeEntry"]
 
@@ -499,7 +508,7 @@ loadWidgets builder antennas = do
 
     [newQSO, dxccGrid, gridGrid] <- mapM (getO castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
 
-    return $ Widgets call freq rxFreq mode rst_rcvd rst_sent xc_rcvd xc_sent
+    return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
                      current
                      dateLabel date timeLabel time
                      previous dxcc grid
@@ -507,7 +516,7 @@ loadWidgets builder antennas = do
                      previousV allV
                      status
                      newQSO dxccGrid gridGrid
-                     antennas
+                     antennas modes
  where
     getO cast = builderGetObject builder cast
 
@@ -521,7 +530,7 @@ clearUI widgets = do
     -- frequency/rx frequency we want to leave alone.  This makes it easier to operate
     -- as the station with a pile up.
     mapM_ (`set` [ entryText := "" ]) entryWidgets
-    set (wMode widgets) [ entryText := "SSB" ]
+    set (wMode widgets) [ comboBoxActive := 5 ]
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
@@ -558,10 +567,11 @@ runGUI conf = do
     -- combo boxes.
     table <- builderGetObject builder castToTable "newQSOGrid"
     antennaCombo <- addAntennas table conf
+    modeCombo <- addModes table
 
     -- And then pass those combo box widgets in to loadWidgets so they can be part of the
     -- record.  This makes it easier everywhere else.
-    widgets <- loadWidgets builder antennaCombo
+    widgets <- loadWidgets builder antennaCombo modeCombo
 
     -- Create the previous QSOs view stuff.
     previousStore <- listStoreNew ([] :: [DisplayRow])
