@@ -24,7 +24,10 @@ readConfig = do
     contents <- readFile (homeDir ++ "/.slog")
 
     let config = do
-        c <- readstring emptyCP contents
+        -- Load some default values into the record, then read the real config file and have its
+        -- values take precedence.
+        def <- readstring emptyCP "[Antennas]\nantennas = Unknown\n"
+        c <- readstring def contents
 
         database <- get c "DEFAULT" "database"
         password <- get c "LOTW" "password"

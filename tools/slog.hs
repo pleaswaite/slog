@@ -108,7 +108,7 @@ lookup call user pass = do
 addAntennas :: Table -> Config -> IO ComboBox
 addAntennas tbl conf = do
     combo <- comboBoxNewText
-    mapM_ (\s -> comboBoxAppendText combo ((T.strip . T.pack) s)) (confAntennas conf ++ ["Unknown"])
+    mapM_ (comboBoxAppendText combo . T.strip . T.pack) (confAntennas conf)
     comboBoxSetActive combo 0
 
     tableAttach tbl combo
@@ -122,7 +122,7 @@ addAntennas tbl conf = do
 addModes :: Table -> IO ComboBox
 addModes tbl = do
     combo <- comboBoxNewText
-    mapM_ (\s -> comboBoxAppendText combo (T.pack s)) ["AM", "CW", "FM", "PSK31", "RTTY", "SSB"]
+    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "FM", "PSK31", "RTTY", "SSB"]
     comboBoxSetActive combo 5
 
     tableAttach tbl combo
