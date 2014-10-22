@@ -75,7 +75,9 @@ data Widgets = Widgets {
 
     wNewQSOGrid :: Table,
     wDXCCGrid :: Table,
-    wGridGrid :: Table
+    wGridGrid :: Table,
+
+    wAntenna :: ComboBox
  }
 
 -- The data type stored in a ListStore and displayed in one of two places:  On the main
@@ -100,7 +102,7 @@ lookup call user pass = do
     maybe (return Nothing) (lookupCall call) sid
 
 --
--- WORKING WITH ANTENNAS
+-- WORKING WITH COMBO BOXES
 --
 
 addAntennas :: Table -> Config -> IO ComboBox
@@ -320,8 +322,8 @@ currentActive w = get (wCurrent w) toggleButtonActive
 -- SIGNAL HANDLERS
 --
 
-addQSOFromUI :: Widgets -> ComboBox -> Config -> IO ()
-addQSOFromUI widgets antennas conf = do
+addQSOFromUI :: Widgets -> Config -> IO ()
+addQSOFromUI widgets conf = do
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
     failures <- catMaybes <$> mapM ($ widgets) addQSOChecks
@@ -346,7 +348,7 @@ addQSOFromUI widgets antennas conf = do
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
         rstOut <- get (wRSTSent widgets) entryText
-        antenna <- comboBoxGetActiveText antennas
+        antenna <- comboBoxGetActiveText (wAntenna widgets)
 
         -- We've got everything we need now, so assemble a new QSO record.  We can assume that
         -- all the UI fields have something in them, since that was the point of the failure
@@ -477,8 +479,8 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
-loadWidgets :: Builder -> IO Widgets
-loadWidgets builder = do
+loadWidgets :: Builder -> ComboBox -> IO Widgets
+loadWidgets builder antennas = do
     [call, freq, rxFreq, mode, rst_rcvd,
      rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO castToEntry) ["callEntry", "freqEntry", "rxFreqEntry", "modeEntry",
                                                                          "rstRcvdEntry", "rstSentEntry",
@@ -505,6 +507,7 @@ loadWidgets builder = do
                      previousV allV
                      status
                      newQSO dxccGrid gridGrid
+                     antennas
  where
     getO cast = builderGetObject builder cast
 
@@ -550,7 +553,15 @@ runGUI conf = do
     -- Load the glade file.
     builder <- builderNew
     builderAddFromFile builder "data/slog.ui"
-    widgets <- loadWidgets builder
+
+    -- Now that we have a builder, we can grab the table from it and use that to deal with these
+    -- combo boxes.
+    table <- builderGetObject builder castToTable "newQSOGrid"
+    antennaCombo <- addAntennas table conf
+
+    -- And then pass those combo box widgets in to loadWidgets so they can be part of the
+    -- record.  This makes it easier everywhere else.
+    widgets <- loadWidgets builder antennaCombo
 
     -- Create the previous QSOs view stuff.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -564,15 +575,11 @@ runGUI conf = do
     allQSOs <- getAllQSOs $ confDB conf
     populateTreeView allStore allQSOs
 
-    -- Populate the antenna combo box.
-    table <- builderGetObject builder castToTable "newQSOGrid"
-    antennaCombo <- addAntennas table conf
-
     -- Install a bunch of signal handlers.
     on (wCurrent widgets) toggled         (currentToggled widgets)
     on (wClear widgets)   buttonActivated (clearUI widgets)
     on (wClear widgets)   buttonActivated (populateTreeView previousStore [])
-    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets antennaCombo conf)
+    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
     on (wLookup widgets)  buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
                                                                     (blockUI widgets False)
                                                                     (lookupCallsign widgets previousStore conf))
