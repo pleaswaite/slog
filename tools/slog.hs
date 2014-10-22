@@ -48,7 +48,6 @@ data Widgets = Widgets {
     wFreq :: Entry,
     wRxFreq :: Entry,
     wMode :: Entry,
-    wAntenna :: Entry,
     wRSTRcvd :: Entry,
     wRSTSent :: Entry,
     wXCRcvd :: Entry,
@@ -99,6 +98,24 @@ lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
 lookup call user pass = do
     sid <- login user pass
     maybe (return Nothing) (lookupCall call) sid
+
+--
+-- WORKING WITH ANTENNAS
+--
+
+addAntennas :: Table -> Config -> IO ComboBox
+addAntennas tbl conf = do
+    combo <- comboBoxNewText
+    mapM_ (\s -> comboBoxAppendText combo ((T.strip . T.pack) s)) (confAntennas conf ++ ["Unknown"])
+    comboBoxSetActive combo 0
+
+    tableAttach tbl combo
+                3 4 2 3
+                [Fill] []
+                0 0
+
+    widgetShowAll combo
+    return combo
 
 --
 -- UI HELPERS
@@ -275,9 +292,6 @@ checkMode widgets = do
     s <- get (wMode widgets) entryText
     return $ T.null s || null (reads (uppercase $ T.unpack s) :: [(Mode, String)]) <??> "Mode is empty or is not a valid mode."
 
-checkAntenna :: Widgets -> IO (Maybe String)
-checkAntenna widgets = checkRequiredText (wAntenna widgets) "Antenna is empty."
-
 checkRxRST :: Widgets -> IO (Maybe String)
 checkRxRST widgets = checkRequiredText (wRSTRcvd widgets) "Received RST is empty."
 
@@ -293,8 +307,7 @@ checkTime :: Widgets -> IO (Maybe String)
 checkTime widgets = checkRequiredText (wTime widgets) "Time is empty."
 
 addQSOChecks :: [Widgets -> IO (Maybe String)]
-addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkMode, checkAntenna, checkRxRST, checkRST,
-                checkDate, checkTime]
+addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkMode, checkRxRST, checkRST, checkDate, checkTime]
 
 --
 -- FUNCTIONS FOR QUERYING WIDGET STATE
@@ -307,8 +320,8 @@ currentActive w = get (wCurrent w) toggleButtonActive
 -- SIGNAL HANDLERS
 --
 
-addQSOFromUI :: Widgets -> Config -> IO ()
-addQSOFromUI widgets conf = do
+addQSOFromUI :: Widgets -> ComboBox -> Config -> IO ()
+addQSOFromUI widgets antennas conf = do
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
     failures <- catMaybes <$> mapM ($ widgets) addQSOChecks
@@ -333,7 +346,7 @@ addQSOFromUI widgets conf = do
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
         rstOut <- get (wRSTSent widgets) entryText
-        antenna <- getMaybe (wAntenna widgets)
+        antenna <- comboBoxGetActiveText antennas
 
         -- We've got everything we need now, so assemble a new QSO record.  We can assume that
         -- all the UI fields have something in them, since that was the point of the failure
@@ -357,7 +370,7 @@ addQSOFromUI widgets conf = do
                       qCall     = call,
                       qPropMode = Nothing,
                       qSatName  = Nothing,
-                      qAntenna  = antenna }
+                      qAntenna  = fmap T.unpack antenna }
 
         -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
         -- go around and update the list of all QSOs to include the latest.
@@ -466,9 +479,9 @@ updateAllQSOsView store conf = do
 
 loadWidgets :: Builder -> IO Widgets
 loadWidgets builder = do
-    [call, freq, rxFreq, mode, antenna, rst_rcvd,
+    [call, freq, rxFreq, mode, rst_rcvd,
      rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO castToEntry) ["callEntry", "freqEntry", "rxFreqEntry", "modeEntry",
-                                                                         "antennaEntry", "rstRcvdEntry", "rstSentEntry",
+                                                                         "rstRcvdEntry", "rstSentEntry",
                                                                          "xcRcvdEntry", "xcSentEntry", "dateEntry", "timeEntry"]
 
     [current] <- mapM (getO castToCheckButton) ["useCurrentDateButton"]
@@ -484,7 +497,7 @@ loadWidgets builder = do
 
     [newQSO, dxccGrid, gridGrid] <- mapM (getO castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
 
-    return $ Widgets call freq rxFreq mode antenna rst_rcvd rst_sent xc_rcvd xc_sent
+    return $ Widgets call freq rxFreq mode rst_rcvd rst_sent xc_rcvd xc_sent
                      current
                      dateLabel date timeLabel time
                      previous dxcc grid
@@ -539,10 +552,6 @@ runGUI conf = do
     builderAddFromFile builder "data/slog.ui"
     widgets <- loadWidgets builder
 
-    -- Set up GTK signal handlers to do something.
-    window <- builderGetObject builder castToWindow "window1"
-    onDestroy window mainQuit
-
     -- Create the previous QSOs view stuff.
     previousStore <- listStoreNew ([] :: [DisplayRow])
     initTreeView previousStore (wPreviousView widgets)
@@ -555,11 +564,15 @@ runGUI conf = do
     allQSOs <- getAllQSOs $ confDB conf
     populateTreeView allStore allQSOs
 
+    -- Populate the antenna combo box.
+    table <- builderGetObject builder castToTable "newQSOGrid"
+    antennaCombo <- addAntennas table conf
+
     -- Install a bunch of signal handlers.
     on (wCurrent widgets) toggled         (currentToggled widgets)
     on (wClear widgets)   buttonActivated (clearUI widgets)
     on (wClear widgets)   buttonActivated (populateTreeView previousStore [])
-    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
+    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets antennaCombo conf)
     on (wLookup widgets)  buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
                                                                     (blockUI widgets False)
                                                                     (lookupCallsign widgets previousStore conf))
@@ -571,6 +584,10 @@ runGUI conf = do
     on (wStatus widgets)  textPushed      (\_ str -> when (" added to database." `isSuffixOf` str) $ do
                                                          updateAllQSOsView allStore conf
                                                          populateTreeView previousStore [])
+
+    -- Handle quitting properly.
+    window <- builderGetObject builder castToWindow "window1"
+    onDestroy window mainQuit
 
     -- Initialize the widgets to their first state.
     clearUI widgets

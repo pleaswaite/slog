@@ -4,6 +4,7 @@ module ToolLib.Config ( Config(..),
 
 import Control.Applicative((<$>))
 import Data.ConfigFile(emptyCP, get, items, readstring)
+import Data.List.Split(splitOn)
 import System.Directory(getHomeDirectory)
 
 data Config = Config {
@@ -33,7 +34,7 @@ readConfig = do
         qthPass  <- get c "Lookup" "password"
         qthUser  <- get c "Lookup" "username"
 
-        antennas <- map snd <$> items c "Antennas"
+        antennas <- splitOn "," <$> get c "Antennas" "antennas"
 
         return Config { confDB         = database,
                         confPassword   = password,
