@@ -5,120 +5,23 @@
     <child>
       <object class="GtkActionGroup" id="actiongroup1">
         <child>
-          <object class="GtkAction" id="menuitem1">
-            <property name="name">menuitem1</property>
-            <property name="label" translatable="yes">_File</property>
+          <object class="GtkAction" id="modesMenuItem">
+            <property name="name">modesMenuItem</property>
+            <property name="label" translatable="yes">Modes</property>
           </object>
         </child>
         <child>
-          <object class="GtkAction" id="new1">
-            <property name="stock_id">gtk-new</property>
-            <property name="name">new1</property>
-            <signal handler="on_new1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="open1">
-            <property name="stock_id">gtk-open</property>
-            <property name="name">open1</property>
-            <signal handler="on_open1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="save1">
-            <property name="stock_id">gtk-save</property>
-            <property name="name">save1</property>
-            <signal handler="on_save1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="save_as1">
-            <property name="stock_id">gtk-save-as</property>
-            <property name="name">save_as1</property>
-            <signal handler="on_save_as1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="quit1">
-            <property name="stock_id">gtk-quit</property>
-            <property name="name">quit1</property>
-            <signal handler="on_quit1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="menuitem2">
-            <property name="name">menuitem2</property>
-            <property name="label" translatable="yes">_Edit</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="cut1">
-            <property name="stock_id">gtk-cut</property>
-            <property name="name">cut1</property>
-            <signal handler="on_cut1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="copy1">
-            <property name="stock_id">gtk-copy</property>
-            <property name="name">copy1</property>
-            <signal handler="on_copy1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="paste1">
-            <property name="stock_id">gtk-paste</property>
-            <property name="name">paste1</property>
-            <signal handler="on_paste1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="delete1">
-            <property name="stock_id">gtk-delete</property>
-            <property name="name">delete1</property>
-            <signal handler="on_delete1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="menuitem3">
-            <property name="name">menuitem3</property>
-            <property name="label" translatable="yes">_View</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="menuitem4">
-            <property name="name">menuitem4</property>
-            <property name="label" translatable="yes">_Help</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkAction" id="about1">
-            <property name="name">about1</property>
-            <property name="label" translatable="yes">_About</property>
-            <signal handler="on_about1_activate" last_modification_time="Tue, 30 Sep 2014 16:44:14 GMT" name="activate"/>
+          <object class="GtkAction" id="contestMenuItem">
+            <property name="name">contestMenuItem</property>
+            <property name="label" translatable="yes">Contest</property>
           </object>
         </child>
       </object>
     </child>
     <ui>
       <menubar name="menubar1">
-        <menu action="menuitem1">
-          <menuitem action="new1"/>
-          <menuitem action="open1"/>
-          <menuitem action="save1"/>
-          <menuitem action="save_as1"/>
-          <separator/>
-          <menuitem action="quit1"/>
-        </menu>
-        <menu action="menuitem2">
-          <menuitem action="cut1"/>
-          <menuitem action="copy1"/>
-          <menuitem action="paste1"/>
-          <menuitem action="delete1"/>
-        </menu>
-        <menu action="menuitem3"/>
-        <menu action="menuitem4">
-          <menuitem action="about1"/>
+        <menu action="modesMenuItem">
+          <menuitem action="contestMenuItem"/>
         </menu>
       </menubar>
     </ui>
@@ -1473,7 +1376,7 @@
     <property name="page_size">10</property>
     <property name="value">5</property>
   </object>
-  <object class="GtkDialog" id="dialog1">
+  <object class="GtkDialog" id="contestDialog">
     <property name="visible">False</property>
     <property name="title" translatable="yes">dialog1</property>
     <property name="type">GTK_WINDOW_TOPLEVEL</property>
@@ -1490,10 +1393,10 @@
     <property name="urgency_hint">False</property>
     <property name="has_separator">False</property>
     <child internal-child="vbox">
-      <object class="GtkVBox" id="dialog-vbox1">
+      <object class="GtkVBox" id="contestDialogBox">
         <property name="visible">True</property>
         <property name="homogeneous">False</property>
-        <property name="spacing">0</property>
+        <property name="spacing">6</property>
         <child internal-child="action_area">
           <object class="GtkHButtonBox" id="dialog-action_area1">
             <property name="visible">True</property>
@@ -1585,8 +1488,7 @@
                 <child>
                   <object class="GtkLabel" id="label3">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Grid:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Grid:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1641,8 +1543,7 @@
                 <child>
                   <object class="GtkLabel" id="label4">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Starting serial number:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Starting serial number:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1701,8 +1602,7 @@
                 <child>
                   <object class="GtkLabel" id="label5">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Starting serial number:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Starting serial number:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1729,8 +1629,7 @@
                 <child>
                   <object class="GtkLabel" id="label6">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Precedence:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Precedence:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1757,8 +1656,7 @@
                 <child>
                   <object class="GtkLabel" id="label7">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Your call:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Your call:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1785,8 +1683,7 @@
                 <child>
                   <object class="GtkLabel" id="label8">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_Check:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Check:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1813,8 +1710,7 @@
                 <child>
                   <object class="GtkLabel" id="label9">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;Sec_tion:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;Section:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>
@@ -1955,8 +1851,7 @@
                 <child>
                   <object class="GtkLabel" id="label10">
                     <property name="visible">True</property>
-                    <property name="label" translatable="yes">&lt;b&gt;_CQ zone:&lt;/b&gt;</property>
-                    <property name="use_underline">True</property>
+                    <property name="label" translatable="yes">&lt;b&gt;CQ zone:&lt;/b&gt;</property>
                     <property name="use_markup">True</property>
                     <property name="justify">GTK_JUSTIFY_LEFT</property>
                     <property name="wrap">False</property>

@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE LambdaCase #-}
 
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
@@ -42,7 +43,7 @@ theDate = liftM (formatDateTime "%F") getCurrentTime
 -- UI TYPES
 --
 
--- A record to hold all the widgets we'll want out of the glade file.
+-- A record to hold all the widgets for the main screen.
 data Widgets = Widgets {
     wCall :: Entry,
     wFreq :: Entry,
@@ -77,7 +78,34 @@ data Widgets = Widgets {
     wGridGrid :: Table,
 
     wAntenna :: ComboBox,
-    wMode :: ComboBox
+    wMode :: ComboBox,
+
+    wContestDlg :: Dialog
+ }
+
+-- A record to hold all the widgets for the contest config dialog.
+data CWidgets = CWidgets {
+    cwBox :: Box,
+
+    cwDisable :: RadioButton,
+    cwEnable :: RadioButton,
+
+    cwNotebook :: Notebook,
+
+    cwGridGrid :: Entry,
+
+    cwSerialSerial :: Entry,
+
+    cwSweepsSerial :: Entry,
+    cwSweepsPrec :: Entry,
+    cwSweepsCall :: Entry,
+    cwSweepsCheck :: SpinButton,
+    cwSweepsSection :: Entry,
+
+    cwZoneZone :: SpinButton,
+
+    cwCancel :: Button,
+    cwOK :: Button
  }
 
 -- The data type stored in a ListStore and displayed in one of two places:  On the main
@@ -475,6 +503,17 @@ lookupCallsign widgets store conf = do
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 
+runContestDialog :: Widgets -> IO ()
+runContestDialog widgets = do
+    let dlg = wContestDlg widgets
+    rc <- dialogRun dlg
+
+    -- If the user clicked OK, we need to grab the values out of the fields and
+    -- return the data needed to run the contest state.
+    when (rc == ResponseOk) $ do return ()
+
+    widgetHide dlg
+
 -- When a message is pushed into the status bar, check it to see if it's the message that'd be
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
@@ -488,25 +527,56 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
+getO builder cast = builderGetObject builder cast
+
+loadContestWidgets :: Builder -> IO CWidgets
+loadContestWidgets builder = do
+    [box] <- mapM (getO builder castToBox) ["contestDialogBox"]
+
+    [gridGrid, serialSerial, sweepsSerial, sweepsPrec,
+     sweepsCall, sweepsSection] <- mapM (getO builder castToEntry)
+                                        ["gridGridEntry", "serialSerialEntry", "sweepsSerialEntry",
+                                         "sweepsPrecEntry", "sweepsCallEntry", "sweepsSectionEntry"]
+
+    [disable, enable] <- mapM (getO builder castToRadioButton) ["disableContestButton", "enableContestButton"]
+
+    [notebook] <- mapM (getO builder castToNotebook) ["contestNotebook"]
+
+    [cancel, ok] <- mapM (getO builder castToButton) ["cancelButton", "okButton"]
+
+    [sweepsCheck, zoneZone] <- mapM (getO builder castToSpinButton) ["sweepsCheck", "zoneZone"]
+
+    return $ CWidgets box
+                      disable enable
+                      notebook
+                      gridGrid
+                      serialSerial
+                      sweepsSerial sweepsPrec sweepsCall sweepsCheck sweepsSection
+                      zoneZone
+                      cancel ok
+
 loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
 loadWidgets builder antennas modes = do
     [call, freq, rxFreq, rst_rcvd,
-     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO castToEntry) ["callEntry", "freqEntry", "rxFreqEntry",
-                                                                         "rstRcvdEntry", "rstSentEntry",
-                                                                         "xcRcvdEntry", "xcSentEntry", "dateEntry", "timeEntry"]
+     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO builder castToEntry)
+                                                     ["callEntry", "freqEntry", "rxFreqEntry",
+                                                      "rstRcvdEntry", "rstSentEntry", "xcRcvdEntry",
+                                                      "xcSentEntry", "dateEntry", "timeEntry"]
 
-    [current] <- mapM (getO castToCheckButton) ["useCurrentDateButton"]
-    [dateLabel, timeLabel] <- mapM (getO castToLabel) ["dateLabel", "timeLabel"]
+    [current] <- mapM (getO builder castToCheckButton) ["useCurrentDateButton"]
+    [dateLabel, timeLabel] <- mapM (getO builder castToLabel) ["dateLabel", "timeLabel"]
 
-    [previous, dxcc, grid] <- mapM (getO castToFrame) ["previousFrame", "dxccFrame", "gridFrame"]
+    [previous, dxcc, grid] <- mapM (getO builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame"]
 
-    [lookupB, clearB, addB] <- mapM (getO castToButton) ["lookupButton", "clearButton", "addButton"]
+    [lookupB, clearB, addB] <- mapM (getO builder castToButton) ["lookupButton", "clearButton", "addButton"]
 
-    [previousV, allV] <- mapM (getO castToTreeView) ["previousTreeView", "allTreeView"]
+    [previousV, allV] <- mapM (getO builder castToTreeView) ["previousTreeView", "allTreeView"]
 
-    [status] <- mapM (getO castToStatusbar) ["statusBar"]
+    [status] <- mapM (getO builder castToStatusbar) ["statusBar"]
 
-    [newQSO, dxccGrid, gridGrid] <- mapM (getO castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
+    [newQSO, dxccGrid, gridGrid] <- mapM (getO builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
+
+    [contestDlg] <- mapM (getO builder castToDialog) ["contestDialog"]
 
     return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
                      current
@@ -517,8 +587,39 @@ loadWidgets builder antennas modes = do
                      status
                      newQSO dxccGrid gridGrid
                      antennas modes
- where
-    getO cast = builderGetObject builder cast
+                     contestDlg
+
+initContestDialog :: CWidgets -> IO ()
+initContestDialog widgets = do
+    -- Pack a combo box with a list of contest possibilities into the table.
+    combo <- comboBoxNewText
+    mapM_ (comboBoxAppendText combo . T.pack) ["ARRL VHF/UHF Contest",
+                                               "ARRL Sweepstakes",
+                                               "CQ WW DX",
+                                               "Generic Grid-Based Contest",
+                                               "Generic Serial-Based Contest"]
+    set combo [ comboBoxActive := 4 ]
+    set (cwNotebook widgets) [ notebookPage := 1 ]
+
+    boxPackStart (cwBox widgets) combo PackNatural 0
+    boxReorderChild (cwBox widgets) combo 3
+
+    -- Then hook up a signal handler to only make it appear if contest mode is enabled.
+    on (cwEnable widgets) toggled $ do active <- get (cwEnable widgets) toggleButtonActive
+                                       set combo [ widgetVisible := active ]
+                                       set (cwNotebook widgets)[ widgetVisible := active ]
+
+    -- And this signal handler tells us which set of entries to display based on which
+    -- item in the combo is chosen.
+    on combo changed $ do get combo comboBoxActive >>= \case
+                              0 -> set (cwNotebook widgets) [ notebookPage := 0 ]
+                              1 -> set (cwNotebook widgets) [ notebookPage := 2 ]
+                              2 -> set (cwNotebook widgets) [ notebookPage := 3 ]
+                              3 -> set (cwNotebook widgets) [ notebookPage := 0 ]
+                              4 -> set (cwNotebook widgets) [ notebookPage := 1 ]
+                              _ -> set (cwNotebook widgets) [ notebookPage := 0 ]
+
+    return ()
 
 -- This function is called when the Clear button is clicked in order to blank out the
 -- UI and prepare it for starting over.  Expected user behavior is that Clear is for
@@ -572,6 +673,7 @@ runGUI conf = do
     -- And then pass those combo box widgets in to loadWidgets so they can be part of the
     -- record.  This makes it easier everywhere else.
     widgets <- loadWidgets builder antennaCombo modeCombo
+    cwWidgets <- loadContestWidgets builder
 
     -- Create the previous QSOs view stuff.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -585,6 +687,9 @@ runGUI conf = do
     allQSOs <- getAllQSOs $ confDB conf
     populateTreeView allStore allQSOs
 
+    -- Populate some other dialogs we'll need.
+    initContestDialog cwWidgets
+
     -- Install a bunch of signal handlers.
     on (wCurrent widgets) toggled         (currentToggled widgets)
     on (wClear widgets)   buttonActivated (clearUI widgets)
@@ -594,6 +699,11 @@ runGUI conf = do
                                                                     (blockUI widgets False)
                                                                     (lookupCallsign widgets previousStore conf))
                                                           priorityDefaultIdle)
+
+    -- These are signal handlers for menu items.  They're not important enough to
+    -- get pulled in by the builder, since I won't need them anywhere else.
+    m <- builderGetObject builder castToAction "contestMenuItem"
+    on m actionActivated (runContestDialog widgets)
 
     -- This signal is how we watch for a new QSO being added to the database
     -- and then updating the view of all QSOs.  This is to prevent having to
