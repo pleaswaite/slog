@@ -1,4 +1,4 @@
-{-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
+{-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind -fno-warn-wrong-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
 
@@ -436,14 +436,14 @@ currentToggled widgets = do
 -- handler so the lookup can proceed while the UI continues to refresh.
 lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
 lookupCallsign widgets store conf = do
-    call <- get (wCall widgets) entryText
+    call <- uppercase <$> get (wCall widgets) entryText
 
     unless (null call) $ do
         result <- lookup call (confQTHUser conf) (confQTHPass conf)
 
         case result of
-            Nothing      -> void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ uppercase call)
-            Just result' -> updateUI result'
+            Nothing      -> void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ call)
+            Just result' -> updateUI call result'
 
     -- Return false to remove this handler from the main loop.
     return False
@@ -451,8 +451,8 @@ lookupCallsign widgets store conf = do
     -- The on-disk database location.
     fp = confDB conf
 
-    updateUI ra' = do
-        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ uppercase call ++ " finished.")
+    updateUI call ra' = do
+        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ call ++ " finished.")
 
         -- And now that we've discovered something, we can update the UI to reflect what we found.
         -- We start with clearing out the checkmarks.  This is so you can lookup a call, see what
@@ -465,11 +465,9 @@ lookupCallsign widgets store conf = do
 
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
-        when (isJust $ raCall ra') $ do
-            set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ uppercase call ]
-
-            results <- getQSOsByCall fp call
-            populateTreeView store results
+        set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
+        qsos <- getQSOsByCall fp call
+        populateTreeView store qsos
 
         -- Put their call in the label, and then add check marks in for DXCC entity
         -- and grid confirmations.
@@ -495,8 +493,6 @@ lookupCallsign widgets store conf = do
             let confirmedBands = map getBand results
             mapM_ (addGridCheck widgets) confirmedBands
      where
-        call = fromJust $ raCall ra'
-
         confirmed (_, _, c) = isJust $ qLOTW_RDate c
 
         getBand (_, q, _) = freqToBand $ qFreq q
