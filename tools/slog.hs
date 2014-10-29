@@ -252,11 +252,11 @@ initTreeView store view = do
     treeViewAppendColumn view gridCol
 
     -- EXCHANGE
-    xcInCol <- newTextColumn store "Rcvd XC" $ \row -> maybe "" id (dXcIn row)
-    treeViewAppendColumn view xcInCol
-
     xcOutCol <- newTextColumn store "XC" $ \row -> maybe "" id (dXcOut row)
     treeViewAppendColumn view xcOutCol
+
+    xcInCol <- newTextColumn store "Rcvd XC" $ \row -> maybe "" id (dXcIn row)
+    treeViewAppendColumn view xcInCol
 
     -- ANTENNA
     antennaCol <- newTextColumn store "Antenna" $ \row -> maybe "" id (dAntenna row)
