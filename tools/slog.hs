@@ -40,6 +40,20 @@ theDate :: IO String
 theDate = liftM (formatDateTime "%F") getCurrentTime
 
 --
+-- PROGRAM STATE TYPES
+--
+
+data PState = PState {
+    psConf :: Config,
+
+    psWidgets :: Widgets,
+    psCWidgets :: CWidgets,
+
+    psPrevStore :: ListStore DisplayRow,
+    psAllStore :: ListStore DisplayRow
+ }
+
+--
 -- UI TYPES
 --
 
@@ -526,18 +540,18 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
-addSignalHandlers :: Widgets -> ListStore DisplayRow -> ListStore DisplayRow -> Config -> IO ()
-addSignalHandlers w allStore previousStore conf = do
+addSignalHandlers :: PState -> IO ()
+addSignalHandlers ps = do
     -- Install a bunch of regular signal handlers.
     onDestroy (wMainWindow w) mainQuit
 
     on (wCurrent w) toggled         (currentToggled w)
     on (wClear w)   buttonActivated (clearUI w)
-    on (wClear w)   buttonActivated (populateTreeView previousStore [])
+    on (wClear w)   buttonActivated (populateTreeView prevStore [])
     on (wAdd w)     buttonActivated (addQSOFromUI w conf)
     on (wLookup w)  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
                                                               (blockUI w False)
-                                                              (lookupCallsign w previousStore conf))
+                                                              (lookupCallsign w prevStore conf))
                                                     priorityDefaultIdle)
 
     -- This signal is how we watch for a new QSO being added to the database and then
@@ -545,12 +559,17 @@ addSignalHandlers w allStore previousStore conf = do
     -- around (even though we're doing that to get it into this function already).
     on (wStatus w)  textPushed (\_ s -> when (" added to database." `isSuffixOf` s) $ do
                                             updateAllQSOsView allStore conf
-                                            populateTreeView previousStore [])
+                                            populateTreeView prevStore [])
 
     -- These signal handlers are for menu items.
     on (wContestMenu w) actionActivated (runContestDialog w)
 
     return ()
+ where
+    allStore = psAllStore ps
+    conf = psConf ps
+    prevStore = psPrevStore ps
+    w = psWidgets ps
 
 getO builder cast = builderGetObject builder cast
 
@@ -712,33 +731,19 @@ clearUI widgets = do
 -- THE MAIN PROGRAM
 --
 
-runGUI :: Config -> IO ()
-runGUI conf = do
-    (widgets, cWidgets) <- loadFromGlade conf
-
-    -- Create the previous QSOs view stuff.
-    previousStore <- listStoreNew ([] :: [DisplayRow])
-    initTreeView previousStore (wPreviousView widgets)
-
-    -- Create the all QSOs view stuff.  Unlike the previous QSOs view, we want to populate
-    -- this one right now.
-    allStore <- listStoreNew ([] :: [DisplayRow])
-    initTreeView allStore (wAllView widgets)
-
-    allQSOs <- getAllQSOs $ confDB conf
-    populateTreeView allStore allQSOs
-
+runGUI :: PState -> IO ()
+runGUI ps = do
     -- Populate some other dialogs we'll need.
-    initContestDialog cWidgets
+    initContestDialog (psCWidgets ps)
 
     -- Install a bunch of signal handlers.
-    addSignalHandlers widgets allStore previousStore conf
+    addSignalHandlers ps
 
     -- Initialize the widgets to their first state.
-    clearUI widgets
+    clearUI (psWidgets ps)
 
     -- Start up the UI.
-    widgetShowAll (wMainWindow widgets)
+    widgetShowAll (wMainWindow . psWidgets $ ps)
     mainGUI
 
 main :: IO ()
@@ -748,4 +753,24 @@ main = do
     -- Read in the config file.
     conf <- readConfig
 
-    runGUI conf
+    (widgets, cWidgets) <- loadFromGlade conf
+
+    -- Create the previous QSOs view store but leave it empty.
+    previousStore <- listStoreNew ([] :: [DisplayRow])
+    initTreeView previousStore (wPreviousView widgets)
+
+    -- Create the all QSOs view store right now, but this one we want to populate immediately.
+    allStore <- listStoreNew ([] :: [DisplayRow])
+    allQSOs <- getAllQSOs $ confDB conf
+    initTreeView allStore (wAllView widgets)
+    populateTreeView allStore allQSOs
+
+    -- Now we have enough data to create the record that will be the program state.  Let's
+    -- just pretend this isn't a big global data structure.
+    let ps = PState { psConf = conf,
+                      psWidgets = widgets,
+                      psCWidgets = cWidgets,
+                      psPrevStore = previousStore,
+                      psAllStore = allStore }
+
+    runGUI ps
