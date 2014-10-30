@@ -80,7 +80,10 @@ data Widgets = Widgets {
     wAntenna :: ComboBox,
     wMode :: ComboBox,
 
-    wContestDlg :: Dialog
+    wMainWindow :: Window,
+    wContestDlg :: Dialog,
+
+    wContestMenu :: Action
  }
 
 -- A record to hold all the widgets for the contest config dialog.
@@ -523,6 +526,32 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
+addSignalHandlers :: Widgets -> ListStore DisplayRow -> ListStore DisplayRow -> Config -> IO ()
+addSignalHandlers w allStore previousStore conf = do
+    -- Install a bunch of regular signal handlers.
+    onDestroy (wMainWindow w) mainQuit
+
+    on (wCurrent w) toggled         (currentToggled w)
+    on (wClear w)   buttonActivated (clearUI w)
+    on (wClear w)   buttonActivated (populateTreeView previousStore [])
+    on (wAdd w)     buttonActivated (addQSOFromUI w conf)
+    on (wLookup w)  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
+                                                              (blockUI w False)
+                                                              (lookupCallsign w previousStore conf))
+                                                    priorityDefaultIdle)
+
+    -- This signal is how we watch for a new QSO being added to the database and then
+    -- updating the view of all QSOs.  This is to prevent having to pass stores all
+    -- around (even though we're doing that to get it into this function already).
+    on (wStatus w)  textPushed (\_ s -> when (" added to database." `isSuffixOf` s) $ do
+                                            updateAllQSOsView allStore conf
+                                            populateTreeView previousStore [])
+
+    -- These signal handlers are for menu items.
+    on (wContestMenu w) actionActivated (runContestDialog w)
+
+    return ()
+
 getO builder cast = builderGetObject builder cast
 
 loadContestWidgets :: Builder -> IO CWidgets
@@ -572,7 +601,10 @@ loadWidgets builder antennas modes = do
 
     [newQSO, dxccGrid, gridGrid] <- mapM (getO builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
 
+    [mainWindow] <- mapM (getO builder castToWindow) ["window1"]
     [contestDlg] <- mapM (getO builder castToDialog) ["contestDialog"]
+
+    [contestMenu] <- mapM (getO builder castToAction) ["contestMenuItem"]
 
     return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
                      current
@@ -583,7 +615,31 @@ loadWidgets builder antennas modes = do
                      status
                      newQSO dxccGrid gridGrid
                      antennas modes
+                     mainWindow
                      contestDlg
+                     contestMenu
+
+loadFromGlade :: Config -> IO (Widgets, CWidgets)
+loadFromGlade conf = do
+    -- Read in the glade file.
+    builder <- builderNew
+    builderAddFromFile builder "data/slog.ui"
+
+    -- Now that we have a builder, we can build a couple combo boxes that cannot be
+    -- specified in glade and then add those into the Widgets record.  That will make
+    -- it easier to deal with everywhere else.
+    (antennaCombo, modeCombo) <- buildCombos builder
+    widgets <- loadWidgets builder antennaCombo modeCombo
+    cWidgets <- loadContestWidgets builder
+
+    return (widgets, cWidgets)
+ where
+    buildCombos :: Builder -> IO (ComboBox, ComboBox)
+    buildCombos builder = do
+        table <- builderGetObject builder castToTable "newQSOGrid"
+        antennaCombo <- addAntennas table conf
+        modeCombo <- addModes table
+        return (antennaCombo, modeCombo)
 
 initContestDialog :: CWidgets -> IO ()
 initContestDialog widgets = do
@@ -652,24 +708,13 @@ clearUI widgets = do
     setDateTime w = sequence_ [theDate >>= entrySetText (wDate w),
                                theTime >>= entrySetText (wTime w)]
 
+--
+-- THE MAIN PROGRAM
+--
+
 runGUI :: Config -> IO ()
 runGUI conf = do
-    initGUI
-
-    -- Load the glade file.
-    builder <- builderNew
-    builderAddFromFile builder "data/slog.ui"
-
-    -- Now that we have a builder, we can grab the table from it and use that to deal with these
-    -- combo boxes.
-    table <- builderGetObject builder castToTable "newQSOGrid"
-    antennaCombo <- addAntennas table conf
-    modeCombo <- addModes table
-
-    -- And then pass those combo box widgets in to loadWidgets so they can be part of the
-    -- record.  This makes it easier everywhere else.
-    widgets <- loadWidgets builder antennaCombo modeCombo
-    cwWidgets <- loadContestWidgets builder
+    (widgets, cWidgets) <- loadFromGlade conf
 
     -- Create the previous QSOs view stuff.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -684,43 +729,22 @@ runGUI conf = do
     populateTreeView allStore allQSOs
 
     -- Populate some other dialogs we'll need.
-    initContestDialog cwWidgets
+    initContestDialog cWidgets
 
     -- Install a bunch of signal handlers.
-    on (wCurrent widgets) toggled         (currentToggled widgets)
-    on (wClear widgets)   buttonActivated (clearUI widgets)
-    on (wClear widgets)   buttonActivated (populateTreeView previousStore [])
-    on (wAdd widgets)     buttonActivated (addQSOFromUI widgets conf)
-    on (wLookup widgets)  buttonActivated (void $ idleAdd (bracket_ (blockUI widgets True)
-                                                                    (blockUI widgets False)
-                                                                    (lookupCallsign widgets previousStore conf))
-                                                          priorityDefaultIdle)
-
-    -- These are signal handlers for menu items.  They're not important enough to
-    -- get pulled in by the builder, since I won't need them anywhere else.
-    m <- builderGetObject builder castToAction "contestMenuItem"
-    on m actionActivated (runContestDialog widgets)
-
-    -- This signal is how we watch for a new QSO being added to the database
-    -- and then updating the view of all QSOs.  This is to prevent having to
-    -- pass stores all around.
-    on (wStatus widgets)  textPushed      (\_ str -> when (" added to database." `isSuffixOf` str) $ do
-                                                         updateAllQSOsView allStore conf
-                                                         populateTreeView previousStore [])
-
-    -- Handle quitting properly.
-    window <- builderGetObject builder castToWindow "window1"
-    onDestroy window mainQuit
+    addSignalHandlers widgets allStore previousStore conf
 
     -- Initialize the widgets to their first state.
     clearUI widgets
 
     -- Start up the UI.
-    widgetShowAll window
+    widgetShowAll (wMainWindow widgets)
     mainGUI
 
 main :: IO ()
 main = do
+    initGUI
+
     -- Read in the config file.
     conf <- readConfig
 
