@@ -523,7 +523,7 @@ runContestDialog widgets = do
 
     -- If the user clicked OK, we need to grab the values out of the fields and
     -- return the data needed to run the contest state.
-    when (rc == ResponseOk) $ do return ()
+    when (rc == ResponseOk) $ return ()
 
     widgetHide dlg
 
@@ -571,24 +571,22 @@ addSignalHandlers ps = do
     prevStore = psPrevStore ps
     w = psWidgets ps
 
-getO builder cast = builderGetObject builder cast
-
 loadContestWidgets :: Builder -> IO CWidgets
 loadContestWidgets builder = do
-    [box] <- mapM (getO builder castToBox) ["contestDialogBox"]
+    [box] <- mapM (builderGetObject builder castToBox) ["contestDialogBox"]
 
     [gridGrid, serialSerial, sweepsSerial, sweepsPrec,
-     sweepsCall, sweepsSection] <- mapM (getO builder castToEntry)
+     sweepsCall, sweepsSection] <- mapM (builderGetObject builder castToEntry)
                                         ["gridGridEntry", "serialSerialEntry", "sweepsSerialEntry",
                                          "sweepsPrecEntry", "sweepsCallEntry", "sweepsSectionEntry"]
 
-    [disable, enable] <- mapM (getO builder castToRadioButton) ["disableContestButton", "enableContestButton"]
+    [disable, enable] <- mapM (builderGetObject builder castToRadioButton) ["disableContestButton", "enableContestButton"]
 
-    [notebook] <- mapM (getO builder castToNotebook) ["contestNotebook"]
+    [notebook] <- mapM (builderGetObject builder castToNotebook) ["contestNotebook"]
 
-    [cancel, ok] <- mapM (getO builder castToButton) ["cancelButton", "okButton"]
+    [cancel, ok] <- mapM (builderGetObject builder castToButton) ["cancelButton", "okButton"]
 
-    [sweepsCheck, zoneZone] <- mapM (getO builder castToSpinButton) ["sweepsCheck", "zoneZone"]
+    [sweepsCheck, zoneZone] <- mapM (builderGetObject builder castToSpinButton) ["sweepsCheck", "zoneZone"]
 
     return $ CWidgets box
                       disable enable
@@ -602,28 +600,28 @@ loadContestWidgets builder = do
 loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
 loadWidgets builder antennas modes = do
     [call, freq, rxFreq, rst_rcvd,
-     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (getO builder castToEntry)
+     rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (builderGetObject builder castToEntry)
                                                      ["callEntry", "freqEntry", "rxFreqEntry",
                                                       "rstRcvdEntry", "rstSentEntry", "xcRcvdEntry",
                                                       "xcSentEntry", "dateEntry", "timeEntry"]
 
-    [current] <- mapM (getO builder castToCheckButton) ["useCurrentDateButton"]
-    [dateLabel, timeLabel] <- mapM (getO builder castToLabel) ["dateLabel", "timeLabel"]
+    [current] <- mapM (builderGetObject builder castToCheckButton) ["useCurrentDateButton"]
+    [dateLabel, timeLabel] <- mapM (builderGetObject builder castToLabel) ["dateLabel", "timeLabel"]
 
-    [previous, dxcc, grid] <- mapM (getO builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame"]
+    [previous, dxcc, grid] <- mapM (builderGetObject builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame"]
 
-    [lookupB, clearB, addB] <- mapM (getO builder castToButton) ["lookupButton", "clearButton", "addButton"]
+    [lookupB, clearB, addB] <- mapM (builderGetObject builder castToButton) ["lookupButton", "clearButton", "addButton"]
 
-    [previousV, allV] <- mapM (getO builder castToTreeView) ["previousTreeView", "allTreeView"]
+    [previousV, allV] <- mapM (builderGetObject builder castToTreeView) ["previousTreeView", "allTreeView"]
 
-    [status] <- mapM (getO builder castToStatusbar) ["statusBar"]
+    [status] <- mapM (builderGetObject builder castToStatusbar) ["statusBar"]
 
-    [newQSO, dxccGrid, gridGrid] <- mapM (getO builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
+    [newQSO, dxccGrid, gridGrid] <- mapM (builderGetObject builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
 
-    [mainWindow] <- mapM (getO builder castToWindow) ["window1"]
-    [contestDlg] <- mapM (getO builder castToDialog) ["contestDialog"]
+    [mainWindow] <- mapM (builderGetObject builder castToWindow) ["window1"]
+    [contestDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog"]
 
-    [contestMenu] <- mapM (getO builder castToAction) ["contestMenuItem"]
+    [contestMenu] <- mapM (builderGetObject builder castToAction) ["contestMenuItem"]
 
     return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
                      current
@@ -682,13 +680,13 @@ initContestDialog widgets = do
 
     -- And this signal handler tells us which set of entries to display based on which
     -- item in the combo is chosen.
-    on combo changed $ do get combo comboBoxActive >>= \case
-                              0 -> set (cwNotebook widgets) [ notebookPage := 0 ]
-                              1 -> set (cwNotebook widgets) [ notebookPage := 2 ]
-                              2 -> set (cwNotebook widgets) [ notebookPage := 3 ]
-                              3 -> set (cwNotebook widgets) [ notebookPage := 0 ]
-                              4 -> set (cwNotebook widgets) [ notebookPage := 1 ]
-                              _ -> set (cwNotebook widgets) [ notebookPage := 0 ]
+    on combo changed $ get combo comboBoxActive >>= \case
+                           0 -> set (cwNotebook widgets) [ notebookPage := 0 ]
+                           1 -> set (cwNotebook widgets) [ notebookPage := 2 ]
+                           2 -> set (cwNotebook widgets) [ notebookPage := 3 ]
+                           3 -> set (cwNotebook widgets) [ notebookPage := 0 ]
+                           4 -> set (cwNotebook widgets) [ notebookPage := 1 ]
+                           _ -> set (cwNotebook widgets) [ notebookPage := 0 ]
 
     return ()
 
