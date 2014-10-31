@@ -137,10 +137,7 @@ data CWidgets = CWidgets {
     cwSweepsCheck :: SpinButton,
     cwSweepsSection :: Entry,
 
-    cwZoneZone :: SpinButton,
-
-    cwCancel :: Button,
-    cwOK :: Button
+    cwZoneZone :: SpinButton
  }
 
 -- The data type stored in a ListStore and displayed in one of two places:  On the main
@@ -691,8 +688,6 @@ loadContestWidgets builder = do
 
     [notebook] <- mapM (builderGetObject builder castToNotebook) ["contestNotebook"]
 
-    [cancel, ok] <- mapM (builderGetObject builder castToButton) ["cancelButton", "okButton"]
-
     [sweepsCheck, zoneZone] <- mapM (builderGetObject builder castToSpinButton) ["sweepsCheck", "zoneZone"]
 
     return $ CWidgets box
@@ -702,7 +697,6 @@ loadContestWidgets builder = do
                       serialSerial
                       sweepsSerial sweepsPrec sweepsCall sweepsCheck sweepsSection
                       zoneZone
-                      cancel ok
 
 loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
 loadWidgets builder antennas modes = do
