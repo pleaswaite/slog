@@ -5,6 +5,7 @@
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
+import Data.IORef(IORef, atomicWriteIORef, newIORef, readIORef)
 import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 import qualified Data.Text as T
@@ -50,8 +51,18 @@ data PState = PState {
     psCWidgets :: CWidgets,
 
     psPrevStore :: ListStore DisplayRow,
-    psAllStore :: ListStore DisplayRow
+    psAllStore :: ListStore DisplayRow,
+
+    psContestMode :: Bool
  }
+
+modifyState :: IORef PState -> (PState -> PState) -> IO ()
+modifyState state fn = do
+    oldVal <- readState state id
+    atomicWriteIORef state (fn oldVal)
+
+readState :: IORef PState -> (PState -> a) -> IO a
+readState state fn = fn <$> readIORef state
 
 --
 -- UI TYPES
@@ -516,14 +527,20 @@ lookupCallsign widgets store conf = do
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 
-runContestDialog :: Widgets -> IO ()
-runContestDialog widgets = do
-    let dlg = wContestDlg widgets
+runContestDialog :: IORef PState -> IO ()
+runContestDialog state = do
+    dlg <- readState state (wContestDlg . psWidgets)
     rc <- dialogRun dlg
 
     -- If the user clicked OK, we need to grab the values out of the fields and
     -- return the data needed to run the contest state.
-    when (rc == ResponseOk) $ return ()
+    when (rc == ResponseOk) $ do
+        -- Are we even operating in contest mode?
+        button <- readState state (cwEnable . psCWidgets)
+        contestMode <- get button toggleButtonActive
+
+        -- Write the new state value with what we just found out.
+        modifyState state (\v -> v { psContestMode = contestMode })
 
     widgetHide dlg
 
@@ -540,8 +557,13 @@ updateAllQSOsView store conf = do
 -- INIT UI
 --
 
-addSignalHandlers :: PState -> IO ()
-addSignalHandlers ps = do
+addSignalHandlers :: IORef PState -> IO ()
+addSignalHandlers state = do
+    allStore <- readState state psAllStore
+    conf <- readState state psConf
+    prevStore <- readState state psPrevStore
+    w <- readState state psWidgets
+
     -- Install a bunch of regular signal handlers.
     onDestroy (wMainWindow w) mainQuit
 
@@ -562,14 +584,9 @@ addSignalHandlers ps = do
                                             populateTreeView prevStore [])
 
     -- These signal handlers are for menu items.
-    on (wContestMenu w) actionActivated (runContestDialog w)
+    on (wContestMenu w) actionActivated (runContestDialog state)
 
     return ()
- where
-    allStore = psAllStore ps
-    conf = psConf ps
-    prevStore = psPrevStore ps
-    w = psWidgets ps
 
 loadContestWidgets :: Builder -> IO CWidgets
 loadContestWidgets builder = do
@@ -729,13 +746,15 @@ clearUI widgets = do
 -- THE MAIN PROGRAM
 --
 
-runGUI :: PState -> IO ()
-runGUI ps = do
+runGUI :: IORef PState -> IO ()
+runGUI state = do
+    ps <- readIORef state
+
     -- Populate some other dialogs we'll need.
     initContestDialog (psCWidgets ps)
 
     -- Install a bunch of signal handlers.
-    addSignalHandlers ps
+    addSignalHandlers state
 
     -- Initialize the widgets to their first state.
     clearUI (psWidgets ps)
@@ -765,10 +784,10 @@ main = do
 
     -- Now we have enough data to create the record that will be the program state.  Let's
     -- just pretend this isn't a big global data structure.
-    let ps = PState { psConf = conf,
-                      psWidgets = widgets,
-                      psCWidgets = cWidgets,
-                      psPrevStore = previousStore,
-                      psAllStore = allStore }
-
+    ps <- newIORef PState { psConf = conf,
+                            psWidgets = widgets,
+                            psCWidgets = cWidgets,
+                            psPrevStore = previousStore,
+                            psAllStore = allStore,
+                            psContestMode = False }
     runGUI ps
