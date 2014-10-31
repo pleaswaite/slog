@@ -382,6 +382,9 @@ addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDa
 currentActive :: Widgets -> IO Bool
 currentActive w = get (wCurrent w) toggleButtonActive
 
+contestActive :: CWidgets -> IO Bool
+contestActive w = get (cwEnable w) toggleButtonActive
+
 --
 -- SIGNAL HANDLERS
 --
@@ -535,8 +538,8 @@ runContestDialog state = do
     -- return the data needed to run the contest state.
     when (rc == ResponseOk) $ do
         -- Are we even operating in contest mode?
-        button <- readState state (cwEnable . psCWidgets)
-        contestMode <- get button toggleButtonActive
+        cw <- readState state psCWidgets
+        contestMode <- contestActive cw
 
         -- Write the new state value with what we just found out.
         modifyState state (\v -> v { psContestMode = contestMode })
