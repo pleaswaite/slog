@@ -7,13 +7,14 @@ import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
 import Data.IORef(IORef, atomicWriteIORef, newIORef, readIORef)
 import Data.List(isSuffixOf)
-import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
+import Data.Maybe(catMaybes, fromJust, fromMaybe, isJust, isNothing)
 import qualified Data.Text as T
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
 import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
+import Text.Printf(printf)
 
 import Slog.DB
 import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
@@ -53,7 +54,9 @@ data PState = PState {
     psPrevStore :: ListStore DisplayRow,
     psAllStore :: ListStore DisplayRow,
 
-    psContestMode :: Bool
+    psContestMode :: Bool,
+    psContestFn :: ContestVal -> (ContestVal, String),
+    psContestVal :: ContestVal
  }
 
 modifyState :: IORef PState -> (PState -> PState) -> IO ()
@@ -156,6 +159,43 @@ lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
 lookup call user pass = do
     sid <- login user pass
     maybe (return Nothing) (lookupCall call) sid
+
+--
+-- CONTEST MODE
+--
+
+data ContestVal = CVNone
+                | CVGrid String
+                | CVSerial Integer
+                | CVSweeps Sweeps
+                | CVZone Integer
+
+data Sweeps = Sweeps { swSerial :: Integer,
+                       swPrec :: String,
+                       swCall :: String,
+                       swCheck :: Integer,
+                       swSection :: String }
+
+contestNone :: ContestVal -> (ContestVal, String)
+contestNone cv = (cv, "")
+
+contestGrid :: ContestVal -> (ContestVal, String)
+contestGrid cv@(CVGrid g) = (cv, g)
+contestGrid cv            = (cv, "")
+
+contestSerial :: ContestVal -> (ContestVal, String)
+contestSerial (CVSerial i) = (CVSerial $ i + 1, printf "%03d" i)
+contestSerial cv           = (cv, "")
+
+contestSweeps :: ContestVal -> (ContestVal, String)
+contestSweeps (CVSweeps s) = (CVSweeps $ s { swSerial=swSerial s + 1 },
+                              printf "%03d %s %s %02d %s" (swSerial s) (swPrec s) (swCall s)
+                                                          (swCheck s) (swSection s))
+contestSweeps cv           = (cv, "")
+
+contestWWDX :: ContestVal -> (ContestVal, String)
+contestWWDX (CVZone z) = (CVZone z, printf "%02d" z)
+contestWWDX cv         = (cv, "")
 
 --
 -- WORKING WITH COMBO BOXES
@@ -389,8 +429,12 @@ contestActive w = get (cwEnable w) toggleButtonActive
 -- SIGNAL HANDLERS
 --
 
-addQSOFromUI :: Widgets -> Config -> IO ()
-addQSOFromUI widgets conf = do
+addQSOFromUI :: IORef PState -> IO ()
+addQSOFromUI state = do
+    widgets <- readState state psWidgets
+    conf <- readState state psConf
+    contestMode <- readState state psContestMode
+
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
     failures <- catMaybes <$> mapM ($ widgets) addQSOChecks
@@ -444,8 +488,21 @@ addQSOFromUI widgets conf = do
         -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
         -- go around and update the list of all QSOs to include the latest.
         addQSO (confDB conf) q
-        clearUI widgets
-        void $ statusbarPush (wStatus widgets) 0 ("QSO with " ++ uppercase call ++ " added to database.")
+        clearUI state
+        statusbarPush (wStatus widgets) 0 ("QSO with " ++ uppercase call ++ " added to database.")
+
+        -- And then if we are in contest mode, we need to compute a value for the next exchange
+        -- and put that into the UI (where it'll be read from when we actually add the next QSO)
+        -- and into the program state.
+        when contestMode $ do
+            contestVal <- readState state psContestVal
+            contestFn <- readState state psContestFn
+
+            let (contestVal', s) = contestFn contestVal
+            modifyState state (\v -> v { psContestVal = contestVal' })
+
+            xcSent <- readState state (wXCSent . psWidgets)
+            set xcSent [ entryText := T.pack s ]
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -541,8 +598,48 @@ runContestDialog state = do
         cw <- readState state psCWidgets
         contestMode <- contestActive cw
 
+        xcSent <- readState state (wXCSent . psWidgets)
+        rstRcvd <- readState state (wRSTRcvd . psWidgets)
+        rstSent <- readState state (wRSTSent . psWidgets)
+
+        -- If yes, we need to store new values for the exchange-generating function into
+        -- program state.  If no, don't worry about it.  Checking psContestMode first will
+        -- mean whatever else contest-related is stored won't matter.  We figure out which
+        -- values to use by looking at what page the notebook is on.
+        (contestVal, contestFn) <- if contestMode then do
+            notebook <- readState state (cwNotebook . psCWidgets)
+            get notebook notebookPage >>= \case
+                1 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
+                        return (CVSerial $ fromMaybe 0 v, contestSerial)
+                2 -> do serial <- stringToInteger <$> get (cwSweepsSerial cw) entryText
+                        prec <- get (cwSweepsPrec cw) entryText
+                        call <- get (cwSweepsCall cw) entryText
+                        check <- truncate <$> get (cwSweepsCheck cw) spinButtonValue
+                        section <- get (cwSweepsSection cw) entryText
+                        return (CVSweeps $ Sweeps (fromMaybe 0 serial) prec call check section, contestSweeps)
+                3 -> do v <- truncate <$> get (cwZoneZone cw) spinButtonValue
+                        return (CVZone v, contestWWDX)
+                _ -> do v <- get (cwGridGrid cw) entryText
+                        return (CVGrid v, contestGrid)
+         else
+             return (CVNone, contestNone)
+
+        -- And then after all this, we should update the sent XC field immediately.  We throw
+        -- away the first portion of the returned tuple (the new contest value) because we don't
+        -- yet know if we can commit to using the value we've been given.  That is, we need
+        -- something to display in the UI now, but the user might click on Cancel and the value we
+        -- calculated won't have ever been exchanged in a contest yet.
+        set xcSent [ entryText := T.pack . snd $ contestFn contestVal ]
+
+        -- Oh, RST in a contest is almost always 59/59, so just pre-fill that too so the user
+        -- doesn't have to fill it in manually.  It's all about speed.
+        set rstRcvd [ entryText := if contestMode then "59" else "" ]
+        set rstSent [ entryText := if contestMode then "59" else "" ]
+
         -- Write the new state value with what we just found out.
-        modifyState state (\v -> v { psContestMode = contestMode })
+        modifyState state (\v -> v { psContestMode = contestMode,
+                                     psContestVal = contestVal,
+                                     psContestFn = contestFn })
 
     widgetHide dlg
 
@@ -570,9 +667,9 @@ addSignalHandlers state = do
     onDestroy (wMainWindow w) mainQuit
 
     on (wCurrent w) toggled         (currentToggled w)
-    on (wClear w)   buttonActivated (clearUI w)
+    on (wClear w)   buttonActivated (clearUI state)
     on (wClear w)   buttonActivated (populateTreeView prevStore [])
-    on (wAdd w)     buttonActivated (addQSOFromUI w conf)
+    on (wAdd w)     buttonActivated (addQSOFromUI state)
     on (wLookup w)  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
                                                               (blockUI w False)
                                                               (lookupCallsign w prevStore conf))
@@ -713,12 +810,19 @@ initContestDialog widgets = do
 -- UI and prepare it for starting over.  Expected user behavior is that Clear is for
 -- when you've entered bad information and need to try again (missed a QSO, etc.) and
 -- quitting the application is for when you really want to quit.
-clearUI :: Widgets -> IO ()
-clearUI widgets = do
+clearUI :: IORef PState -> IO ()
+clearUI state = do
+    widgets <- readState state psWidgets
+    contestMode <- readState state psContestMode
+
     -- Blank out most of the text entry widgets.  Mode we want to set back to SSB, and
     -- frequency/rx frequency we want to leave alone.  This makes it easier to operate
-    -- as the station with a pile up.
-    mapM_ (`set` [ entryText := "" ]) entryWidgets
+    -- as the station with a pile up.  However if we are in contest mode, we don't want
+    -- to blank out much at all.
+    mapM_ (`set` [ entryText := "" ])
+          (if contestMode then [wCall widgets, wDate widgets, wTime widgets]
+                          else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
+                                wXCSent widgets, wDate widgets, wTime widgets])
     set (wMode widgets) [ comboBoxActive := 5 ]
 
     -- Set the current date/time checkbox back to active.
@@ -738,9 +842,6 @@ clearUI widgets = do
     -- Remove all checkmarks images found in the various tables.
     clearChecks widgets
  where
-    entryWidgets = [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
-                    wXCSent widgets, wDate widgets, wTime widgets]
-
     setDateTime w = sequence_ [theDate >>= entrySetText (wDate w),
                                theTime >>= entrySetText (wTime w)]
 
@@ -759,7 +860,7 @@ runGUI state = do
     addSignalHandlers state
 
     -- Initialize the widgets to their first state.
-    clearUI (psWidgets ps)
+    clearUI state
 
     -- Start up the UI.
     widgetShowAll (wMainWindow . psWidgets $ ps)
@@ -791,5 +892,7 @@ main = do
                             psCWidgets = cWidgets,
                             psPrevStore = previousStore,
                             psAllStore = allStore,
-                            psContestMode = False }
+                            psContestMode = False,
+                            psContestFn = contestNone,
+                            psContestVal = CVNone }
     runGUI ps

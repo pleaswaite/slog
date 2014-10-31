@@ -204,7 +204,7 @@ addQSO filename qso = runSqlite (pack filename) $ do
                            (qState qso)
                            (qName qso)
                            (qNotes qso)
-                           (qXcIn qso) (qXcOut qso)
+                           (fmap uppercase (qXcIn qso)) (fmap uppercase (qXcOut qso))
                            (qRST_Rcvd qso) (qRST_Sent qso)
                            (fmap fromInteger (qITU qso))
                            (fmap fromInteger (qWAZ qso))
