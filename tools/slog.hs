@@ -240,7 +240,6 @@ clearChecks widgets =
     removeImage container widget =
         when (isA widget gTypeImage) $ containerRemove container widget
 
--- Create the columns and renderers for the previous QSOs with a given call area.
 -- Create the columns and renderers for a given TreeView, leaving it ready to be filled
 -- with data.  This function should only be called once or each column will appear
 -- multiple times.
