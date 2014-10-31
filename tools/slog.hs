@@ -67,6 +67,11 @@ modifyState state fn = do
 readState :: IORef PState -> (PState -> a) -> IO a
 readState state fn = fn <$> readIORef state
 
+withStateWidget_ :: IORef PState -> (Widgets -> a) -> (a -> IO ()) -> IO ()
+withStateWidget_ state getWidgetFn doSomethingFn = do
+    widget <- readState state (getWidgetFn . psWidgets)
+    doSomethingFn widget
+
 --
 -- UI TYPES
 --
@@ -118,7 +123,6 @@ data Widgets = Widgets {
 data CWidgets = CWidgets {
     cwBox :: Box,
 
-    cwDisable :: RadioButton,
     cwEnable :: RadioButton,
 
     cwNotebook :: Notebook,
@@ -255,14 +259,14 @@ addEntityCheck widgets band | band == Just Band160M = addCheckToTable (wDXCCGrid
                             | band == Just Band12M  = addCheckToTable (wDXCCGrid widgets) 8  2
                             | band == Just Band10M  = addCheckToTable (wDXCCGrid widgets) 9  2
                             | band == Just Band6M   = addCheckToTable (wDXCCGrid widgets) 10 2
-                            | otherwise        = return ()
+                            | otherwise             = return ()
 
 addGridCheck :: Widgets -> Maybe Band -> IO ()
 addGridCheck widgets band | band == Just Band6M        = addCheckToTable (wGridGrid widgets) 0 2
                           | band == Just Band2M        = addCheckToTable (wGridGrid widgets) 1 2
                           | band == Just Band1Point25M = addCheckToTable (wGridGrid widgets) 2 2
                           | band == Just Band70CM      = addCheckToTable (wGridGrid widgets) 3 2
-                          | otherwise             = return ()
+                          | otherwise                  = return ()
 
 blockUI :: Widgets -> Bool -> IO ()
 blockUI widgets b = do
@@ -501,8 +505,7 @@ addQSOFromUI state = do
             let (contestVal', s) = contestFn contestVal
             modifyState state (\v -> v { psContestVal = contestVal' })
 
-            xcSent <- readState state (wXCSent . psWidgets)
-            set xcSent [ entryText := T.pack s ]
+            withStateWidget_ state wXCSent (\w -> set w [ entryText := T.pack s ])
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -598,10 +601,6 @@ runContestDialog state = do
         cw <- readState state psCWidgets
         contestMode <- contestActive cw
 
-        xcSent <- readState state (wXCSent . psWidgets)
-        rstRcvd <- readState state (wRSTRcvd . psWidgets)
-        rstSent <- readState state (wRSTSent . psWidgets)
-
         -- If yes, we need to store new values for the exchange-generating function into
         -- program state.  If no, don't worry about it.  Checking psContestMode first will
         -- mean whatever else contest-related is stored won't matter.  We figure out which
@@ -629,12 +628,12 @@ runContestDialog state = do
         -- yet know if we can commit to using the value we've been given.  That is, we need
         -- something to display in the UI now, but the user might click on Cancel and the value we
         -- calculated won't have ever been exchanged in a contest yet.
-        set xcSent [ entryText := T.pack . snd $ contestFn contestVal ]
+        withStateWidget_ state wXCSent (\w -> set w [ entryText := T.pack . snd $ contestFn contestVal ])
 
         -- Oh, RST in a contest is almost always 59/59, so just pre-fill that too so the user
         -- doesn't have to fill it in manually.  It's all about speed.
-        set rstRcvd [ entryText := if contestMode then "59" else "" ]
-        set rstSent [ entryText := if contestMode then "59" else "" ]
+        withStateWidget_ state wRSTRcvd (\w -> set w [ entryText := if contestMode then "59" else "" ])
+        withStateWidget_ state wRSTSent (\w -> set w [ entryText := if contestMode then "59" else "" ])
 
         -- Write the new state value with what we just found out.
         modifyState state (\v -> v { psContestMode = contestMode,
@@ -696,7 +695,7 @@ loadContestWidgets builder = do
                                         ["gridGridEntry", "serialSerialEntry", "sweepsSerialEntry",
                                          "sweepsPrecEntry", "sweepsCallEntry", "sweepsSectionEntry"]
 
-    [disable, enable] <- mapM (builderGetObject builder castToRadioButton) ["disableContestButton", "enableContestButton"]
+    [enable] <- mapM (builderGetObject builder castToRadioButton) ["enableContestButton"]
 
     [notebook] <- mapM (builderGetObject builder castToNotebook) ["contestNotebook"]
 
@@ -705,7 +704,7 @@ loadContestWidgets builder = do
     [sweepsCheck, zoneZone] <- mapM (builderGetObject builder castToSpinButton) ["sweepsCheck", "zoneZone"]
 
     return $ CWidgets box
-                      disable enable
+                      enable
                       notebook
                       gridGrid
                       serialSerial
@@ -792,12 +791,11 @@ initContestDialog widgets = do
     -- Then hook up a signal handler to only make it appear if contest mode is enabled.
     on (cwEnable widgets) toggled $ do active <- get (cwEnable widgets) toggleButtonActive
                                        set combo [ widgetVisible := active ]
-                                       set (cwNotebook widgets)[ widgetVisible := active ]
+                                       set (cwNotebook widgets) [ widgetVisible := active ]
 
     -- And this signal handler tells us which set of entries to display based on which
     -- item in the combo is chosen.
     on combo changed $ get combo comboBoxActive >>= \case
-                           0 -> set (cwNotebook widgets) [ notebookPage := 0 ]
                            1 -> set (cwNotebook widgets) [ notebookPage := 2 ]
                            2 -> set (cwNotebook widgets) [ notebookPage := 3 ]
                            3 -> set (cwNotebook widgets) [ notebookPage := 0 ]
