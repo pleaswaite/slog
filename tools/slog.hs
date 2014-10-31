@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind -fno-warn-wrong-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE LambdaCase #-}
 
 import Control.Applicative((<$>))
@@ -55,8 +56,7 @@ data PState = PState {
     psAllStore :: ListStore DisplayRow,
 
     psContestMode :: Bool,
-    psContestFn :: ContestVal -> (ContestVal, String),
-    psContestVal :: ContestVal
+    psContestVal :: Contest
  }
 
 modifyState :: IORef PState -> (PState -> PState) -> IO ()
@@ -168,38 +168,39 @@ lookup call user pass = do
 -- CONTEST MODE
 --
 
-data ContestVal = CVNone
-                | CVGrid String
-                | CVSerial Integer
-                | CVSweeps Sweeps
-                | CVZone Integer
-
 data Sweeps = Sweeps { swSerial :: Integer,
                        swPrec :: String,
                        swCall :: String,
                        swCheck :: Integer,
                        swSection :: String }
 
-contestNone :: ContestVal -> (ContestVal, String)
-contestNone cv = (cv, "")
+data Contest = forall a. MkContest
+    a             -- new
+    (a -> a)      -- next
+    (a -> String) -- str
 
-contestGrid :: ContestVal -> (ContestVal, String)
-contestGrid cv@(CVGrid g) = (cv, g)
-contestGrid cv            = (cv, "")
+noneContest :: String -> Contest
+noneContest new = MkContest new id (const "")
 
-contestSerial :: ContestVal -> (ContestVal, String)
-contestSerial (CVSerial i) = (CVSerial $ i + 1, printf "%03d" i)
-contestSerial cv           = (cv, "")
+gridContest :: String -> Contest
+gridContest new = MkContest new id id
 
-contestSweeps :: ContestVal -> (ContestVal, String)
-contestSweeps (CVSweeps s) = (CVSweeps $ s { swSerial=swSerial s + 1 },
-                              printf "%03d %s %s %02d %s" (swSerial s) (swPrec s) (swCall s)
-                                                          (swCheck s) (swSection s))
-contestSweeps cv           = (cv, "")
+serialContest :: Integer -> Contest
+serialContest new = MkContest new (+1) (printf "%03d")
 
-contestWWDX :: ContestVal -> (ContestVal, String)
-contestWWDX (CVZone z) = (CVZone z, printf "%02d" z)
-contestWWDX cv         = (cv, "")
+sweepsContest :: Sweeps -> Contest
+sweepsContest new = MkContest new (\s -> s { swSerial=swSerial s + 1 })
+                                  (\s -> printf "%03d %s %s %02d %s" (swSerial s) (swPrec s) (swCall s)
+                                                                     (swCheck s) (swSection s))
+
+zoneContest :: Integer -> Contest
+zoneContest new = MkContest new id (printf "%02d")
+
+nextContest :: Contest -> Contest
+nextContest (MkContest new next str) = MkContest (next new) next str
+
+strContest :: Contest -> String
+strContest (MkContest new _ str) = str new
 
 --
 -- WORKING WITH COMBO BOXES
@@ -499,13 +500,9 @@ addQSOFromUI state = do
         -- and put that into the UI (where it'll be read from when we actually add the next QSO)
         -- and into the program state.
         when contestMode $ do
-            contestVal <- readState state psContestVal
-            contestFn <- readState state psContestFn
-
-            let (contestVal', s) = contestFn contestVal
-            modifyState state (\v -> v { psContestVal = contestVal' })
-
-            withStateWidget_ state wXCSent (\w -> set w [ entryText := T.pack s ])
+            contestVal <- nextContest <$> readState state psContestVal
+            modifyState state (\v -> v { psContestVal = contestVal })
+            withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . strContest) contestVal ])
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -605,30 +602,26 @@ runContestDialog state = do
         -- program state.  If no, don't worry about it.  Checking psContestMode first will
         -- mean whatever else contest-related is stored won't matter.  We figure out which
         -- values to use by looking at what page the notebook is on.
-        (contestVal, contestFn) <- if contestMode then do
+        contestVal <- if contestMode then do
             notebook <- readState state (cwNotebook . psCWidgets)
             get notebook notebookPage >>= \case
                 1 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
-                        return (CVSerial $ fromMaybe 0 v, contestSerial)
+                        return $ serialContest (fromMaybe 0 v)
                 2 -> do serial <- stringToInteger <$> get (cwSweepsSerial cw) entryText
                         prec <- get (cwSweepsPrec cw) entryText
                         call <- get (cwSweepsCall cw) entryText
                         check <- truncate <$> get (cwSweepsCheck cw) spinButtonValue
                         section <- get (cwSweepsSection cw) entryText
-                        return (CVSweeps $ Sweeps (fromMaybe 0 serial) prec call check section, contestSweeps)
+                        return $ sweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
                 3 -> do v <- truncate <$> get (cwZoneZone cw) spinButtonValue
-                        return (CVZone v, contestWWDX)
+                        return $ zoneContest v
                 _ -> do v <- get (cwGridGrid cw) entryText
-                        return (CVGrid v, contestGrid)
+                        return $ gridContest v
          else
-             return (CVNone, contestNone)
+             return $ noneContest ""
 
-        -- And then after all this, we should update the sent XC field immediately.  We throw
-        -- away the first portion of the returned tuple (the new contest value) because we don't
-        -- yet know if we can commit to using the value we've been given.  That is, we need
-        -- something to display in the UI now, but the user might click on Cancel and the value we
-        -- calculated won't have ever been exchanged in a contest yet.
-        withStateWidget_ state wXCSent (\w -> set w [ entryText := T.pack . snd $ contestFn contestVal ])
+        -- And then after all this, we should update the sent XC field immediately.
+        withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . strContest) contestVal ])
 
         -- Oh, RST in a contest is almost always 59/59, so just pre-fill that too so the user
         -- doesn't have to fill it in manually.  It's all about speed.
@@ -637,8 +630,7 @@ runContestDialog state = do
 
         -- Write the new state value with what we just found out.
         modifyState state (\v -> v { psContestMode = contestMode,
-                                     psContestVal = contestVal,
-                                     psContestFn = contestFn })
+                                     psContestVal = contestVal })
 
     widgetHide dlg
 
@@ -891,6 +883,5 @@ main = do
                             psPrevStore = previousStore,
                             psAllStore = allStore,
                             psContestMode = False,
-                            psContestFn = contestNone,
-                            psContestVal = CVNone }
+                            psContestVal = noneContest "" }
     runGUI ps
