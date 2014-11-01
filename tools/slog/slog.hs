@@ -1,6 +1,5 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind -fno-warn-wrong-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE LambdaCase #-}
 
 import Control.Applicative((<$>))
@@ -15,7 +14,6 @@ import Data.Time.Format(formatTime)
 import Graphics.UI.Gtk
 import Prelude hiding(lookup)
 import System.Locale(defaultTimeLocale)
-import Text.Printf(printf)
 
 import Slog.DB
 import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
@@ -24,7 +22,10 @@ import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
 import Slog.Utils
 import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
+
 import ToolLib.Config
+
+import Contest
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
 {-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
@@ -160,44 +161,6 @@ lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
 lookup call user pass = do
     sid <- login user pass
     maybe (return Nothing) (lookupCall call) sid
-
---
--- CONTEST MODE
---
-
-data Sweeps = Sweeps { swSerial :: Integer,
-                       swPrec :: String,
-                       swCall :: String,
-                       swCheck :: Integer,
-                       swSection :: String }
-
-data Contest = forall a. MkContest
-    a             -- new
-    (a -> a)      -- next
-    (a -> String) -- str
-
-noneContest :: String -> Contest
-noneContest new = MkContest new id (const "")
-
-gridContest :: String -> Contest
-gridContest new = MkContest new id id
-
-serialContest :: Integer -> Contest
-serialContest new = MkContest new (+1) (printf "%03d")
-
-sweepsContest :: Sweeps -> Contest
-sweepsContest new = MkContest new (\s -> s { swSerial=swSerial s + 1 })
-                                  (\s -> printf "%03d %s %s %02d %s" (swSerial s) (swPrec s) (swCall s)
-                                                                     (swCheck s) (swSection s))
-
-zoneContest :: Integer -> Contest
-zoneContest new = MkContest new id (printf "%02d")
-
-nextContest :: Contest -> Contest
-nextContest (MkContest new next str) = MkContest (next new) next str
-
-strContest :: Contest -> String
-strContest (MkContest new _ str) = str new
 
 --
 -- WORKING WITH COMBO BOXES
@@ -497,9 +460,9 @@ addQSOFromUI state = do
         -- and put that into the UI (where it'll be read from when we actually add the next QSO)
         -- and into the program state.
         when contestMode $ do
-            contestVal <- nextContest <$> readState state psContestVal
+            contestVal <- contestNext <$> readState state psContestVal
             modifyState state (\v -> v { psContestVal = contestVal })
-            withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . strContest) contestVal ])
+            withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . contestStr) contestVal ])
  where
     getMaybe :: Entry -> IO (Maybe String)
     getMaybe entry = do
@@ -603,22 +566,22 @@ runContestDialog state = do
             notebook <- readState state (cwNotebook . psCWidgets)
             get notebook notebookPage >>= \case
                 1 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
-                        return $ serialContest (fromMaybe 0 v)
+                        return $ mkSerialContest (fromMaybe 0 v)
                 2 -> do serial <- stringToInteger <$> get (cwSweepsSerial cw) entryText
-                        prec <- get (cwSweepsPrec cw) entryText
+                        prec <- head <$> get (cwSweepsPrec cw) entryText
                         call <- get (cwSweepsCall cw) entryText
                         check <- truncate <$> get (cwSweepsCheck cw) spinButtonValue
                         section <- get (cwSweepsSection cw) entryText
-                        return $ sweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
+                        return $ mkSweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
                 3 -> do v <- truncate <$> get (cwZoneZone cw) spinButtonValue
-                        return $ zoneContest v
+                        return $ mkZoneContest v
                 _ -> do v <- get (cwGridGrid cw) entryText
-                        return $ gridContest v
+                        return $ mkGridContest v
          else
-             return $ noneContest ""
+             return $ mkNoneContest ""
 
         -- And then after all this, we should update the sent XC field immediately.
-        withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . strContest) contestVal ])
+        withStateWidget_ state wXCSent (\w -> set w [ entryText := (T.pack . contestStr) contestVal ])
 
         -- Oh, RST in a contest is almost always 59/59, so just pre-fill that too so the user
         -- doesn't have to fill it in manually.  It's all about speed.
@@ -877,5 +840,5 @@ main = do
                             psPrevStore = previousStore,
                             psAllStore = allStore,
                             psContestMode = False,
-                            psContestVal = noneContest "" }
+                            psContestVal = mkNoneContest "" }
     runGUI ps

@@ -117,7 +117,9 @@ executable unworked
 
 executable slog
   main-is:         slog.hs
-  hs-source-dirs:  tools
+  hs-source-dirs:  tools/slog
+
+  other-modules:   Contest
 
   build-depends:   base,
                    gtk,
