@@ -26,6 +26,7 @@ import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 import ToolLib.Config
 
 import Contest
+import Types
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
 {-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
@@ -74,88 +75,8 @@ withStateWidget_ state getWidgetFn doSomethingFn = do
     doSomethingFn widget
 
 --
--- UI TYPES
+-- WORKING WITH CALL SIGNS
 --
-
--- A record to hold all the widgets for the main screen.
-data Widgets = Widgets {
-    wCall :: Entry,
-    wFreq :: Entry,
-    wRxFreq :: Entry,
-    wRSTRcvd :: Entry,
-    wRSTSent :: Entry,
-    wXCRcvd :: Entry,
-    wXCSent :: Entry,
-
-    wCurrent :: CheckButton,
-
-    wDateLabel :: Label,
-    wDate :: Entry,
-    wTimeLabel :: Label,
-    wTime :: Entry,
-
-    wPrevious :: Frame,
-    wDXCC :: Frame,
-    wGrid :: Frame,
-
-    wLookup :: Button,
-    wClear :: Button,
-    wAdd :: Button,
-
-    wPreviousView :: TreeView,
-    wAllView :: TreeView,
-
-    wStatus :: Statusbar,
-
-    wNewQSOGrid :: Table,
-    wDXCCGrid :: Table,
-    wGridGrid :: Table,
-
-    wAntenna :: ComboBox,
-    wMode :: ComboBox,
-
-    wMainWindow :: Window,
-    wContestDlg :: Dialog,
-
-    wContestMenu :: Action
- }
-
--- A record to hold all the widgets for the contest config dialog.
-data CWidgets = CWidgets {
-    cwBox :: Box,
-
-    cwEnable :: RadioButton,
-
-    cwNotebook :: Notebook,
-
-    cwGridGrid :: Entry,
-
-    cwSerialSerial :: Entry,
-
-    cwSweepsSerial :: Entry,
-    cwSweepsPrec :: Entry,
-    cwSweepsCall :: Entry,
-    cwSweepsCheck :: SpinButton,
-    cwSweepsSection :: Entry,
-
-    cwZoneZone :: SpinButton
- }
-
--- The data type stored in a ListStore and displayed in one of two places:  On the main
--- screen as part of the previous QSOs with a given call, and on the secondary screen as
--- part of the all QSOs list.
-data DisplayRow = DisplayRow { dDate      :: String,
-                               dTime      :: String,
-                               dCall      :: String,
-                               dFreq      :: Double,
-                               dRxFreq    :: Maybe Double,
-                               dMode      :: String,
-                               dDXCC      :: Maybe Integer,
-                               dGrid      :: Maybe String,
-                               dXcIn      :: Maybe String,
-                               dXcOut     :: Maybe String,
-                               dAntenna   :: Maybe String,
-                               dConfirmed :: Bool }
 
 lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
 lookup call user pass = do

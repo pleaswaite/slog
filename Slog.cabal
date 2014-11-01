@@ -119,7 +119,8 @@ executable slog
   main-is:         slog.hs
   hs-source-dirs:  tools/slog
 
-  other-modules:   Contest
+  other-modules:   Contest,
+                   Types
 
   build-depends:   base,
                    gtk,
