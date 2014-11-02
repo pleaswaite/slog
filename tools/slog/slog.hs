@@ -5,7 +5,7 @@
 import Control.Applicative((<$>))
 import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
-import Data.IORef(IORef, atomicWriteIORef, newIORef, readIORef)
+import Data.IORef(IORef, readIORef)
 import Data.List(isSuffixOf)
 import Data.Maybe(catMaybes, fromJust, fromMaybe, isJust, isNothing)
 import qualified Data.Text as T
@@ -26,6 +26,7 @@ import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 import ToolLib.Config
 
 import Contest
+import State
 import Types
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
@@ -43,36 +44,6 @@ theTime = liftM (formatDateTime "%R") getCurrentTime
 
 theDate :: IO String
 theDate = liftM (formatDateTime "%F") getCurrentTime
-
---
--- PROGRAM STATE TYPES
---
-
-data PState = PState {
-    psConf :: Config,
-
-    psWidgets :: Widgets,
-    psCWidgets :: CWidgets,
-
-    psPrevStore :: ListStore DisplayRow,
-    psAllStore :: ListStore DisplayRow,
-
-    psContestMode :: Bool,
-    psContestVal :: Contest
- }
-
-modifyState :: IORef PState -> (PState -> PState) -> IO ()
-modifyState state fn = do
-    oldVal <- readState state id
-    atomicWriteIORef state (fn oldVal)
-
-readState :: IORef PState -> (PState -> a) -> IO a
-readState state fn = fn <$> readIORef state
-
-withStateWidget_ :: IORef PState -> (Widgets -> a) -> (a -> IO ()) -> IO ()
-withStateWidget_ state getWidgetFn doSomethingFn = do
-    widget <- readState state (getWidgetFn . psWidgets)
-    doSomethingFn widget
 
 --
 -- WORKING WITH CALL SIGNS
@@ -755,7 +726,7 @@ main = do
 
     -- Now we have enough data to create the record that will be the program state.  Let's
     -- just pretend this isn't a big global data structure.
-    ps <- newIORef PState { psConf = conf,
+    ps <- newState PState { psConf = conf,
                             psWidgets = widgets,
                             psCWidgets = cWidgets,
                             psPrevStore = previousStore,

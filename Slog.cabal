@@ -120,6 +120,7 @@ executable slog
   hs-source-dirs:  tools/slog
 
   other-modules:   Contest,
+                   State,
                    Types
 
   build-depends:   base,
