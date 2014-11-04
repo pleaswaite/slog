@@ -2,12 +2,13 @@
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
 
-import Control.Applicative((<$>))
+import Control.Applicative((<$>), (<*))
 import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
 import Data.IORef(IORef, readIORef)
 import Data.List(isSuffixOf)
-import Data.Maybe(catMaybes, fromJust, fromMaybe, isJust, isNothing)
+import Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
+import Data.Monoid(First(..), getFirst, mconcat)
 import qualified Data.Text as T
 import Data.Time.Clock(UTCTime(..), getCurrentTime)
 import Data.Time.Format(formatTime)
@@ -172,18 +173,18 @@ initTreeView store view = do
     treeViewAppendColumn view dxccCol
 
     -- GRID
-    gridCol <- newTextColumn store "Grid" $ \row -> maybe "" id (dGrid row)
+    gridCol <- newTextColumn store "Grid" (possiblyEmpty dGrid)
     treeViewAppendColumn view gridCol
 
     -- EXCHANGE
-    xcOutCol <- newTextColumn store "XC" $ \row -> maybe "" id (dXcOut row)
+    xcOutCol <- newTextColumn store "XC" (possiblyEmpty dXcOut)
     treeViewAppendColumn view xcOutCol
 
-    xcInCol <- newTextColumn store "Rcvd XC" $ \row -> maybe "" id (dXcIn row)
+    xcInCol <- newTextColumn store "Rcvd XC" (possiblyEmpty dXcIn)
     treeViewAppendColumn view xcInCol
 
     -- ANTENNA
-    antennaCol <- newTextColumn store "Antenna" $ \row -> maybe "" id (dAntenna row)
+    antennaCol <- newTextColumn store "Antenna" (possiblyEmpty dAntenna)
     treeViewAppendColumn view antennaCol
 
     -- CONFIRMED
@@ -203,6 +204,9 @@ initTreeView store view = do
                                                            cellXPad := 6 ]
         treeViewColumnSetTitle col title
         return col
+
+    possiblyEmpty :: (DisplayRow -> Maybe String) -> DisplayRow -> String
+    possiblyEmpty accessor row = maybe "" id (accessor row)
 
 -- Convert a DBResult tuple into a DisplayRow record, suitable for adding into a view.
 dbToDR :: DBResult -> DisplayRow
@@ -294,10 +298,10 @@ addQSOFromUI state = do
 
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
-    failures <- catMaybes <$> mapM ($ widgets) addQSOChecks
+    err <- getFirst . mconcat . map First <$> mapM ($ widgets) addQSOChecks
 
-    if not (null failures) then do statusbarRemoveAll (wStatus widgets) 0
-                                   void $ statusbarPush (wStatus widgets) 0 (head failures)
+    if isJust err then do statusbarRemoveAll (wStatus widgets) 0
+                          void $ statusbarPush (wStatus widgets) 0 (fromJust err)
     else do
         call <- get (wCall widgets) entryText
 
@@ -379,10 +383,9 @@ lookupCallsign widgets store conf = do
 
     unless (null call) $ do
         result <- lookup call (confQTHUser conf) (confQTHPass conf)
-
-        case result of
-            Nothing      -> void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ call)
-            Just result' -> updateUI call result'
+        maybe (void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ call))
+              (updateUI call)
+              result
 
     -- Return false to remove this handler from the main loop.
     return False
@@ -465,10 +468,8 @@ runContestDialog state = do
                         check <- truncate <$> get (cwSweepsCheck cw) spinButtonValue
                         section <- get (cwSweepsSection cw) entryText
                         return $ mkSweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
-                3 -> do v <- truncate <$> get (cwZoneZone cw) spinButtonValue
-                        return $ mkZoneContest v
-                _ -> do v <- get (cwGridGrid cw) entryText
-                        return $ mkGridContest v
+                3 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
+                _ -> mkGridContest <$> get (cwGridGrid cw) entryText
          else
              return $ mkNoneContest ""
 
@@ -510,12 +511,14 @@ addSignalHandlers state = do
     onDestroy (wMainWindow w) mainQuit
 
     on (wCurrent w) toggled         (currentToggled w)
-    on (wClear w)   buttonActivated (clearUI state)
-    on (wClear w)   buttonActivated (populateTreeView prevStore [])
-    on (wAdd w)     buttonActivated (addQSOFromUI state)
+    on (wClear w)   buttonActivated (do clearUI state
+                                        populateTreeView prevStore []
+                                        widgetGrabFocus (wCall w))
+    on (wAdd w)     buttonActivated (do addQSOFromUI state
+                                        widgetGrabFocus (wCall w))
     on (wLookup w)  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
                                                               (blockUI w False)
-                                                              (lookupCallsign w prevStore conf))
+                                                              (lookupCallsign w prevStore conf <* widgetGrabFocus (wCall w)))
                                                     priorityDefaultIdle)
 
     -- This signal is how we watch for a new QSO being added to the database and then
