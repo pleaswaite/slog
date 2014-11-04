@@ -47,6 +47,16 @@ newState = newIORef
 readState :: IORef PState -> (PState -> a) -> IO a
 readState state fn = fn <$> readIORef state
 
+-- | Given an existing 'PState', perform some function on the state and return the result.
+withState :: IORef PState -> (PState -> IO a) -> IO a
+withState state doSomethingFn = do
+    ps <- readIORef state
+    doSomethingFn ps
+
+-- | Same as 'withState', but ignore the result.
+withState_ :: IORef PState -> (PState -> IO a) -> IO ()
+withState_ state doSomethingFn = void $ withState state doSomethingFn
+
 -- | Given an existing 'PState' and an accessor function for pulling out a single GTK
 -- widget, perform some function on that widget and return the result.
 withStateWidget :: IORef PState -> (Widgets -> a) -> (a -> IO b) -> IO b

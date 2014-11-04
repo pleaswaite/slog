@@ -5,7 +5,7 @@
 import Control.Applicative((<$>), (<*))
 import Control.Exception(bracket_)
 import Control.Monad((>=>), liftM, unless, void, when)
-import Data.IORef(IORef, readIORef)
+import Data.IORef(IORef)
 import Data.List(isSuffixOf)
 import Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
 import Data.Monoid(First(..), getFirst, mconcat)
@@ -693,19 +693,19 @@ clearUI state = do
 
 runGUI :: IORef PState -> IO ()
 runGUI state = do
-    ps <- readIORef state
-
-    -- Populate some other dialogs we'll need.
-    initContestDialog (psCWidgets ps)
-
     -- Install a bunch of signal handlers.
     addSignalHandlers state
 
     -- Initialize the widgets to their first state.
     clearUI state
 
-    -- Start up the UI.
-    widgetShowAll (wMainWindow . psWidgets $ ps)
+    withState state $ \ps -> do
+        -- Populate some other dialogs we'll need.
+        initContestDialog (psCWidgets ps)
+
+        -- Start up the UI.
+        widgetShowAll (wMainWindow . psWidgets $ ps)
+
     mainGUI
 
 main :: IO ()
