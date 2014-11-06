@@ -311,8 +311,8 @@ addQSOFromUI state = do
         ra <- lookup call (confQTHUser conf) (confQTHPass conf)
 
         -- And then a bunch of annoying UI field grabbing.
-        date <- undashifyDate <$> get (wDate widgets) entryText
-        time <- uncolonifyTime <$> get (wTime widgets) entryText
+        date <- undashifyDate <$> getDate widgets
+        time <- uncolonifyTime <$> getTime widgets
         freq <- get (wFreq widgets) entryText
         rxFreq <- getMaybe (wRxFreq widgets)
         xcIn <- getMaybe (wXCRcvd widgets)
@@ -364,6 +364,16 @@ addQSOFromUI state = do
     getMaybe entry = do
         s <- get entry entryText
         return $ if null s then Nothing else Just s
+
+    getDate :: Widgets -> IO String
+    getDate widgets = do
+        useCurrent <- currentActive widgets
+        if useCurrent then theDate else get (wDate widgets) entryText
+
+    getTime :: Widgets -> IO String
+    getTime widgets = do
+        useCurrent <- currentActive widgets
+        if useCurrent then theTime else get (wTime widgets) entryText
 
 -- When the "Use current date & time" button is toggled, change sensitivity on widgets underneath it.
 currentToggled :: Widgets -> IO ()
