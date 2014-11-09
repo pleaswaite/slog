@@ -27,11 +27,11 @@ data Contest = forall a. MkContest
 -- | The ARRL Sweepstakes has a very complicated exchange, so it needs its own data
 -- type.  All values are required, even the callsign (which is our callsign, and not
 -- that of the remote station).
-data Sweeps = Sweeps { swSerial :: Integer,     -- ^ the serial number of this exchange
-                       swPrec :: Char,          -- ^ a precedence letter (see ARRL docs)
-                       swCall :: String,        -- ^ our call sign
-                       swCheck :: Integer,      -- ^ the last two digits of year of license
-                       swSection :: String      -- ^ ARRL section (see ARRL docs)
+data Sweeps = Sweeps { swSerial :: Integer,    -- ^ the serial number of this exchange
+                       swPrec :: Char,         -- ^ a precedence letter (see ARRL docs)
+                       swCall :: String,       -- ^ our call sign
+                       swCheck :: Integer,     -- ^ the last two digits of year of license
+                       swSection :: String     -- ^ ARRL section (see ARRL docs)
  }
 
 -- | Return a 'Contest' value for when there is no contest.  This is useful so calling

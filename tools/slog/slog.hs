@@ -120,6 +120,8 @@ addGridCheck widgets band | band == Just Band6M        = addCheckToTable (wGridG
                           | band == Just Band2M        = addCheckToTable (wGridGrid widgets) 1 2
                           | band == Just Band1Point25M = addCheckToTable (wGridGrid widgets) 2 2
                           | band == Just Band70CM      = addCheckToTable (wGridGrid widgets) 3 2
+                          | band == Just Band33CM      = addCheckToTable (wGridGrid widgets) 4 2
+                          | band == Just Band23CM      = addCheckToTable (wGridGrid widgets) 5 2
                           | otherwise                  = return ()
 
 blockUI :: Widgets -> Bool -> IO ()
