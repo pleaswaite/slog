@@ -27,10 +27,12 @@ module Slog.DB(DBResult,
                getUnconfirmedQSOs,
                getUnsentQSOs,
                markQSOsAsSent,
+               updateQSO,
                first, second, third)
  where
 
 import Control.Applicative((<$>))
+import Control.Monad(when)
 import Control.Monad.Trans(liftIO)
 import Data.List(isPrefixOf)
 import Data.Text(pack)
@@ -216,6 +218,31 @@ addQSO filename qso = runSqlite (pack filename) $ do
     -- And then add a reference in the confirmations table.
     insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing
     return qsoid
+
+-- | Update a single row in the database with the given 'QSO' record.
+updateQSO :: FilePath -> (QsosId, QSO, Bool) -> IO ()
+updateQSO filename (qsoid, q, markNotUploaded) = runSqlite (pack filename) $ do
+    update $ \r -> do
+        set r [ QsosDate =. val (qDate q),
+                QsosTime =. val (qTime q),
+                QsosCall =. val (qCall q),
+                QsosFreq =. val (qFreq q),
+                QsosRx_freq =. val (qRxFreq q),
+                QsosMode =. val (show $ qMode q),
+                QsosRst_rcvd =. val (qRST_Rcvd q),
+                QsosRst_sent =. val (qRST_Sent q),
+                QsosDxcc =. val (fmap fromInteger $ qDXCC q),
+                QsosItu =. val (fmap fromInteger $ qITU q),
+                QsosWaz =. val (fmap fromInteger $ qWAZ q),
+                QsosAntenna =. val (qAntenna q)
+              ]
+        where_ (r ^. QsosId ==. val qsoid)
+
+    -- For now, only support going from uploaded to not uploaded.
+    when markNotUploaded $
+        update $ \r -> do
+            set r [ ConfirmationsLotw_sdate =. val Nothing ]
+            where_ (r ^. ConfirmationsQsoid ==. val qsoid)
 
 --
 -- DEALING WITH CONFIRMATIONS
