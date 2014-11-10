@@ -123,13 +123,17 @@ getQSO filename date time call freq = runSqlite (pack filename) $ do
  where
     call' = fmap uppercase call
 
--- | Return a list of all 'DBResult' records in the database, sorted by date and time.
-getAllQSOs :: FilePath -> IO [DBResult]
-getAllQSOs filename = runSqlite (pack filename) $ do
+getQSOsBy :: String -> (SqlExpr (Entity (QsosGeneric SqlBackend)) -> SqlExpr (Value Bool)) -> IO [DBResult]
+getQSOsBy filename fn = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     where_ $ fn q
                                                      orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
+
+-- | Return a list of all 'DBResult' records in the database, sorted by date and time.
+getAllQSOs :: FilePath -> IO [DBResult]
+getAllQSOs filename = getQSOsBy filename (\_ -> val True)
 
 -- | Return the most recently added 'DBResult' record.  This is basically for updating the UI
 -- without having to tear down a store and rebuild it from scratch.
@@ -143,21 +147,11 @@ getLatestQSO filename = runSqlite (pack filename) $ do
 
 -- | Return a list of all 'DBResult' records in the database for a given call sign.
 getQSOsByCall :: FilePath -> String -> IO [DBResult]
-getQSOsByCall filename call = runSqlite (pack filename) $ do
-    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosCall ==. val (uppercase call))
-                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                                    return (q ^. QsosId, q, c)
-    return $ map fmtTuple rows
+getQSOsByCall filename call = getQSOsBy filename (\q -> q ^. QsosCall ==. val (uppercase call))
 
 -- | Return a list of all 'DBResult' records in the database for a given DXCC entity.
 getQSOsByDXCC :: FilePath -> Int -> IO [DBResult]
-getQSOsByDXCC filename dxcc = runSqlite (pack filename) $ do
-    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosDxcc ==. just (val dxcc))
-                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                                    return (q ^. QsosId, q, c)
-    return $ map fmtTuple rows
+getQSOsByDXCC filename dxcc = getQSOsBy filename (\q -> q ^. QsosDxcc ==. just (val dxcc))
 
 -- | Return a list of all 'DBResult' records in the database for a given grid.
 getQSOsByGrid :: FilePath -> String -> IO [DBResult]
@@ -173,12 +167,7 @@ getQSOsByGrid filename grid = do
 
 -- | Return a list of all 'DBResult' records in the database for a given state.
 getQSOsByState :: FilePath -> String -> IO [DBResult]
-getQSOsByState filename state = runSqlite (pack filename) $ do
-    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
-                                                    where_ (q ^. QsosState ==. just (val (uppercase state)))
-                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                                    return (q ^. QsosId, q, c)
-    return $ map fmtTuple rows
+getQSOsByState filename state = getQSOsBy filename (\q -> q ^. QsosState ==. just (val (uppercase state)))
 
 -- | Return a list of all 'DBResult' records that have not yet been confirmed with LOTW.  In
 -- this case, the 'Confirmation' portion of the 'DBResult' is redundant information (given that
