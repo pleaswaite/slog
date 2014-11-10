@@ -4,7 +4,7 @@
 import Control.Applicative((<$>))
 import Control.Monad(when)
 import Data.List(sort)
-import Data.Maybe(fromJust, isJust)
+import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.Text(Text, pack)
 import Graphics.UI.Gtk hiding(get, set)
 
@@ -54,7 +54,7 @@ updateEdited store = do
             (rFreq r)
             (rRxFreq r)
             (read (rMode r) :: ADIF.Mode)
-            (fmap toInteger $ rDXCC r)
+            (toInteger <$> rDXCC r)
             (rGrid r)
             (rState r)
             Nothing
@@ -63,8 +63,8 @@ updateEdited store = do
             Nothing
             (rRSTRcvd r)
             (rRSTSent r)
-            (fmap toInteger $ rITU r)
-            (fmap toInteger $ rWAZ r)
+            (toInteger <$> rITU r)
+            (toInteger <$> rWAZ r)
             (rCall r)
             Nothing
             Nothing
@@ -134,12 +134,12 @@ addColumns store view = do
     treeViewColumnSetTitle dxccColumn ("DXCC" :: Text)
 
     -- GRID
-    (gridCol, gridCell) <- newTextColumn store "Grid" $ \row -> maybe "" id (rGrid row)
+    (gridCol, gridCell) <- newTextColumn store "Grid" $ \row -> fromMaybe "" (rGrid row)
     on gridCell edited $ editedCell store (\row text -> row { rGrid=Just text, rEdited=True })
     treeViewAppendColumn view gridCol
 
     -- STATE
-    (stateCol, stateCell) <- newTextColumn store "State" $ \row -> maybe "" id (rState row)
+    (stateCol, stateCell) <- newTextColumn store "State" $ \row -> fromMaybe "" (rState row)
     on stateCell edited $ editedCell store (\row text -> row { rState=Just text, rEdited=True })
     treeViewAppendColumn view stateCol
 
@@ -156,7 +156,7 @@ addColumns store view = do
     treeViewAppendColumn view wazCol
 
     -- ANTENNA
-    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> maybe "" id (rAntenna row)
+    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> fromMaybe "" (rAntenna row)
     on antCell edited $ editedCell store (\row text -> row { rAntenna=Just text, rEdited=True })
     treeViewAppendColumn view antCol
 
@@ -245,13 +245,13 @@ runGUI rows = do
                                                      rFreq=qFreq q,
                                                      rRxFreq=qRxFreq q,
                                                      rMode=show $ qMode q,
-                                                     rDXCC=fmap fromInteger $ qDXCC q,
+                                                     rDXCC=fromInteger <$> qDXCC q,
                                                      rGrid=qGrid q,
                                                      rState=qState q,
                                                      rRSTRcvd=qRST_Rcvd q,
                                                      rRSTSent=qRST_Sent q,
-                                                     rITU=fmap fromInteger $ qITU q,
-                                                     rWAZ=fmap fromInteger $ qWAZ q,
+                                                     rITU=fromInteger <$> qITU q,
+                                                     rWAZ=fromInteger <$> qWAZ q,
                                                      rCall=qCall q,
                                                      rAntenna=qAntenna q,
                                                      rUploaded=isJust $ qLOTW_SDate c,

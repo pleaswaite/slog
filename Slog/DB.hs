@@ -229,11 +229,11 @@ updateQSO filename (qsoid, q, markNotUploaded) = runSqlite (pack filename) $ do
                 QsosMode =. val (show $ qMode q),
                 QsosRst_rcvd =. val (qRST_Rcvd q),
                 QsosRst_sent =. val (qRST_Sent q),
-                QsosDxcc =. val (fmap fromInteger $ qDXCC q),
+                QsosDxcc =. val (fromInteger <$> qDXCC q),
                 QsosGrid =. val (qGrid q),
                 QsosState =. val (qState q),
-                QsosItu =. val (fmap fromInteger $ qITU q),
-                QsosWaz =. val (fmap fromInteger $ qWAZ q),
+                QsosItu =. val (fromInteger <$> qITU q),
+                QsosWaz =. val (fromInteger <$> qWAZ q),
                 QsosCall =. val (qCall q),
                 QsosAntenna =. val (qAntenna q)
               ]
