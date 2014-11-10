@@ -24,6 +24,7 @@ module Slog.DB(DBResult,
                getQSOsByCall,
                getQSOsByDXCC,
                getQSOsByGrid,
+               getQSOsByState,
                getUnconfirmedQSOs,
                getUnsentQSOs,
                markQSOsAsSent,
@@ -169,6 +170,15 @@ getQSOsByGrid filename grid = do
                     results
  where
     grid' = uppercase $ take 4 grid
+
+-- | Return a list of all 'DBResult' records in the database for a given state.
+getQSOsByState :: FilePath -> String -> IO [DBResult]
+getQSOsByState filename state = runSqlite (pack filename) $ do
+    rows <- select $ from $ \(q `InnerJoin` c)-> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                    where_ (q ^. QsosState ==. just (val (uppercase state)))
+                                                    orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
+                                                    return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
 
 -- | Return a list of all 'DBResult' records that have not yet been confirmed with LOTW.  In
 -- this case, the 'Confirmation' portion of the 'DBResult' is redundant information (given that

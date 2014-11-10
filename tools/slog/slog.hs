@@ -124,6 +124,23 @@ addGridCheck widgets band | band == Just Band6M        = addCheckToTable (wGridG
                           | band == Just Band23CM      = addCheckToTable (wGridGrid widgets) 5 2
                           | otherwise                  = return ()
 
+addStateCheck :: Widgets -> Maybe Band -> IO ()
+addStateCheck widgets band | band == Just Band160M      = addCheckToTable (wStateGrid widgets) 0  2
+                           | band == Just Band80M       = addCheckToTable (wStateGrid widgets) 1  2
+                           | band == Just Band60M       = addCheckToTable (wStateGrid widgets) 2  2
+                           | band == Just Band40M       = addCheckToTable (wStateGrid widgets) 3  2
+                           | band == Just Band30M       = addCheckToTable (wStateGrid widgets) 4  2
+                           | band == Just Band20M       = addCheckToTable (wStateGrid widgets) 5  2
+                           | band == Just Band17M       = addCheckToTable (wStateGrid widgets) 6  2
+                           | band == Just Band15M       = addCheckToTable (wStateGrid widgets) 7  2
+                           | band == Just Band12M       = addCheckToTable (wStateGrid widgets) 8  2
+                           | band == Just Band10M       = addCheckToTable (wStateGrid widgets) 9  2
+                           | band == Just Band6M        = addCheckToTable (wStateGrid widgets) 10 2
+                           | band == Just Band2M        = addCheckToTable (wStateGrid widgets) 11 2
+                           | band == Just Band1Point25M = addCheckToTable (wStateGrid widgets) 12 2
+                           | band == Just Band70CM      = addCheckToTable (wStateGrid widgets) 13 2
+                           | otherwise                  = return ()
+
 blockUI :: Widgets -> Bool -> IO ()
 blockUI widgets b = do
     -- The "not" is here because it reads a lot better to write "blockUI True" than to pass
@@ -451,6 +468,16 @@ lookupCallsign widgets store conf = do
             results <- filter confirmed <$> getQSOsByGrid fp shortGrid
             let confirmedBands = map getBand results
             mapM_ (addGridCheck widgets) confirmedBands
+
+        -- And then put their state and checkmarks into that table, too.
+        when (isJust $ raUSState ra') $ do
+            let state = (fromJust . raUSState) ra'
+
+            set (wState widgets) [ widgetSensitive := True, frameLabel := state ++ " status" ]
+
+            results <- filter confirmed <$> getQSOsByState fp state
+            let confirmedBands = map getBand results
+            mapM_ (addStateCheck widgets) confirmedBands
      where
         confirmed (_, _, c) = isJust $ qLOTW_RDate c
 
@@ -584,7 +611,7 @@ loadWidgets builder antennas modes = do
     [current] <- mapM (builderGetObject builder castToCheckButton) ["useCurrentDateButton"]
     [dateLabel, timeLabel] <- mapM (builderGetObject builder castToLabel) ["dateLabel", "timeLabel"]
 
-    [previous, dxcc, grid] <- mapM (builderGetObject builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame"]
+    [previous, dxcc, grid, state] <- mapM (builderGetObject builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame", "stateFrame"]
 
     [lookupB, clearB, addB] <- mapM (builderGetObject builder castToButton) ["lookupButton", "clearButton", "addButton"]
 
@@ -592,7 +619,7 @@ loadWidgets builder antennas modes = do
 
     [status] <- mapM (builderGetObject builder castToStatusbar) ["statusBar"]
 
-    [newQSO, dxccGrid, gridGrid] <- mapM (builderGetObject builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid"]
+    [newQSO, dxccGrid, gridGrid, stateGrid] <- mapM (builderGetObject builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid", "stateGrid"]
 
     [mainWindow] <- mapM (builderGetObject builder castToWindow) ["window1"]
     [contestDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog"]
@@ -602,11 +629,11 @@ loadWidgets builder antennas modes = do
     return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
                      current
                      dateLabel date timeLabel time
-                     previous dxcc grid
+                     previous dxcc grid state
                      lookupB clearB addB
                      previousV allV
                      status
-                     newQSO dxccGrid gridGrid
+                     newQSO dxccGrid gridGrid stateGrid
                      antennas modes
                      mainWindow
                      contestDlg
@@ -691,6 +718,7 @@ clearUI state = do
     set (wPrevious widgets) [ widgetSensitive := False, frameLabel := "Previous contacts with remote station" ]
     set (wDXCC widgets)     [ widgetSensitive := False, frameLabel := "Entity status" ]
     set (wGrid widgets)     [ widgetSensitive := False, frameLabel := "Grid status" ]
+    set (wState widgets)    [ widgetSensitive := False, frameLabel := "State status" ]
 
     -- Display the current date and time as the default values.
     setDateTime widgets

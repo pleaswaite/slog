@@ -28,6 +28,7 @@ data Widgets = Widgets {
     wPrevious :: Frame,             -- ^ frame where previous contacts with remote station are displayed
     wDXCC :: Frame,                 -- ^ frame where status of DXCC with this entity is displayed
     wGrid :: Frame,                 -- ^ frame where status of VUCC with this grid is displayed
+    wState :: Frame,                -- ^ frame where status of WAS with this state is displayed
 
     wLookup :: Button,              -- ^ button for looking up callsign in 'wCall'
     wClear :: Button,               -- ^ button for clearing out the UI
@@ -41,6 +42,7 @@ data Widgets = Widgets {
     wNewQSOGrid :: Table,           -- ^ table containing all the above entries
     wDXCCGrid :: Table,             -- ^ table contained by 'wDXCC' where checkmarks will be displayed
     wGridGrid :: Table,             -- ^ table contained by 'wGrid' where checkmarks will be displayed
+    wStateGrid :: Table,            -- ^ table contained by 'wState' where checkmarks will be displayed
 
     wAntenna :: ComboBox,           -- ^ antenna choices for this contact - will be populated in code
     wMode :: ComboBox,              -- ^ mode choices for this contact - will be populated in code
