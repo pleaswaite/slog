@@ -152,7 +152,7 @@ blockUI widgets b = do
 clearChecks :: Widgets -> IO ()
 clearChecks widgets =
     mapM_ (\cont -> containerForeach cont (removeImage cont))
-          [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets]
+          [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets, wStateGrid widgets]
  where
     removeImage container widget =
         when (isA widget gTypeImage) $ containerRemove container widget
