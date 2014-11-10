@@ -83,6 +83,7 @@ data DisplayRow = DisplayRow { dDate      :: String,           -- ^ date of cont
                                dMode      :: String,           -- ^ mode used for contact
                                dDXCC      :: Maybe Integer,    -- ^ DXCC entity of remote station
                                dGrid      :: Maybe String,     -- ^ grid of remote station
+                               dState     :: Maybe String,     -- ^ state of remote station
                                dXcIn      :: Maybe String,     -- ^ exchange given by remote station
                                dXcOut     :: Maybe String,     -- ^ exchange sent to remote station
                                dAntenna   :: Maybe String,     -- ^ antenna used for contact

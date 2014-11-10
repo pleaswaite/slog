@@ -18,15 +18,17 @@ import Slog.QSO
 data Row = Row { rQsoid    :: QsosId,
                  rDate     :: String,
                  rTime     :: String,
-                 rCall     :: String,
                  rFreq     :: Double,
                  rRxFreq   :: Maybe Double,
                  rMode     :: String,
+                 rDXCC     :: Maybe Int,
+                 rGrid     :: Maybe String,
+                 rState    :: Maybe String,
                  rRSTRcvd  :: String,
                  rRSTSent  :: String,
-                 rDXCC     :: Maybe Int,
                  rITU      :: Maybe Int,
                  rWAZ      :: Maybe Int,
+                 rCall     :: String,
                  rAntenna  :: Maybe String,
                  rUploaded :: Bool,
 
@@ -53,8 +55,8 @@ updateEdited store = do
             (rRxFreq r)
             (read (rMode r) :: ADIF.Mode)
             (fmap toInteger $ rDXCC r)
-            Nothing
-            Nothing
+            (rGrid r)
+            (rState r)
             Nothing
             Nothing
             Nothing
@@ -130,6 +132,16 @@ addColumns store view = do
     on dxccCell edited $ editedCell store (\row text -> row { rDXCC=fmap fromInteger (idFromName text), rEdited=True })
     treeViewAppendColumn view dxccColumn
     treeViewColumnSetTitle dxccColumn ("DXCC" :: Text)
+
+    -- GRID
+    (gridCol, gridCell) <- newTextColumn store "Grid" $ \row -> maybe "" id (rGrid row)
+    on gridCell edited $ editedCell store (\row text -> row { rGrid=Just text, rEdited=True })
+    treeViewAppendColumn view gridCol
+
+    -- STATE
+    (stateCol, stateCell) <- newTextColumn store "State" $ \row -> maybe "" id (rState row)
+    on stateCell edited $ editedCell store (\row text -> row { rState=Just text, rEdited=True })
+    treeViewAppendColumn view stateCol
 
     -- ITU
     (ituCol, ituCell) <- newTextColumn store "ITU" $ \row -> maybe "" show (rITU row)
@@ -230,15 +242,17 @@ runGUI rows = do
     mapM_ (\(i, q, c) -> listStoreAppend store Row { rQsoid=i,
                                                      rDate=qDate q,
                                                      rTime=qTime q,
-                                                     rCall=qCall q,
                                                      rFreq=qFreq q,
                                                      rRxFreq=qRxFreq q,
                                                      rMode=show $ qMode q,
+                                                     rDXCC=fmap fromInteger $ qDXCC q,
+                                                     rGrid=qGrid q,
+                                                     rState=qState q,
                                                      rRSTRcvd=qRST_Rcvd q,
                                                      rRSTSent=qRST_Sent q,
-                                                     rDXCC=fmap fromInteger $ qDXCC q,
                                                      rITU=fmap fromInteger $ qITU q,
                                                      rWAZ=fmap fromInteger $ qWAZ q,
+                                                     rCall=qCall q,
                                                      rAntenna=qAntenna q,
                                                      rUploaded=isJust $ qLOTW_SDate c,
                                                      rEdited=False }

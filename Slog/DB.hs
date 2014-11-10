@@ -225,15 +225,17 @@ updateQSO filename (qsoid, q, markNotUploaded) = runSqlite (pack filename) $ do
     update $ \r -> do
         set r [ QsosDate =. val (qDate q),
                 QsosTime =. val (qTime q),
-                QsosCall =. val (qCall q),
                 QsosFreq =. val (qFreq q),
                 QsosRx_freq =. val (qRxFreq q),
                 QsosMode =. val (show $ qMode q),
                 QsosRst_rcvd =. val (qRST_Rcvd q),
                 QsosRst_sent =. val (qRST_Sent q),
                 QsosDxcc =. val (fmap fromInteger $ qDXCC q),
+                QsosGrid =. val (qGrid q),
+                QsosState =. val (qState q),
                 QsosItu =. val (fmap fromInteger $ qITU q),
                 QsosWaz =. val (fmap fromInteger $ qWAZ q),
+                QsosCall =. val (qCall q),
                 QsosAntenna =. val (qAntenna q)
               ]
         where_ (r ^. QsosId ==. val qsoid)

@@ -178,6 +178,10 @@ initTreeView store view = do
     gridCol <- newTextColumn store "Grid" (possiblyEmpty dGrid)
     treeViewAppendColumn view gridCol
 
+    -- STATE
+    stateCol <- newTextColumn store "State" (possiblyEmpty dState)
+    treeViewAppendColumn view stateCol
+
     -- EXCHANGE
     xcOutCol <- newTextColumn store "XC" (possiblyEmpty dXcOut)
     treeViewAppendColumn view xcOutCol
@@ -219,6 +223,7 @@ dbToDR (_, q, c) = DisplayRow { dDate=dashifyDate $ qDate q,
                                 dRxFreq=qRxFreq q,
                                 dMode=show $ qMode q,
                                 dDXCC=qDXCC q,
+                                dState=qState q,
                                 dGrid=qGrid q,
                                 dXcIn=qXcIn q,
                                 dXcOut=qXcOut q,
