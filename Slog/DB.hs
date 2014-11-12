@@ -3,7 +3,9 @@
 {-# LANGUAGE EmptyDataDecls #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE GADTs  #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -123,7 +125,7 @@ getQSO filename date time call freq = runSqlite (pack filename) $ do
  where
     call' = fmap uppercase call
 
-getQSOsBy :: String -> (SqlExpr (Entity (QsosGeneric SqlBackend)) -> SqlExpr (Value Bool)) -> IO [DBResult]
+getQSOsBy :: String -> (SqlExpr (Entity Qsos) -> SqlExpr (Value Bool)) -> IO [DBResult]
 getQSOsBy filename fn = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ $ fn q
