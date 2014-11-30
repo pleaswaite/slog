@@ -71,7 +71,9 @@ data CWidgets = CWidgets {
     cwSweepsCheck :: SpinButton,    -- ^ selector for check value, on the sweeps page
     cwSweepsSection :: Entry,       -- ^ entry for ARRL section, on the sweeps page
 
-    cwZoneZone :: SpinButton        -- ^ selector for CQ zone, on the zone page
+    cwZoneZone :: SpinButton,       -- ^ selector for CQ zone, on the zone page
+
+    cwTenState :: Entry             -- ^ entry for state, on the sweeps page
  }
 
 -- | The data type stored in a 'ListStore' and displayed in one of two places:  On the main

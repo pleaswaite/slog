@@ -71,6 +71,10 @@ mkSweepsContest new = MkContest new (\s -> s { swSerial=swSerial s + 1 })
                                     (\s -> printf "%03d %c %s %02d %s" (swSerial s) (swPrec s) (swCall s)
                                                                        (swCheck s) (swSection s))
 
+-- | Return a 'Contest' value for the ARRL Ten Meter contest.
+mkTenMeterContest :: String -> Contest
+mkTenMeterContest new = MkContest new id id
+
 -- | Return a 'Contest' value for the CQ WW DX contest.  This could also apply to any other
 -- contest that expects the CQ Zone as the exchange, which is likely not very many.  This is
 -- the input value, which will always be the next value and the string representation.

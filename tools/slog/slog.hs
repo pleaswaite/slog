@@ -511,13 +511,15 @@ runContestDialog state = do
                         section <- get (cwSweepsSection cw) entryText
                         return $ mkSweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
 
-                1 -> mkGridContest <$> get (cwGridGrid cw) entryText
+                1 -> mkTenMeterContest <$> get (cwTenState cw) entryText
 
-                2 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
+                2 -> mkGridContest <$> get (cwGridGrid cw) entryText
 
-                3 -> mkGridContest <$> get (cwGridGrid cw) entryText
+                3 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
 
-                4 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
+                4 -> mkGridContest <$> get (cwGridGrid cw) entryText
+
+                5 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
                         return $ mkSerialContest (fromMaybe 0 v)
          else
              return $ mkNoneContest ""
@@ -586,10 +588,11 @@ loadContestWidgets :: Builder -> IO CWidgets
 loadContestWidgets builder = do
     [box] <- mapM (builderGetObject builder castToBox) ["contestDialogBox"]
 
-    [gridGrid, serialSerial, sweepsSerial, sweepsPrec,
-     sweepsCall, sweepsSection] <- mapM (builderGetObject builder castToEntry)
+    [gridGrid, serialSerial, sweepsSerial, sweepsPrec, sweepsCall,
+     sweepsSection, tenState] <- mapM (builderGetObject builder castToEntry)
                                         ["gridGridEntry", "serialSerialEntry", "sweepsSerialEntry",
-                                         "sweepsPrecEntry", "sweepsCallEntry", "sweepsSectionEntry"]
+                                         "sweepsPrecEntry", "sweepsCallEntry", "sweepsSectionEntry",
+                                         "tenStateEntry"]
 
     [enable] <- mapM (builderGetObject builder castToRadioButton) ["enableContestButton"]
 
@@ -604,6 +607,7 @@ loadContestWidgets builder = do
                       serialSerial
                       sweepsSerial sweepsPrec sweepsCall sweepsCheck sweepsSection
                       zoneZone
+                      tenState
 
 loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
 loadWidgets builder antennas modes = do
@@ -671,12 +675,13 @@ initContestDialog widgets = do
     -- Pack a combo box with a list of contest possibilities into the table.
     combo <- comboBoxNewText
     mapM_ (comboBoxAppendText combo . T.pack) ["ARRL Sweepstakes",
+                                               "ARRL Ten Meter Contest",
                                                "ARRL VHF/UHF Contest",
                                                "CQ WW DX",
                                                "Generic Grid-Based Contest",
                                                "Generic Serial-Based Contest"]
-    set combo [ comboBoxActive := 4 ]
-    set (cwNotebook widgets) [ notebookPage := 3 ]
+    set combo [ comboBoxActive := 5 ]
+    set (cwNotebook widgets) [ notebookPage := 4 ]
 
     boxPackStart (cwBox widgets) combo PackNatural 0
     boxReorderChild (cwBox widgets) combo 3
@@ -690,10 +695,11 @@ initContestDialog widgets = do
     -- item in the combo is chosen.
     on combo changed $ get combo comboBoxActive >>= \case
                            0 -> set (cwNotebook widgets) [ notebookPage := 0 ]         -- arrl sweepstakes
-                           1 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- arrl vhf/uhf contest
-                           2 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- cq ww dx
-                           3 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- generic grid-based contest
-                           4 -> set (cwNotebook widgets) [ notebookPage := 3 ]         -- generic serial-based contest
+                           1 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- arrl ten meter contest
+                           2 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- arrl vhf/uhf contest
+                           3 -> set (cwNotebook widgets) [ notebookPage := 3 ]         -- cq ww dx
+                           4 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- generic grid-based contest
+                           5 -> set (cwNotebook widgets) [ notebookPage := 4 ]         -- generic serial-based contest
 
     return ()
 
