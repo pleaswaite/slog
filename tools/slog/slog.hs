@@ -504,16 +504,21 @@ runContestDialog state = do
         contestVal <- if contestMode then do
             notebook <- readState state (cwNotebook . psCWidgets)
             get notebook notebookPage >>= \case
-                1 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
-                        return $ mkSerialContest (fromMaybe 0 v)
-                2 -> do serial <- stringToInteger <$> get (cwSweepsSerial cw) entryText
+                0 -> do serial <- stringToInteger <$> get (cwSweepsSerial cw) entryText
                         prec <- head <$> get (cwSweepsPrec cw) entryText
                         call <- get (cwSweepsCall cw) entryText
                         check <- truncate <$> get (cwSweepsCheck cw) spinButtonValue
                         section <- get (cwSweepsSection cw) entryText
                         return $ mkSweepsContest (Sweeps (fromMaybe 0 serial) prec call check section)
-                3 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
-                _ -> mkGridContest <$> get (cwGridGrid cw) entryText
+
+                1 -> mkGridContest <$> get (cwGridGrid cw) entryText
+
+                2 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
+
+                3 -> mkGridContest <$> get (cwGridGrid cw) entryText
+
+                4 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
+                        return $ mkSerialContest (fromMaybe 0 v)
          else
              return $ mkNoneContest ""
 
@@ -665,13 +670,13 @@ initContestDialog :: CWidgets -> IO ()
 initContestDialog widgets = do
     -- Pack a combo box with a list of contest possibilities into the table.
     combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.pack) ["ARRL VHF/UHF Contest",
-                                               "ARRL Sweepstakes",
+    mapM_ (comboBoxAppendText combo . T.pack) ["ARRL Sweepstakes",
+                                               "ARRL VHF/UHF Contest",
                                                "CQ WW DX",
                                                "Generic Grid-Based Contest",
                                                "Generic Serial-Based Contest"]
     set combo [ comboBoxActive := 4 ]
-    set (cwNotebook widgets) [ notebookPage := 1 ]
+    set (cwNotebook widgets) [ notebookPage := 3 ]
 
     boxPackStart (cwBox widgets) combo PackNatural 0
     boxReorderChild (cwBox widgets) combo 3
@@ -684,11 +689,11 @@ initContestDialog widgets = do
     -- And this signal handler tells us which set of entries to display based on which
     -- item in the combo is chosen.
     on combo changed $ get combo comboBoxActive >>= \case
-                           1 -> set (cwNotebook widgets) [ notebookPage := 2 ]
-                           2 -> set (cwNotebook widgets) [ notebookPage := 3 ]
-                           3 -> set (cwNotebook widgets) [ notebookPage := 0 ]
-                           4 -> set (cwNotebook widgets) [ notebookPage := 1 ]
-                           _ -> set (cwNotebook widgets) [ notebookPage := 0 ]
+                           0 -> set (cwNotebook widgets) [ notebookPage := 0 ]         -- arrl sweepstakes
+                           1 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- arrl vhf/uhf contest
+                           2 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- cq ww dx
+                           3 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- generic grid-based contest
+                           4 -> set (cwNotebook widgets) [ notebookPage := 3 ]         -- generic serial-based contest
 
     return ()
 
