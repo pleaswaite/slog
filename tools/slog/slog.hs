@@ -717,7 +717,7 @@ clearUI state = do
     -- as the station with a pile up.  However if we are in contest mode, we don't want
     -- to blank out much at all.
     mapM_ (`set` [ entryText := "" ])
-          (if contestMode then [wCall widgets, wDate widgets, wTime widgets]
+          (if contestMode then [wCall widgets, wDate widgets, wTime widgets, wXCRcvd widgets]
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
     set (wMode widgets) [ comboBoxActive := 5 ]
