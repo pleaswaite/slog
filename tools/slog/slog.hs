@@ -76,8 +76,8 @@ addAntennas tbl conf = do
 addModes :: Table -> IO ComboBox
 addModes tbl = do
     combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "FM", "PSK31", "RTTY", "SSB"]
-    comboBoxSetActive combo 5
+    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "JT65", "FM", "PSK31", "RTTY", "SSB"]
+    comboBoxSetActive combo 6
 
     tableAttach tbl combo
                     1 2 2 3
@@ -720,7 +720,7 @@ clearUI state = do
           (if contestMode then [wCall widgets, wDate widgets, wTime widgets, wXCRcvd widgets]
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
-    set (wMode widgets) [ comboBoxActive := 5 ]
+    set (wMode widgets) [ comboBoxActive := 6 ]
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
