@@ -712,15 +712,13 @@ clearUI state = do
     widgets <- readState state psWidgets
     contestMode <- readState state psContestMode
 
-    -- Blank out most of the text entry widgets.  Mode we want to set back to SSB, and
-    -- frequency/rx frequency we want to leave alone.  This makes it easier to operate
-    -- as the station with a pile up.  However if we are in contest mode, we don't want
-    -- to blank out much at all.
+    -- Blank out most of the text entry widgets.  This makes it easier to operate as the
+    -- station with a pile up.  However if we are in contest mode, we don't want to blank
+    -- out much at all.
     mapM_ (`set` [ entryText := "" ])
           (if contestMode then [wCall widgets, wDate widgets, wTime widgets, wXCRcvd widgets]
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
-    set (wMode widgets) [ comboBoxActive := 6 ]
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
