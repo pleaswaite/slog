@@ -150,7 +150,9 @@ blockUI widgets b = do
           [wLookup widgets, wClear widgets, wAdd widgets]
 
 clearChecks :: Widgets -> IO ()
-clearChecks widgets =
+clearChecks widgets = do
+    mapM_ (\widget -> set widget [ widgetSensitive := False ])
+          [wDXCC widgets, wGrid widgets, wState widgets]
     mapM_ (\cont -> containerForeach cont (removeImage cont))
           [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets, wStateGrid widgets]
  where
