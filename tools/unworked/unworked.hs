@@ -3,11 +3,12 @@
 import Control.Monad(liftM)
 import Data.List((\\), nub, sort)
 import Data.Maybe(mapMaybe)
+import Data.Tuple.Utils(snd3, thd3)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DB(getAllQSOs, second)
+import Slog.DB(getAllQSOs)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
 import Slog.QSO(QSO(qDXCC), isConfirmed)
 
@@ -87,8 +88,8 @@ main = do
 
     -- If we are reporting based on only confirmed QSOs, remove unconfirmed
     -- ones from the list.  Otherwise, use all the QSOs in the log.
-    let qsos = map second $ if optConfirmedOnly cmdline then filter (\(_, _, c) -> isConfirmed c) results
-                            else results
+    let qsos = map snd3 $ if optConfirmedOnly cmdline then filter (isConfirmed . thd3) results
+                          else results
 
     -- Reduce the list of worked QSOs down to just those on the given band
     -- (or whatever) we want to consider.  Then, convert that into a list of

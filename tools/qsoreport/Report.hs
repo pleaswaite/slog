@@ -9,10 +9,11 @@ module Report(reportAll,
 
 import Data.List(groupBy, nubBy, sortBy)
 import Data.Maybe(listToMaybe)
+import Data.Tuple.Utils(snd3, thd3)
 import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
-import Slog.DB(DBResult, second, third)
+import Slog.DB(DBResult)
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -57,7 +58,7 @@ report caption results = concatHtml [
     toHtml $ show nQSOs ++ " " ++ caption ++ ", " ++ show nConfirmed ++ " confirmed" ]
  where
     nQSOs = length results
-    nConfirmed = length $ filter isConfirmed (map third results)
+    nConfirmed = length $ filter isConfirmed (map thd3 results)
 
     results' = map resultToRow results
 
@@ -169,7 +170,7 @@ reportChallenge results = table ! [border 1] << (toHtml tableBody)
 
     -- Since this function doesn't use report, we can really just get rid of all the
     -- qsoid and confirmation stuff.
-    qsos = map second results
+    qsos = map snd3 results
 
     -- Create a new list where each element is a list of all QSOs for a specific
     -- DXCC entity.

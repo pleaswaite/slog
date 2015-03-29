@@ -82,6 +82,7 @@ executable qsoconfirm
   hs-source-dirs:  tools
 
   build-depends:   base,
+                   MissingH,
                    mtl,
                    Slog
 

@@ -31,8 +31,7 @@ module Slog.DB(DBResult,
                getUnconfirmedQSOs,
                getUnsentQSOs,
                markQSOsAsSent,
-               updateQSO,
-               first, second, third)
+               updateQSO)
  where
 
 import Control.Applicative((<$>))
@@ -90,16 +89,6 @@ share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 -- getting and combining this data.  So they'll just all get it all now and can decide which parts
 -- are useful and which are not.
 type DBResult = (QsosId, QSO, Confirmation)
-
--- Extract elements out of the DBResult tuple.
-first :: (a, b, c) -> a
-first  (a, _, _) = a
-
-second :: (a, b, c) -> b
-second (_, b, _) = b
-
-third :: (a, b, c) -> c
-third  (_, _, c) = c
 
 --
 -- QUERYING FOR QSOs

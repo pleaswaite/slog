@@ -5,9 +5,10 @@ import Control.Monad(when)
 import Control.Monad.Trans(liftIO)
 import Data.List(find)
 import Data.Maybe(catMaybes, fromJust)
+import Data.Tuple.Utils(snd3)
 import Text.Printf(printf)
 
-import Slog.DB(DBResult, confirmQSO, getQSO, getUnconfirmedQSOs, second)
+import Slog.DB(DBResult, confirmQSO, getQSO, getUnconfirmedQSOs)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -125,7 +126,7 @@ main = do
     -- to figure out what needs to be confirmed except for iterating over every one and
     -- spamming the LOTW server with requests.  They probably wouldn't appreciate that.
     unconfirmedResults <- getUnconfirmedQSOs fp
-    let earliestUnconfirmed = dashifyDate . qDate $ second $ head unconfirmedResults
+    let earliestUnconfirmed = dashifyDate . qDate $ snd3 $ head unconfirmedResults
 
     -- Grab the confirmed QSOs from LOTW.
     str <- download earliestUnconfirmed confUsername confPassword
