@@ -519,9 +519,7 @@ runContestDialog state = do
 
                 3 -> mkZoneContest <$> truncate <$> get (cwZoneZone cw) spinButtonValue
 
-                4 -> mkGridContest <$> get (cwGridGrid cw) entryText
-
-                5 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
+                4 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
                         return $ mkSerialContest (fromMaybe 0 v)
          else
              return $ mkNoneContest ""
