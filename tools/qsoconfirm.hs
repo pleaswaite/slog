@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Monad(when)
 import Control.Monad.Trans(liftIO)
@@ -12,7 +13,7 @@ import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.LOTW(download)
-import Slog.QSO(QSO(qCall, qDate, qDXCC, qFreq, qTime))
+import Slog.QSO(QSO(..))
 import Slog.Utils(colonifyTime, dashifyDate, withoutSeconds)
 
 import ToolLib.Config
@@ -61,24 +62,23 @@ mkQSLInfo fields = let
                                                    qiQSLDate = fromJust date }
 
 logMessage :: QSO -> String
-logMessage qso =
-    printf "Confirmed QSO: %s (%s) on %s at %s %s" call entity band date time
+logMessage QSO{..} =
+    printf "Confirmed QSO: %s (%s) on %s at %s %s" qCall entity band date time
  where
-    call = qCall qso
-    entity = maybe "unknown entity" dxccEntity (qDXCC qso >>= entityFromID)
-    band = maybe "unknown band" show $ freqToBand (qFreq qso)
-    date = dashifyDate $ qDate qso
-    time = colonifyTime $ qTime qso
+    entity = maybe "unknown entity" dxccEntity (qDXCC >>= entityFromID)
+    band = maybe "unknown band" show $ freqToBand qFreq
+    date = dashifyDate qDate
+    time = colonifyTime qTime
 
 doConfirm :: FilePath -> QSLInfo -> IO ()
-doConfirm fp qslInfo = do
+doConfirm fp QSLInfo{..} = do
     -- LOTW gives us band information, but our database stores everything in terms of
     -- frequency.  Thus we query the database for all QSOs matching time and call.  This
     -- could possibly return multiple results, across multiple bands.  We'll find the
     -- right one later.
-    results <- getQSO fp (Just $ qiDate qslInfo)
-                         (Just $ withoutSeconds $ qiTime qslInfo)
-                         (Just $ qiCall qslInfo)
+    results <- getQSO fp (Just qiDate)
+                         (Just $ withoutSeconds qiTime)
+                         (Just qiCall)
                          Nothing
     mapM_ confirmOne results
  where
@@ -87,8 +87,8 @@ doConfirm fp qslInfo = do
         -- we want to confirm.  This guard basically does the filtering that we wish
         -- the database could have given us above, if we didn't have to work in terms
         -- of frequency.
-        when (maybe False (qiBand qslInfo ==) (freqToBand $ qFreq q))
-             (do confirmQSO fp i (qiQSLDate qslInfo)
+        when (maybe False (qiBand ==) (freqToBand $ qFreq q))
+             (do confirmQSO fp i qiQSLDate
                  liftIO $ (putStrLn . logMessage) q)
 
 filterPreviousConfirmations :: [DBResult] -> [Maybe QSLInfo] -> [QSLInfo]
@@ -96,11 +96,11 @@ filterPreviousConfirmations results infos = let
     -- results is a list of unconfirmed QSO objects as understood by our local database.
     -- Convert it into a list of QSLInfo objects (where the qiQSLDate field doesn't
     -- really matter).
-    unconfirmed = map (\(_, q, _) -> QSLInfo { qiBand = fromJust $ freqToBand (qFreq q),
-                                               qiCall = qCall q,
-                                               qiDate = qDate q,
-                                               qiTime = qTime q,
-                                               qiQSLDate = qDate q })
+    unconfirmed = map (\(_, QSO{..}, _) -> QSLInfo { qiBand = fromJust $ freqToBand qFreq,
+                                                     qiCall = qCall,
+                                                     qiDate = qDate,
+                                                     qiTime = qTime,
+                                                     qiQSLDate = qDate })
                       results
  in
     -- Then, remove all the QSLInfo objects that are not already confirmed.  This leaves
@@ -115,10 +115,10 @@ confirmQSOs fp =
 main :: IO ()
 main = do
     -- Read in the config file.
-    conf <- readConfig
+    Config{..} <- readConfig
 
     -- Get the on-disk location of the database.
-    let fp = confDB conf
+    let fp = confDB
 
     -- Determine the earliest unconfirmed QSO.  We don't want to download everything, as
     -- that might be a whole lot of ADIF data.  However, there's really not a better way
@@ -128,7 +128,7 @@ main = do
     let earliestUnconfirmed = dashifyDate . qDate $ second $ head unconfirmedResults
 
     -- Grab the confirmed QSOs from LOTW.
-    str <- download earliestUnconfirmed (confUsername conf) (confPassword conf)
+    str <- download earliestUnconfirmed confUsername confPassword
 
     -- Now iterate over all the new ADIF data and extract date/times for each.  Mark each
     -- as confirmed.

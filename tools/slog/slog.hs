@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind -fno-warn-wrong-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Applicative((<$>), (<*))
 import Control.Exception(bracket_)
@@ -60,9 +61,9 @@ lookup call user pass = do
 --
 
 addAntennas :: Table -> Config -> IO ComboBox
-addAntennas tbl conf = do
+addAntennas tbl Config{..} = do
     combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.strip . T.pack) (confAntennas conf)
+    mapM_ (comboBoxAppendText combo . T.strip . T.pack) confAntennas
     comboBoxSetActive combo 0
 
     tableAttach tbl combo
@@ -102,59 +103,59 @@ addCheckToTable tbl col row = do
     return ()
 
 addEntityCheck :: Widgets -> Maybe Band -> IO ()
-addEntityCheck widgets band | band == Just Band160M = addCheckToTable (wDXCCGrid widgets) 0  2
-                            | band == Just Band80M  = addCheckToTable (wDXCCGrid widgets) 1  2
-                            | band == Just Band60M  = addCheckToTable (wDXCCGrid widgets) 2  2
-                            | band == Just Band40M  = addCheckToTable (wDXCCGrid widgets) 3  2
-                            | band == Just Band30M  = addCheckToTable (wDXCCGrid widgets) 4  2
-                            | band == Just Band20M  = addCheckToTable (wDXCCGrid widgets) 5  2
-                            | band == Just Band17M  = addCheckToTable (wDXCCGrid widgets) 6  2
-                            | band == Just Band15M  = addCheckToTable (wDXCCGrid widgets) 7  2
-                            | band == Just Band12M  = addCheckToTable (wDXCCGrid widgets) 8  2
-                            | band == Just Band10M  = addCheckToTable (wDXCCGrid widgets) 9  2
-                            | band == Just Band6M   = addCheckToTable (wDXCCGrid widgets) 10 2
-                            | otherwise             = return ()
+addEntityCheck Widgets{..} band | band == Just Band160M = addCheckToTable wDXCCGrid 0  2
+                                | band == Just Band80M  = addCheckToTable wDXCCGrid 1  2
+                                | band == Just Band60M  = addCheckToTable wDXCCGrid 2  2
+                                | band == Just Band40M  = addCheckToTable wDXCCGrid 3  2
+                                | band == Just Band30M  = addCheckToTable wDXCCGrid 4  2
+                                | band == Just Band20M  = addCheckToTable wDXCCGrid 5  2
+                                | band == Just Band17M  = addCheckToTable wDXCCGrid 6  2
+                                | band == Just Band15M  = addCheckToTable wDXCCGrid 7  2
+                                | band == Just Band12M  = addCheckToTable wDXCCGrid 8  2
+                                | band == Just Band10M  = addCheckToTable wDXCCGrid 9  2
+                                | band == Just Band6M   = addCheckToTable wDXCCGrid 10 2
+                                | otherwise             = return ()
 
 addGridCheck :: Widgets -> Maybe Band -> IO ()
-addGridCheck widgets band | band == Just Band6M        = addCheckToTable (wGridGrid widgets) 0 2
-                          | band == Just Band2M        = addCheckToTable (wGridGrid widgets) 1 2
-                          | band == Just Band1Point25M = addCheckToTable (wGridGrid widgets) 2 2
-                          | band == Just Band70CM      = addCheckToTable (wGridGrid widgets) 3 2
-                          | band == Just Band33CM      = addCheckToTable (wGridGrid widgets) 4 2
-                          | band == Just Band23CM      = addCheckToTable (wGridGrid widgets) 5 2
-                          | otherwise                  = return ()
+addGridCheck Widgets{..} band | band == Just Band6M        = addCheckToTable wGridGrid 0 2
+                              | band == Just Band2M        = addCheckToTable wGridGrid 1 2
+                              | band == Just Band1Point25M = addCheckToTable wGridGrid 2 2
+                              | band == Just Band70CM      = addCheckToTable wGridGrid 3 2
+                              | band == Just Band33CM      = addCheckToTable wGridGrid 4 2
+                              | band == Just Band23CM      = addCheckToTable wGridGrid 5 2
+                              | otherwise                  = return ()
 
 addStateCheck :: Widgets -> Maybe Band -> IO ()
-addStateCheck widgets band | band == Just Band160M      = addCheckToTable (wStateGrid widgets) 0  2
-                           | band == Just Band80M       = addCheckToTable (wStateGrid widgets) 1  2
-                           | band == Just Band60M       = addCheckToTable (wStateGrid widgets) 2  2
-                           | band == Just Band40M       = addCheckToTable (wStateGrid widgets) 3  2
-                           | band == Just Band30M       = addCheckToTable (wStateGrid widgets) 4  2
-                           | band == Just Band20M       = addCheckToTable (wStateGrid widgets) 5  2
-                           | band == Just Band17M       = addCheckToTable (wStateGrid widgets) 6  2
-                           | band == Just Band15M       = addCheckToTable (wStateGrid widgets) 7  2
-                           | band == Just Band12M       = addCheckToTable (wStateGrid widgets) 8  2
-                           | band == Just Band10M       = addCheckToTable (wStateGrid widgets) 9  2
-                           | band == Just Band6M        = addCheckToTable (wStateGrid widgets) 10 2
-                           | band == Just Band2M        = addCheckToTable (wStateGrid widgets) 11 2
-                           | band == Just Band1Point25M = addCheckToTable (wStateGrid widgets) 12 2
-                           | band == Just Band70CM      = addCheckToTable (wStateGrid widgets) 13 2
-                           | otherwise                  = return ()
+addStateCheck Widgets{..} band | band == Just Band160M      = addCheckToTable wStateGrid 0  2
+                               | band == Just Band80M       = addCheckToTable wStateGrid 1  2
+                               | band == Just Band60M       = addCheckToTable wStateGrid 2  2
+                               | band == Just Band40M       = addCheckToTable wStateGrid 3  2
+                               | band == Just Band30M       = addCheckToTable wStateGrid 4  2
+                               | band == Just Band20M       = addCheckToTable wStateGrid 5  2
+                               | band == Just Band17M       = addCheckToTable wStateGrid 6  2
+                               | band == Just Band15M       = addCheckToTable wStateGrid 7  2
+                               | band == Just Band12M       = addCheckToTable wStateGrid 8  2
+                               | band == Just Band10M       = addCheckToTable wStateGrid 9  2
+                               | band == Just Band6M        = addCheckToTable wStateGrid 10 2
+                               | band == Just Band2M        = addCheckToTable wStateGrid 11 2
+                               | band == Just Band1Point25M = addCheckToTable wStateGrid 12 2
+                               | band == Just Band70CM      = addCheckToTable wStateGrid 13 2
+                               | otherwise                  = return ()
 
 blockUI :: Widgets -> Bool -> IO ()
-blockUI widgets b = do
+blockUI Widgets{..} b = do
     -- The "not" is here because it reads a lot better to write "blockUI True" than to pass
     -- the correct value.
-    set (wCurrent widgets) [ widgetSensitive := not b ]
+    set wCurrent [ widgetSensitive := not b ]
     mapM_ (\widget -> set widget [ widgetSensitive := not b ])
-          [wLookup widgets, wClear widgets, wAdd widgets]
+          [wLookup, wClear, wAdd]
 
 clearChecks :: Widgets -> IO ()
-clearChecks widgets = do
+clearChecks Widgets{..} = do
     mapM_ (\widget -> set widget [ widgetSensitive := False ])
-          [wDXCC widgets, wGrid widgets, wState widgets]
+          [wDXCC, wGrid, wState]
     mapM_ (\cont -> containerForeach cont (removeImage cont))
-          [wNewQSOGrid widgets, wDXCCGrid widgets, wGridGrid widgets, wStateGrid widgets]
+          [wNewQSOGrid, wDXCCGrid, wGridGrid, wStateGrid]
  where
     removeImage container widget =
         when (isA widget gTypeImage) $ containerRemove container widget
@@ -235,19 +236,19 @@ initTreeView store view = do
 
 -- Convert a DBResult tuple into a DisplayRow record, suitable for adding into a view.
 dbToDR :: DBResult -> DisplayRow
-dbToDR (_, q, c) = DisplayRow { dDate=dashifyDate $ qDate q,
-                                dTime=colonifyTime $ qTime q,
-                                dCall=qCall q,
-                                dFreq=qFreq q,
-                                dRxFreq=qRxFreq q,
-                                dMode=show $ qMode q,
-                                dDXCC=qDXCC q,
-                                dState=qState q,
-                                dGrid=qGrid q,
-                                dXcIn=qXcIn q,
-                                dXcOut=qXcOut q,
-                                dAntenna=qAntenna q,
-                                dConfirmed=isConfirmed c }
+dbToDR (_, QSO{..}, c) = DisplayRow { dDate=dashifyDate qDate,
+                                      dTime=colonifyTime qTime,
+                                      dCall=qCall,
+                                      dFreq=qFreq,
+                                      dRxFreq=qRxFreq,
+                                      dMode=show qMode,
+                                      dDXCC=qDXCC,
+                                      dState=qState,
+                                      dGrid=qGrid,
+                                      dXcIn=qXcIn,
+                                      dXcOut=qXcOut,
+                                      dAntenna=qAntenna,
+                                      dConfirmed=isConfirmed c }
 
 -- Given an existing ListStore, add all the results to it.  This populates the view that should have
 -- been created earlier with initTreeView .  This function can be called as many times as needed
@@ -273,31 +274,31 @@ checkRequiredText entry errorStr = do
     return $ T.null s <??> errorStr
 
 checkCall :: Widgets -> IO (Maybe String)
-checkCall widgets = checkRequiredText (wCall widgets) "Call sign is empty."
+checkCall Widgets{..} = checkRequiredText wCall "Call sign is empty."
 
 checkFreq :: Widgets -> IO (Maybe String)
-checkFreq widgets = do
-    s <- get (wFreq widgets) entryText
+checkFreq Widgets{..} = do
+    s <- get wFreq entryText
     return $ T.null s || isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band."
 
 checkRxFreq :: Widgets -> IO (Maybe String)
-checkRxFreq widgets = do
-    s <- get (wRxFreq widgets) entryText
+checkRxFreq Widgets{..} = do
+    s <- get wRxFreq entryText
     return $ not (T.null s) && isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
 
 checkRxRST :: Widgets -> IO (Maybe String)
-checkRxRST widgets = checkRequiredText (wRSTRcvd widgets) "Received RST is empty."
+checkRxRST Widgets{..} = checkRequiredText wRSTRcvd "Received RST is empty."
 
 checkRST :: Widgets -> IO (Maybe String)
-checkRST widgets = checkRequiredText (wRSTSent widgets) "Sent RST is empty."
+checkRST Widgets{..} = checkRequiredText wRSTSent "Sent RST is empty."
 
 -- FIXME: we could be smarter about this
 checkDate :: Widgets -> IO (Maybe String)
-checkDate widgets = checkRequiredText (wDate widgets) "Date is empty."
+checkDate Widgets{..} = checkRequiredText wDate "Date is empty."
 
 -- FIXME: we could be smarter about this
 checkTime :: Widgets -> IO (Maybe String)
-checkTime widgets = checkRequiredText (wTime widgets) "Time is empty."
+checkTime Widgets{..} = checkRequiredText wTime "Time is empty."
 
 addQSOChecks :: [Widgets -> IO (Maybe String)]
 addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDate, checkTime]
@@ -307,10 +308,10 @@ addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDa
 --
 
 currentActive :: Widgets -> IO Bool
-currentActive w = get (wCurrent w) toggleButtonActive
+currentActive Widgets{..} = get wCurrent toggleButtonActive
 
 contestActive :: CWidgets -> IO Bool
-contestActive w = get (cwEnable w) toggleButtonActive
+contestActive CWidgets{..} = get cwEnable toggleButtonActive
 
 --
 -- SIGNAL HANDLERS
@@ -403,23 +404,23 @@ addQSOFromUI state = do
 
 -- When the "Use current date & time" button is toggled, change sensitivity on widgets underneath it.
 currentToggled :: Widgets -> IO ()
-currentToggled widgets = do
+currentToggled widgets@Widgets{..} = do
     active <- currentActive widgets
-    set (wDateLabel widgets) [ widgetSensitive := not active ]
-    set (wDate widgets)      [ widgetSensitive := not active ]
-    set (wTimeLabel widgets) [ widgetSensitive := not active ]
-    set (wTime widgets)      [ widgetSensitive := not active ]
+    set wDateLabel [ widgetSensitive := not active ]
+    set wDate      [ widgetSensitive := not active ]
+    set wTimeLabel [ widgetSensitive := not active ]
+    set wTime      [ widgetSensitive := not active ]
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
 -- handler so the lookup can proceed while the UI continues to refresh.
 lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
-lookupCallsign widgets store conf = do
-    call <- uppercase <$> get (wCall widgets) entryText
+lookupCallsign widgets@Widgets{..} store Config{..} = do
+    call <- uppercase <$> get wCall entryText
 
     unless (null call) $ do
-        result <- lookup call (confQTHUser conf) (confQTHPass conf)
-        maybe (void $ statusbarPush (wStatus widgets) 0 ("Nothing found for callsign " ++ call))
+        result <- lookup call confQTHUser confQTHPass
+        maybe (void $ statusbarPush wStatus 0 ("Nothing found for callsign " ++ call))
               (updateUI call)
               result
 
@@ -427,10 +428,10 @@ lookupCallsign widgets store conf = do
     return False
  where
     -- The on-disk database location.
-    fp = confDB conf
+    fp = confDB
 
     updateUI call ra' = do
-        statusbarPush (wStatus widgets) 0 ("Lookup of " ++ call ++ " finished.")
+        statusbarPush wStatus 0 ("Lookup of " ++ call ++ " finished.")
 
         -- And now that we've discovered something, we can update the UI to reflect what we found.
         -- We start with clearing out the checkmarks.  This is so you can lookup a call, see what
@@ -439,18 +440,18 @@ lookupCallsign widgets store conf = do
         clearChecks widgets
 
         -- If they're a LOTW user, put a nice big check mark image in there.
-        when (raLOTW ra' == Just Yes) $ addCheckToTable (wNewQSOGrid widgets) 1 7
+        when (raLOTW ra' == Just Yes) $ addCheckToTable wNewQSOGrid 1 7
 
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
-        set (wPrevious widgets) [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
+        set wPrevious [ widgetSensitive := True, frameLabel := "Previous contacts with " ++ call ]
         qsos <- getQSOsByCall fp call
         populateTreeView store qsos
 
         -- Put their call in the label, and then add check marks in for DXCC entity
         -- and grid confirmations.
         when (isJust $ raCountry ra') $ do
-            set (wDXCC widgets) [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
+            set wDXCC [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
 
             let dxcc = raCountry ra' >>= idFromName
             when (isJust dxcc) $ do
@@ -465,7 +466,7 @@ lookupCallsign widgets store conf = do
         -- until asking them personally or looking at the cluster, though.  For now this will have
         -- to do.
         when (isJust $ raGrid ra') $ do
-            set (wGrid widgets) [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
+            set wGrid [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
 
             results <- filter confirmed <$> getQSOsByGrid fp shortGrid
             let confirmedBands = map getBand results
@@ -475,7 +476,7 @@ lookupCallsign widgets store conf = do
         when (isJust $ raUSState ra') $ do
             let state = (fromJust . raUSState) ra'
 
-            set (wState widgets) [ widgetSensitive := True, frameLabel := state ++ " status" ]
+            set wState [ widgetSensitive := True, frameLabel := state ++ " status" ]
 
             results <- filter confirmed <$> getQSOsByState fp state
             let confirmedBands = map getBand results
@@ -543,8 +544,8 @@ runContestDialog state = do
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
 -- but that would mean passing the store all over the place.
 updateAllQSOsView :: ListStore DisplayRow -> Config -> IO ()
-updateAllQSOsView store conf = do
-    result <- getLatestQSO (confDB conf)
+updateAllQSOsView store Config{..} = do
+    result <- getLatestQSO confDB
     listStorePrepend store $ dbToDR result
 
 --
@@ -556,31 +557,31 @@ addSignalHandlers state = do
     allStore <- readState state psAllStore
     conf <- readState state psConf
     prevStore <- readState state psPrevStore
-    w <- readState state psWidgets
+    w@Widgets{..} <- readState state psWidgets
 
     -- Install a bunch of regular signal handlers.
-    onDestroy (wMainWindow w) mainQuit
+    onDestroy wMainWindow mainQuit
 
-    on (wCurrent w) toggled         (currentToggled w)
-    on (wClear w)   buttonActivated (do clearUI state
-                                        populateTreeView prevStore []
-                                        widgetGrabFocus (wCall w))
-    on (wAdd w)     buttonActivated (do addQSOFromUI state
-                                        widgetGrabFocus (wCall w))
-    on (wLookup w)  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
-                                                              (blockUI w False)
-                                                              (lookupCallsign w prevStore conf <* widgetGrabFocus (wCall w)))
-                                                    priorityDefaultIdle)
+    on wCurrent toggled         (currentToggled w)
+    on wClear   buttonActivated (do clearUI state
+                                    populateTreeView prevStore []
+                                    widgetGrabFocus wCall)
+    on wAdd     buttonActivated (do addQSOFromUI state
+                                    widgetGrabFocus wCall)
+    on wLookup  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
+                                                          (blockUI w False)
+                                                          (lookupCallsign w prevStore conf <* widgetGrabFocus wCall))
+                                                 priorityDefaultIdle)
 
     -- This signal is how we watch for a new QSO being added to the database and then
     -- updating the view of all QSOs.  This is to prevent having to pass stores all
     -- around (even though we're doing that to get it into this function already).
-    on (wStatus w)  textPushed (\_ s -> when (" added to database." `isSuffixOf` s) $ do
-                                            updateAllQSOsView allStore conf
-                                            populateTreeView prevStore [])
+    on wStatus  textPushed (\_ s -> when (" added to database." `isSuffixOf` s) $ do
+                                         updateAllQSOsView allStore conf
+                                         populateTreeView prevStore [])
 
     -- These signal handlers are for menu items.
-    on (wContestMenu w) actionActivated (runContestDialog state)
+    on wContestMenu actionActivated (runContestDialog state)
 
     return ()
 
@@ -671,7 +672,7 @@ loadFromGlade conf = do
         return (antennaCombo, modeCombo)
 
 initContestDialog :: CWidgets -> IO ()
-initContestDialog widgets = do
+initContestDialog CWidgets{..} = do
     -- Pack a combo box with a list of contest possibilities into the table.
     combo <- comboBoxNewText
     mapM_ (comboBoxAppendText combo . T.pack) ["ARRL Sweepstakes",
@@ -681,25 +682,25 @@ initContestDialog widgets = do
                                                "Generic Grid-Based Contest",
                                                "Generic Serial-Based Contest"]
     set combo [ comboBoxActive := 5 ]
-    set (cwNotebook widgets) [ notebookPage := 4 ]
+    set cwNotebook [ notebookPage := 4 ]
 
-    boxPackStart (cwBox widgets) combo PackNatural 0
-    boxReorderChild (cwBox widgets) combo 3
+    boxPackStart cwBox combo PackNatural 0
+    boxReorderChild cwBox combo 3
 
     -- Then hook up a signal handler to only make it appear if contest mode is enabled.
-    on (cwEnable widgets) toggled $ do active <- get (cwEnable widgets) toggleButtonActive
-                                       set combo [ widgetVisible := active ]
-                                       set (cwNotebook widgets) [ widgetVisible := active ]
+    on cwEnable toggled $ do active <- get cwEnable toggleButtonActive
+                             set combo [ widgetVisible := active ]
+                             set cwNotebook [ widgetVisible := active ]
 
     -- And this signal handler tells us which set of entries to display based on which
     -- item in the combo is chosen.
     on combo changed $ get combo comboBoxActive >>= \case
-                           0 -> set (cwNotebook widgets) [ notebookPage := 0 ]         -- arrl sweepstakes
-                           1 -> set (cwNotebook widgets) [ notebookPage := 1 ]         -- arrl ten meter contest
-                           2 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- arrl vhf/uhf contest
-                           3 -> set (cwNotebook widgets) [ notebookPage := 3 ]         -- cq ww dx
-                           4 -> set (cwNotebook widgets) [ notebookPage := 2 ]         -- generic grid-based contest
-                           5 -> set (cwNotebook widgets) [ notebookPage := 4 ]         -- generic serial-based contest
+                           0 -> set cwNotebook [ notebookPage := 0 ]         -- arrl sweepstakes
+                           1 -> set cwNotebook [ notebookPage := 1 ]         -- arrl ten meter contest
+                           2 -> set cwNotebook [ notebookPage := 2 ]         -- arrl vhf/uhf contest
+                           3 -> set cwNotebook [ notebookPage := 3 ]         -- cq ww dx
+                           4 -> set cwNotebook [ notebookPage := 2 ]         -- generic grid-based contest
+                           5 -> set cwNotebook [ notebookPage := 4 ]         -- generic serial-based contest
 
     return ()
 

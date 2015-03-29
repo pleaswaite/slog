@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 -- | This module exports the most basic data types used throughout the Slog library
 -- and utilities.
 module Slog.QSO(QSO(..),
@@ -63,34 +65,34 @@ data Confirmation = Confirmation {
 -- | Given a 'Confirmation' record, determine if it has actually been confirmed or not.
 -- For our purposes, this means confirmed in LOTW.
 isConfirmed :: Confirmation -> Bool
-isConfirmed c = isJust $ qLOTW_RDate c
+isConfirmed Confirmation{..} = isJust qLOTW_RDate
 
 -- | Given a 'QSO' record, attempt to convert it into a list of ADIF fields.  This is
 -- used to grab QSOs out of the database and upload them to LOTW.
 qsoToADIF :: QSO -> [ADIF.Field]
-qsoToADIF qso = if isNothing band then [] else
+qsoToADIF QSO{..} = if isNothing band then [] else
     -- First, let's get the required fields we know will always exist.
-    [ADIF.QSO_Date $ qDate qso,
-     ADIF.TimeOn $ qTime qso,
-     ADIF.Freq $ qFreq qso,
-     ADIF.Mode $ qMode qso,
-     ADIF.RST_Received $ qRST_Rcvd qso,
-     ADIF.RST_Sent $ qRST_Sent qso,
-     ADIF.Call $ qCall qso] ++
+    [ADIF.QSO_Date qDate,
+     ADIF.TimeOn qTime,
+     ADIF.Freq qFreq,
+     ADIF.Mode qMode,
+     ADIF.RST_Received qRST_Rcvd,
+     ADIF.RST_Sent qRST_Sent,
+     ADIF.Call qCall] ++
 
     -- LOTW wants the band, not the frequency, so just make sure that's
     -- included here.
     [ADIF.Band $ fromJust band] ++
 
     -- And now we add in everything that could potentially be set.
-    catMaybes [qRxFreq qso >>= Just . ADIF.FreqRx,
-               qDXCC qso >>= Just . ADIF.Their_DXCC,
-               qGrid qso >>= Just . ADIF.Grid,
-               qState qso >>= Just . ADIF.State,
-               qName qso >>= Just . ADIF.Name,
-               qITU qso >>= Just . ADIF.ITUZ,
-               qWAZ qso >>= Just . ADIF.CQZ,
-               qPropMode qso >>= Just . ADIF.Propagation,
-               qSatName qso >>= Just . ADIF.SatelliteName]
+    catMaybes [qRxFreq >>= Just . ADIF.FreqRx,
+               qDXCC >>= Just . ADIF.Their_DXCC,
+               qGrid >>= Just . ADIF.Grid,
+               qState >>= Just . ADIF.State,
+               qName >>= Just . ADIF.Name,
+               qITU >>= Just . ADIF.ITUZ,
+               qWAZ >>= Just . ADIF.CQZ,
+               qPropMode >>= Just . ADIF.Propagation,
+               qSatName >>= Just . ADIF.SatelliteName]
  where
-    band = freqToBand $ qFreq qso
+    band = freqToBand qFreq

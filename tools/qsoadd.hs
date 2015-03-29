@@ -1,6 +1,7 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Data.Maybe(fromJust, fromMaybe)
 import Data.String.Utils(split)
@@ -150,37 +151,37 @@ doLookup call user pass = do
 -- Construct a new QSO structure, taking into account the defaults we can get
 -- from looking up a call sign, from the command line, and what is required.
 buildQSO :: RadioAmateur -> Options -> Either String QSO
-buildQSO ra opt = do
-    date <- optDate opt <!> "You must specify a date of the form YYYY-MM-DD."
-    time <- optTime opt <!> "You must specify a time of the form HH:MM."
-    freq <- optFreq opt <!> "You must specify a frequency."
-    mode <- optMode opt <!> "You must specify a valid mode."
-    rstR <- optRSTRcvd opt <!> "You must specify a received signal report."
-    rstS <- optRSTSent opt <!> "You must specify a sent signal report."
-    call <- optCall opt ||| raCall ra <!> "You must specify a call sign."
+buildQSO RadioAmateur{..} Options{..} = do
+    date <- optDate <!> "You must specify a date of the form YYYY-MM-DD."
+    time <- optTime <!> "You must specify a time of the form HH:MM."
+    freq <- optFreq <!> "You must specify a frequency."
+    mode <- optMode <!> "You must specify a valid mode."
+    rstR <- optRSTRcvd <!> "You must specify a received signal report."
+    rstS <- optRSTSent <!> "You must specify a sent signal report."
+    call <- optCall ||| raCall <!> "You must specify a call sign."
     Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call)
  where
     doBuildQSO (date, time, freq, mode, rstR, rstS, call) =
         QSO { qDate     = undashifyDate date,
               qTime     = uncolonifyTime time,
               qFreq     = freq,
-              qRxFreq   = optRxFreq opt <?> Nothing,
+              qRxFreq   = optRxFreq <?> Nothing,
               qMode     = mode,
-              qDXCC     = (raCountry ra >>= idFromName) ||| optDXCC opt <?> Nothing,
-              qGrid     = raGrid ra ||| optGrid opt <?> Nothing,
-              qState    = raUSState ra ||| optState opt <?> Nothing,
-              qName     = raNick ra ||| optName opt <?> Nothing,
-              qNotes    = optNotes opt <?> Nothing,
-              qXcIn     = optXcIn opt <?> Nothing,
-              qXcOut    = optXcOut opt <?> Nothing,
+              qDXCC     = (raCountry >>= idFromName) ||| optDXCC <?> Nothing,
+              qGrid     = raGrid ||| optGrid <?> Nothing,
+              qState    = raUSState ||| optState <?> Nothing,
+              qName     = raNick ||| optName <?> Nothing,
+              qNotes    = optNotes <?> Nothing,
+              qXcIn     = optXcIn <?> Nothing,
+              qXcOut    = optXcOut <?> Nothing,
               qRST_Rcvd = rstR,
               qRST_Sent = rstS,
-              qITU      = raITU ra ||| optITU opt <?> Nothing,
-              qWAZ      = raWAZ ra ||| optWAZ opt <?> Nothing,
+              qITU      = raITU ||| optITU <?> Nothing,
+              qWAZ      = raWAZ ||| optWAZ <?> Nothing,
               qCall     = call,
-              qPropMode = optPropMode opt <?> Nothing,
-              qSatName  = optSatName opt <?> Nothing,
-              qAntenna  = optAntenna opt <?> Nothing }
+              qPropMode = optPropMode <?> Nothing,
+              qSatName  = optSatName <?> Nothing,
+              qAntenna  = optAntenna <?> Nothing }
 
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v
@@ -196,11 +197,11 @@ buildQSO ra opt = do
     _ <!> msg       = Left msg
 
 lookupAndAddQSO :: Config -> Options -> IO (Either String QsosId)
-lookupAndAddQSO conf cmdline = do
+lookupAndAddQSO Config{..} cmdline = do
     -- Get the on-disk location of the database.
-    let fp = confDB conf
+    let fp = confDB
 
-    ra <- doLookup call user password
+    ra <- doLookup call confQTHUser confQTHPass
     case buildQSO (fromMaybe emptyRadioAmateur ra) cmdline of
         Left err  -> return $ Left err
         Right qso -> do ndx <- addQSO fp qso
@@ -209,8 +210,6 @@ lookupAndAddQSO conf cmdline = do
     -- We don't have to worry about call being Nothing here.  That's checked before
     -- this function is even called.
     call = fromJust $ optCall cmdline
-    user = confQTHUser conf
-    password = confQTHPass conf
 
 main :: IO ()
 main = do

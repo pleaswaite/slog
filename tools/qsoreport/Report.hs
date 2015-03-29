@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE RecordWildCards #-}
 
 module Report(reportAll,
               reportChallenge,
@@ -20,16 +21,16 @@ import Slog.Utils(colonifyTime, dashifyDate)
 
 -- This defines a row in a general query table, fitting the header given below.
 resultToRow :: DBResult -> HtmlTable
-resultToRow (_, q, c) =
-    besides [td $ toHtml (dashifyDate $ qDate q),
-             td $ toHtml (colonifyTime $ qTime q),
-             td $ toHtml (qCall q),
-             td $ toHtml (show $ qFreq q),
-             td $ toHtml (show $ qMode q),
-             td $ toHtml (qDXCC q >>= entityFromID >>= Just . dxccEntity),
-             td $ toHtml (qGrid q),
-             td $ toHtml (maybe "" show $ qITU q),
-             td $ toHtml (maybe "" show $ qWAZ q),
+resultToRow (_, QSO{..}, c) =
+    besides [td $ toHtml (dashifyDate qDate),
+             td $ toHtml (colonifyTime qTime),
+             td $ toHtml qCall,
+             td $ toHtml (show qFreq),
+             td $ toHtml (show qMode),
+             td $ toHtml (qDXCC >>= entityFromID >>= Just . dxccEntity),
+             td $ toHtml qGrid,
+             td $ toHtml (maybe "" show qITU),
+             td $ toHtml (maybe "" show qWAZ),
              td $ toHtml (if isConfirmed c then "Y" else "")
      ]
 
@@ -153,17 +154,17 @@ reportChallenge results = table ! [border 1] << (toHtml tableBody)
 
     createRecords dxccList = foldl addToRec mkChallengeRec dxccList
      where
-        addToRec rec entry = case freqToBand (qFreq entry) of
-            Just ADIF.Band160M      -> rec { c160M = (c160M rec) ++ [entry] }
-            Just ADIF.Band80M       -> rec { c80M = (c80M rec) ++ [entry] }
-            Just ADIF.Band40M       -> rec { c40M = (c40M rec) ++ [entry] }
-            Just ADIF.Band30M       -> rec { c30M = (c30M rec) ++ [entry] }
-            Just ADIF.Band20M       -> rec { c20M = (c20M rec) ++ [entry] }
-            Just ADIF.Band17M       -> rec { c17M = (c17M rec) ++ [entry] }
-            Just ADIF.Band15M       -> rec { c15M = (c15M rec) ++ [entry] }
-            Just ADIF.Band12M       -> rec { c12M = (c12M rec) ++ [entry] }
-            Just ADIF.Band10M       -> rec { c10M = (c10M rec) ++ [entry] }
-            Just ADIF.Band6M        -> rec { c6M = (c6M rec) ++ [entry] }
+        addToRec rec@ChallengeRec{..} entry = case freqToBand (qFreq entry) of
+            Just ADIF.Band160M      -> rec { c160M = c160M ++ [entry] }
+            Just ADIF.Band80M       -> rec { c80M  = c80M  ++ [entry] }
+            Just ADIF.Band40M       -> rec { c40M  = c40M  ++ [entry] }
+            Just ADIF.Band30M       -> rec { c30M  = c30M  ++ [entry] }
+            Just ADIF.Band20M       -> rec { c20M  = c20M  ++ [entry] }
+            Just ADIF.Band17M       -> rec { c17M  = c17M  ++ [entry] }
+            Just ADIF.Band15M       -> rec { c15M  = c15M  ++ [entry] }
+            Just ADIF.Band12M       -> rec { c12M  = c12M  ++ [entry] }
+            Just ADIF.Band10M       -> rec { c10M  = c10M  ++ [entry] }
+            Just ADIF.Band6M        -> rec { c6M   = c6M   ++ [entry] }
             _                       -> rec
 
     -- Since this function doesn't use report, we can really just get rid of all the
@@ -184,16 +185,17 @@ reportChallenge results = table ! [border 1] << (toHtml tableBody)
      where
         a ++? b = a + (if not (null b) then 1 else 0)
 
-        addTo rec result = rec { n160M = (n160M rec) ++? (c160M result),
-                                 n80M = (n80M rec) ++? (c80M result),
-                                 n40M = (n40M rec) ++? (c40M result),
-                                 n30M = (n30M rec) ++? (c30M result),
-                                 n20M = (n20M rec) ++? (c20M result),
-                                 n17M = (n17M rec) ++? (c17M result),
-                                 n15M = (n15M rec) ++? (c15M result),
-                                 n12M = (n12M rec) ++? (c12M result),
-                                 n10M = (n10M rec) ++? (c10M result),
-                                 n6M = (n6M rec) ++? (c6M result) }
+        addTo rec@ChallengeCount{..} ChallengeRec{..} =
+            rec { n160M = n160M ++? c160M,
+                  n80M  = n80M  ++? c80M,
+                  n40M  = n40M  ++? c40M,
+                  n30M  = n30M  ++? c30M,
+                  n20M  = n20M  ++? c20M,
+                  n17M  = n17M  ++? c17M,
+                  n15M  = n15M  ++? c15M,
+                  n12M  = n12M  ++? c12M,
+                  n10M  = n10M  ++? c10M,
+                  n6M   = n6M   ++? c6M }
         countUp rec ((r, _):lst) = countUp (addTo rec r) lst
         countUp rec [] = rec
 

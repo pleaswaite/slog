@@ -1,5 +1,6 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Applicative((<$>))
 import Control.Monad(when)
@@ -45,30 +46,30 @@ editedRows store =
 updateEdited :: ListStore Row -> IO ()
 updateEdited store = do
     lst <- editedRows store
-    mapM_ (\r -> updateQSO "/home/chris/radio/qsos.db" (rQsoid r, rowToQSO r, not $ rUploaded r)) lst
+    mapM_ (\r@Row{..} -> updateQSO "/home/chris/radio/qsos.db" (rQsoid, rowToQSO r, not rUploaded)) lst
  where
     rowToQSO :: Row -> QSO
-    rowToQSO r =
-        QSO (rDate r)
-            (rTime r)
-            (rFreq r)
-            (rRxFreq r)
-            (read (rMode r) :: ADIF.Mode)
-            (toInteger <$> rDXCC r)
-            (rGrid r)
-            (rState r)
+    rowToQSO Row{..} =
+        QSO rDate
+            rTime
+            rFreq
+            rRxFreq
+            (read rMode :: ADIF.Mode)
+            (toInteger <$> rDXCC)
+            rGrid
+            rState
             Nothing
             Nothing
             Nothing
             Nothing
-            (rRSTRcvd r)
-            (rRSTSent r)
-            (toInteger <$> rITU r)
-            (toInteger <$> rWAZ r)
-            (rCall r)
+            rRSTRcvd
+            rRSTSent
+            (toInteger <$> rITU)
+            (toInteger <$> rWAZ)
+            rCall
             Nothing
             Nothing
-            (rAntenna r)
+            rAntenna
 
 -- Because the glade format in gtk2 is so bad, we have to add all the columns in code instead of
 -- in glade.  So here it goes.
@@ -239,23 +240,23 @@ runGUI rows = do
     addColumns store view
 
     -- Add everything into the store.
-    mapM_ (\(i, q, c) -> listStoreAppend store Row { rQsoid=i,
-                                                     rDate=qDate q,
-                                                     rTime=qTime q,
-                                                     rFreq=qFreq q,
-                                                     rRxFreq=qRxFreq q,
-                                                     rMode=show $ qMode q,
-                                                     rDXCC=fromInteger <$> qDXCC q,
-                                                     rGrid=qGrid q,
-                                                     rState=qState q,
-                                                     rRSTRcvd=qRST_Rcvd q,
-                                                     rRSTSent=qRST_Sent q,
-                                                     rITU=fromInteger <$> qITU q,
-                                                     rWAZ=fromInteger <$> qWAZ q,
-                                                     rCall=qCall q,
-                                                     rAntenna=qAntenna q,
-                                                     rUploaded=isJust $ qLOTW_SDate c,
-                                                     rEdited=False }
+    mapM_ (\(i, QSO{..}, c) -> listStoreAppend store Row { rQsoid=i,
+                                                           rDate=qDate,
+                                                           rTime=qTime,
+                                                           rFreq=qFreq,
+                                                           rRxFreq=qRxFreq,
+                                                           rMode=show qMode,
+                                                           rDXCC=fromInteger <$> qDXCC,
+                                                           rGrid=qGrid,
+                                                           rState=qState,
+                                                           rRSTRcvd=qRST_Rcvd,
+                                                           rRSTSent=qRST_Sent,
+                                                           rITU=fromInteger <$> qITU,
+                                                           rWAZ=fromInteger <$> qWAZ,
+                                                           rCall=qCall,
+                                                           rAntenna=qAntenna,
+                                                           rUploaded=isJust $ qLOTW_SDate c,
+                                                           rEdited=False }
           )
           rows
 

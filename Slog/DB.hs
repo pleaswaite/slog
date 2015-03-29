@@ -8,6 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -197,24 +198,24 @@ getUnsentQSOs filename = runSqlite (pack filename) $ do
 -- | Insert the new 'QSO' record into the database and return the new row's unique ID.
 -- If a row already exists with the record's date and time, an exception is raised.
 addQSO :: FilePath -> QSO -> IO QsosId
-addQSO filename qso = runSqlite (pack filename) $ do
+addQSO filename QSO{..} = runSqlite (pack filename) $ do
     -- First, add the new QSO to the qsos table.
-    qsoid <- insert $ Qsos (qDate qso) (qTime qso)
-                           (qFreq qso) (qRxFreq qso)
-                           (show $ qMode qso)
-                           (fmap fromInteger (qDXCC qso))
-                           (fmap uppercase (qGrid qso))
-                           (qState qso)
-                           (qName qso)
-                           (qNotes qso)
-                           (fmap uppercase (qXcIn qso)) (fmap uppercase (qXcOut qso))
-                           (qRST_Rcvd qso) (qRST_Sent qso)
-                           (fmap fromInteger (qITU qso))
-                           (fmap fromInteger (qWAZ qso))
-                           (uppercase $ qCall qso)
-                           (fmap show (qPropMode qso))
-                           (qSatName qso)
-                           (qAntenna qso)
+    qsoid <- insert $ Qsos qDate qTime
+                           qFreq qRxFreq
+                           (show qMode)
+                           (fmap fromInteger qDXCC)
+                           (fmap uppercase qGrid)
+                           qState
+                           qName
+                           qNotes
+                           (fmap uppercase qXcIn) (fmap uppercase qXcOut)
+                           qRST_Rcvd qRST_Sent
+                           (fmap fromInteger qITU)
+                           (fmap fromInteger qWAZ)
+                           (uppercase qCall)
+                           (fmap show qPropMode)
+                           qSatName
+                           qAntenna
 
     -- And then add a reference in the confirmations table.
     insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing
@@ -222,22 +223,22 @@ addQSO filename qso = runSqlite (pack filename) $ do
 
 -- | Update a single row in the database with the given 'QSO' record.
 updateQSO :: FilePath -> (QsosId, QSO, Bool) -> IO ()
-updateQSO filename (qsoid, q, markNotUploaded) = runSqlite (pack filename) $ do
+updateQSO filename (qsoid, QSO{..}, markNotUploaded) = runSqlite (pack filename) $ do
     update $ \r -> do
-        set r [ QsosDate =. val (qDate q),
-                QsosTime =. val (qTime q),
-                QsosFreq =. val (qFreq q),
-                QsosRx_freq =. val (qRxFreq q),
-                QsosMode =. val (show $ qMode q),
-                QsosRst_rcvd =. val (qRST_Rcvd q),
-                QsosRst_sent =. val (qRST_Sent q),
-                QsosDxcc =. val (fromInteger <$> qDXCC q),
-                QsosGrid =. val (qGrid q),
-                QsosState =. val (qState q),
-                QsosItu =. val (fromInteger <$> qITU q),
-                QsosWaz =. val (fromInteger <$> qWAZ q),
-                QsosCall =. val (qCall q),
-                QsosAntenna =. val (qAntenna q)
+        set r [ QsosDate =. val qDate,
+                QsosTime =. val qTime,
+                QsosFreq =. val qFreq,
+                QsosRx_freq =. val qRxFreq,
+                QsosMode =. val (show qMode),
+                QsosRst_rcvd =. val qRST_Rcvd,
+                QsosRst_sent =. val qRST_Sent,
+                QsosDxcc =. val (fromInteger <$> qDXCC),
+                QsosGrid =. val qGrid,
+                QsosState =. val qState,
+                QsosItu =. val (fromInteger <$> qITU),
+                QsosWaz =. val (fromInteger <$> qWAZ),
+                QsosCall =. val qCall,
+                QsosAntenna =. val qAntenna
               ]
         where_ (r ^. QsosId ==. val qsoid)
 
@@ -287,33 +288,33 @@ fmtTuple (i, q, c) =
     (unValue i, sqlToQSO $ entityVal q, sqlToConf $ entityVal c)
 
 sqlToQSO :: Qsos -> QSO
-sqlToQSO q =
-    QSO (qsosDate q)
-        (qsosTime q)
-        (qsosFreq q)
-        (qsosRx_freq q)
-        (read (qsosMode q) :: ADIF.Mode)
-        (toInteger <$> qsosDxcc q)
-        (qsosGrid q)
-        (qsosState q)
-        (qsosName q)
-        (qsosNotes q)
-        (qsosXc_in q)
-        (qsosXc_out q)
-        (qsosRst_rcvd q)
-        (qsosRst_sent q)
-        (toInteger <$> qsosItu q)
-        (toInteger <$> qsosWaz q)
-        (qsosCall q)
-        (fmap (\p -> read p :: ADIF.Propagation) (qsosProp_mode q))
-        (qsosSat_name q)
-        (qsosAntenna q)
+sqlToQSO Qsos{..} =
+    QSO qsosDate
+        qsosTime
+        qsosFreq
+        qsosRx_freq
+        (read qsosMode :: ADIF.Mode)
+        (toInteger <$> qsosDxcc)
+        qsosGrid
+        qsosState
+        qsosName
+        qsosNotes
+        qsosXc_in
+        qsosXc_out
+        qsosRst_rcvd
+        qsosRst_sent
+        (toInteger <$> qsosItu)
+        (toInteger <$> qsosWaz)
+        qsosCall
+        (fmap (\p -> read p :: ADIF.Propagation) qsosProp_mode)
+        qsosSat_name
+        qsosAntenna
 
 sqlToConf :: Confirmations -> Confirmation
-sqlToConf c =
-    Confirmation (confirmationsQsl_rdate c)
-                 (confirmationsQsl_sdate c)
-                 (fmap (\r -> read r :: ADIF.SentVia) (confirmationsQsl_rcvd_via c))
-                 (fmap (\r -> read r :: ADIF.SentVia) (confirmationsQsl_sent_via c))
-                 (confirmationsLotw_rdate c)
-                 (confirmationsLotw_sdate c)
+sqlToConf Confirmations{..} =
+    Confirmation confirmationsQsl_rdate
+                 confirmationsQsl_sdate
+                 (fmap (\r -> read r :: ADIF.SentVia) confirmationsQsl_rcvd_via)
+                 (fmap (\r -> read r :: ADIF.SentVia) confirmationsQsl_sent_via)
+                 confirmationsLotw_rdate
+                 confirmationsLotw_sdate
