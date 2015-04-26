@@ -77,8 +77,8 @@ addAntennas tbl Config{..} = do
 addModes :: Table -> IO ComboBox
 addModes tbl = do
     combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "JT65", "FM", "PSK31", "RTTY", "SSB"]
-    comboBoxSetActive combo 6
+    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "JT65", "JT9", "FM", "PSK31", "RTTY", "SSB"]
+    comboBoxSetActive combo 7
 
     tableAttach tbl combo
                     1 2 2 3

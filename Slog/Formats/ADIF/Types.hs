@@ -322,7 +322,7 @@ data Continent = NA | SA | EU | AF | OC | AS | AN
 data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
             CW | DSTAR | DOMINO | DOMINOF | FAX | FM | FMHELL | FSK31 | FSK441 |
             GTOR | HELL | HELL80 | HFSK | JT44 | JT4A | JT4B | JT4C | JT4D |
-            JT4E | JT4F | JT4G | JT65 | JT65A | JT65B | JT65C | JT6M | MFSK8 |
+            JT4E | JT4F | JT4G | JT65 | JT65A | JT65B | JT65C | JT6M | JT9 | MFSK8 |
             MFSK16 | MT63 | OLIVIA | PAC | PAC2 | PAC3 | PAX | PAX2 | PCW |
             PSK10 | PSK31 | PSK63 | PSK63F | PSK125 | PSKAM10 | PSKAM31 |
             PSKAM50 | PSKFEC31 | PSKHELL | Q15 | QPSK31 | QPSK63 | QPSK125 |

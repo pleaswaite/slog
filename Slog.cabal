@@ -114,6 +114,7 @@ executable unworked
   other-modules:   Filter
 
   build-depends:   base,
+                   MissingH,
                    Slog
 
 executable slog
