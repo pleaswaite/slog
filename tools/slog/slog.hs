@@ -71,9 +71,8 @@ getFreqs = do
 --
 
 lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
-lookup call user pass = do
-    sid <- login user pass
-    maybe (return Nothing) (lookupCall call) sid
+lookup call user pass =
+    login user pass >>= maybe (return Nothing) (lookupCall call)
 
 --
 -- WORKING WITH COMBO BOXES
@@ -418,14 +417,16 @@ addQSOFromUI state = do
         return $ if null s then Nothing else Just s
 
     getDate :: Widgets -> IO String
-    getDate widgets = do
-        useCurrent <- currentActive widgets
-        if useCurrent then theDate else get (wDate widgets) entryText
+    getDate widgets =
+        ifM (currentActive widgets)
+            theDate
+            (get (wDate widgets) entryText)
 
     getTime :: Widgets -> IO String
-    getTime widgets = do
-        useCurrent <- currentActive widgets
-        if useCurrent then theTime else get (wTime widgets) entryText
+    getTime widgets =
+        ifM (currentActive widgets)
+            theTime
+            (get (wTime widgets) entryText)
 
     getFreq :: Widgets -> IO (Maybe Double, Maybe Double)
     getFreq widgets =
