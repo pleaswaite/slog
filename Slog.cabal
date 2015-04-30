@@ -126,6 +126,7 @@ executable slog
                    Types
 
   build-depends:   base,
+                   cond,
                    gtk,
                    old-locale,
                    text,

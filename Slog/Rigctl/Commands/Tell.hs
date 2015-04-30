@@ -19,7 +19,6 @@ module Slog.Rigctl.Commands.Tell(Command(..),
  where
 
 import Data.Bits
-import Data.List(null)
 import Data.Maybe(fromMaybe)
 
 import Slog.Rigctl.Commands.Class

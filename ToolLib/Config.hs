@@ -3,7 +3,7 @@ module ToolLib.Config ( Config(..),
  where
 
 import Control.Applicative((<$>))
-import Data.ConfigFile(emptyCP, get, items, readstring)
+import Data.ConfigFile(emptyCP, get, readstring)
 import Data.List.Split(splitOn)
 import System.Directory(getHomeDirectory)
 
@@ -16,7 +16,10 @@ data Config = Config {
     confQTHPass   :: String,
     confQTHUser   :: String,
 
-    confAntennas  :: [String] }
+    confAntennas  :: [String],
+
+    confRadioModel  :: String,
+    confRadioDev    :: String }
 
 readConfig :: IO Config
 readConfig = do
@@ -39,6 +42,9 @@ readConfig = do
 
         antennas <- splitOn "," <$> get c "Antennas" "antennas"
 
+        radio    <- get c "Radio" "model"
+        device   <- get c "Radio" "device"
+
         return Config { confDB         = database,
                         confPassword   = password,
                         confQTH        = qth,
@@ -47,7 +53,10 @@ readConfig = do
                         confQTHPass    = qthPass,
                         confQTHUser    = qthUser,
 
-                        confAntennas   = antennas }
+                        confAntennas   = antennas,
+
+                        confRadioModel = radio,
+                        confRadioDev   = device }
 
     case config of
         Left cperr   -> fail $ show cperr

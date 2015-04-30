@@ -3,27 +3,31 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
-import Control.Applicative((<$>), (<*))
-import Control.Exception(bracket_)
-import Control.Monad((>=>), liftM, unless, void, when)
-import Data.IORef(IORef)
-import Data.List(isSuffixOf)
-import Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
-import Data.Monoid(First(..), getFirst, mconcat)
+import           Control.Applicative((<$>), (<*))
+import           Control.Conditional(ifM, unlessM)
+import           Control.Exception(bracket_)
+import           Control.Monad((>=>), liftM, unless, void, when)
+import           Data.IORef(IORef)
+import           Data.List(isSuffixOf)
+import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
+import           Data.Monoid(First(..), getFirst, mconcat)
 import qualified Data.Text as T
-import Data.Time.Clock(UTCTime(..), getCurrentTime)
-import Data.Time.Format(formatTime)
-import Graphics.UI.Gtk
-import Prelude hiding(lookup)
-import System.Locale(defaultTimeLocale)
+import           Data.Time.Clock(UTCTime(..), getCurrentTime)
+import           Data.Time.Format(formatTime)
+import           Graphics.UI.Gtk hiding(disconnect)
+import           Prelude hiding(lookup)
+import           System.Locale(defaultTimeLocale)
 
-import Slog.DB
-import Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
-import Slog.Formats.ADIF.Types(Band(..), Mode)
-import Slog.Formats.ADIF.Utils(freqToBand)
-import Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
-import Slog.Utils
-import Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
+import           Slog.DB
+import           Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
+import           Slog.Formats.ADIF.Types(Band(..), Mode)
+import           Slog.Formats.ADIF.Utils(freqToBand)
+import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
+import qualified Slog.Rigctl.Commands.Ask as Ask
+import qualified Slog.Rigctl.Commands.Tell as Tell
+import           Slog.Rigctl.Rigctl(ask, isRigctldRunning, runRigctld)
+import           Slog.Utils
+import           Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 
 import ToolLib.Config
 
@@ -48,6 +52,21 @@ theDate :: IO String
 theDate = liftM (formatDateTime "%F") getCurrentTime
 
 --
+-- WORKING WITH RIGCTL
+--
+
+getFreqs :: IO (Maybe Double, Maybe Double)
+getFreqs = do
+    freq <- ask Ask.Frequency >>= \case
+                Right (Tell.Frequency f) -> return $ Just $ fromInteger f / 1000000
+                _                        -> return Nothing
+    rxFreq <- ask Ask.SplitFrequency >>= \case
+                  Right (Tell.SplitFrequency f) -> return $ Just $ fromInteger f / 1000000
+                  _                             -> return Nothing
+
+    if rxFreq == freq then return (freq, Nothing) else return (freq, rxFreq)
+
+--
 -- WORKING WITH CALL SIGNS
 --
 
@@ -67,7 +86,7 @@ addAntennas tbl Config{..} = do
     comboBoxSetActive combo 0
 
     tableAttach tbl combo
-                3 4 2 3
+                3 4 3 4
                 [Fill] []
                 0 0
 
@@ -81,7 +100,7 @@ addModes tbl = do
     comboBoxSetActive combo 7
 
     tableAttach tbl combo
-                    1 2 2 3
+                    1 2 3 4
                     [Fill] []
                     0 0
 
@@ -277,14 +296,18 @@ checkCall :: Widgets -> IO (Maybe String)
 checkCall Widgets{..} = checkRequiredText wCall "Call sign is empty."
 
 checkFreq :: Widgets -> IO (Maybe String)
-checkFreq Widgets{..} = do
-    s <- get wFreq entryText
-    return $ T.null s || isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band."
+checkFreq widgets@Widgets{..} =
+    ifM (rigctlActive widgets)
+        (return Nothing)
+        (do s <- get wFreq entryText
+            return $ T.null s || isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Frequency is empty or does not fall in a ham band.")
 
 checkRxFreq :: Widgets -> IO (Maybe String)
-checkRxFreq Widgets{..} = do
-    s <- get wRxFreq entryText
-    return $ not (T.null s) && isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band."
+checkRxFreq widgets@Widgets{..} =
+    ifM (rigctlActive widgets)
+        (return Nothing)
+        (do s <- get wRxFreq entryText
+            return $ not (T.null s) && isNothing (stringToDouble (T.unpack s) >>= freqToBand) <??> "Rx Frequency does not fall in a ham band.")
 
 checkRxRST :: Widgets -> IO (Maybe String)
 checkRxRST Widgets{..} = checkRequiredText wRSTRcvd "Received RST is empty."
@@ -313,6 +336,9 @@ currentActive Widgets{..} = get wCurrent toggleButtonActive
 contestActive :: CWidgets -> IO Bool
 contestActive CWidgets{..} = get cwEnable toggleButtonActive
 
+rigctlActive :: Widgets -> IO Bool
+rigctlActive Widgets{..} = get wRigctl toggleButtonActive
+
 --
 -- SIGNAL HANDLERS
 --
@@ -340,8 +366,7 @@ addQSOFromUI state = do
         -- And then a bunch of annoying UI field grabbing.
         date <- undashifyDate <$> getDate widgets
         time <- uncolonifyTime <$> getTime widgets
-        freq <- get (wFreq widgets) entryText
-        rxFreq <- getMaybe (wRxFreq widgets)
+        (freq, rxFreq) <- getFreq widgets
         xcIn <- getMaybe (wXCRcvd widgets)
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
@@ -354,8 +379,8 @@ addQSOFromUI state = do
         -- checking at the beginning of this function.
         let q = QSO { qDate     = date,
                       qTime     = time,
-                      qFreq     = fromJust $ stringToDouble freq,
-                      qRxFreq   = maybe Nothing stringToDouble rxFreq,
+                      qFreq     = fromJust freq,
+                      qRxFreq   = rxFreq,
                       qMode     = (fst . head) ((reads $ maybe "SSB" T.unpack mode) :: [(Mode, String)]),
                       qDXCC     = maybe Nothing (raCountry >=> idFromName) ra,
                       qGrid     = maybe Nothing raGrid ra,
@@ -402,6 +427,14 @@ addQSOFromUI state = do
         useCurrent <- currentActive widgets
         if useCurrent then theTime else get (wTime widgets) entryText
 
+    getFreq :: Widgets -> IO (Maybe Double, Maybe Double)
+    getFreq widgets =
+        ifM (rigctlActive widgets)
+            getFreqs
+            (do f <- get (wFreq widgets) entryText
+                rxF <- getMaybe (wRxFreq widgets)
+                return (stringToDouble f, maybe Nothing stringToDouble rxF))
+
 -- When the "Use current date & time" button is toggled, change sensitivity on widgets underneath it.
 currentToggled :: Widgets -> IO ()
 currentToggled widgets@Widgets{..} = do
@@ -410,6 +443,21 @@ currentToggled widgets@Widgets{..} = do
     set wDate      [ widgetSensitive := not active ]
     set wTimeLabel [ widgetSensitive := not active ]
     set wTime      [ widgetSensitive := not active ]
+
+-- When the "Get frequency from radio" button is toggled, change sensitivity on widgets underneath it.
+rigctlToggled :: Widgets -> IO ()
+rigctlToggled widgets@Widgets{..} = do
+    active <- rigctlActive widgets
+    running <- isRigctldRunning
+
+    if active && not running then do
+        set wRigctl [ toggleButtonActive := False ]
+        void $ statusbarPush wStatus 0 "Rigctld is not running."
+    else do
+        set wFreqLabel      [ widgetSensitive := not active ]
+        set wFreq           [ widgetSensitive := not active ]
+        set wRxFreqLabel    [ widgetSensitive := not active ]
+        set wRxFreq         [ widgetSensitive := not active ]
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
@@ -563,6 +611,7 @@ addSignalHandlers state = do
     onDestroy wMainWindow mainQuit
 
     on wCurrent toggled         (currentToggled w)
+    on wRigctl  toggled         (rigctlToggled w)
     on wClear   buttonActivated (do clearUI state
                                     populateTreeView prevStore []
                                     widgetGrabFocus wCall)
@@ -618,8 +667,9 @@ loadWidgets builder antennas modes = do
                                                       "rstRcvdEntry", "rstSentEntry", "xcRcvdEntry",
                                                       "xcSentEntry", "dateEntry", "timeEntry"]
 
-    [current] <- mapM (builderGetObject builder castToCheckButton) ["useCurrentDateButton"]
-    [dateLabel, timeLabel] <- mapM (builderGetObject builder castToLabel) ["dateLabel", "timeLabel"]
+    [current, rigctl] <- mapM (builderGetObject builder castToCheckButton) ["useCurrentDateButton", "useRigctlButton"]
+    [dateLabel, timeLabel, freqLabel, rxFreqLabel] <- mapM (builderGetObject builder castToLabel)
+                                                           ["dateLabel", "timeLabel", "freqLabel", "rxFreqLabel"]
 
     [previous, dxcc, grid, state] <- mapM (builderGetObject builder castToFrame) ["previousFrame", "dxccFrame", "gridFrame", "stateFrame"]
 
@@ -636,8 +686,9 @@ loadWidgets builder antennas modes = do
 
     [contestMenu] <- mapM (builderGetObject builder castToAction) ["contestMenuItem"]
 
-    return $ Widgets call freq rxFreq rst_rcvd rst_sent xc_rcvd xc_sent
-                     current
+    return $ Widgets call freqLabel freq rxFreqLabel rxFreq
+                     rst_rcvd rst_sent xc_rcvd xc_sent
+                     current rigctl
                      dateLabel date timeLabel time
                      previous dxcc grid state
                      lookupB clearB addB
@@ -713,6 +764,8 @@ clearUI state = do
     widgets <- readState state psWidgets
     contestMode <- readState state psContestMode
 
+    rigctlRunning <- isRigctldRunning
+
     -- Blank out most of the text entry widgets.  This makes it easier to operate as the
     -- station with a pile up.  However if we are in contest mode, we don't want to blank
     -- out much at all.
@@ -721,8 +774,14 @@ clearUI state = do
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
 
+    when rigctlRunning $ do
+        (freq, rxFreq) <- getFreqs
+        set (wFreq widgets)     [ entryText := maybe "" show freq ]
+        set (wRxFreq widgets)   [ entryText := maybe "" show rxFreq ]
+
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
+    set (wRigctl widgets)  [ toggleButtonActive := rigctlRunning ]
 
     -- Set the titles on the various frames to something boring.
     set (wPrevious widgets) [ widgetSensitive := False, frameLabel := "Previous contacts with remote station" ]
@@ -769,6 +828,12 @@ main = do
 
     -- Read in the config file.
     conf <- readConfig
+
+    -- Try to start rigctld now so we can ask the radio for frequency.  There's no
+    -- guarantee it will actually start (what if the radio's not on yet?) so we have
+    -- to check all over the place anyway.
+    unlessM isRigctldRunning $
+        runRigctld (confRadioModel conf) (confRadioDev conf)
 
     (widgets, cWidgets) <- loadFromGlade conf
 

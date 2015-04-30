@@ -2,8 +2,6 @@
 
 module Types where
 
-import Slog.QSO
-
 type EntryTy = Bool
 
 data BandRow = BandRow {

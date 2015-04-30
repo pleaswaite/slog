@@ -11,7 +11,9 @@ import Graphics.UI.Gtk
 -- | A record to hold all the important widgets that can be displayed on the main screen.
 data Widgets = Widgets {
     wCall :: Entry,                 -- ^ entry for remote station's callsign
+    wFreqLabel :: Label,            -- ^ label next to frequency entry
     wFreq :: Entry,                 -- ^ entry for frequency
+    wRxFreqLabel :: Label,          -- ^ label next to listening frequency label
     wRxFreq :: Entry,               -- ^ entry for frequency where remote station is listening (optional)
     wRSTRcvd :: Entry,              -- ^ entry for RST given by remote station
     wRSTSent :: Entry,              -- ^ entry for RST sent to remote station
@@ -19,6 +21,7 @@ data Widgets = Widgets {
     wXCSent :: Entry,               -- ^ entry for exchange sent to remote station (optional)
 
     wCurrent :: CheckButton,        -- ^ use current date and time?
+    wRigctl :: CheckButton,         -- ^ get frequency info from rigctl?
 
     wDateLabel :: Label,            -- ^ label next to date entry
     wDate :: Entry,                 -- ^ entry for date of contact (used only if 'wCurrent' is Galse)
