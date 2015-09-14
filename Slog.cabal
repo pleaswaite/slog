@@ -97,7 +97,8 @@ executable qsoreport
   build-depends:   base,
                    containers,
                    xhtml,
-                   Slog
+                   Slog,
+                   MissingH
 
 executable qsoupload
   main-is:         qsoupload.hs
