@@ -322,8 +322,14 @@ checkDate Widgets{..} = checkRequiredText wDate "Date is empty."
 checkTime :: Widgets -> IO (Maybe String)
 checkTime Widgets{..} = checkRequiredText wTime "Time is empty."
 
-addQSOChecks :: [Widgets -> IO (Maybe String)]
-addQSOChecks = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDate, checkTime]
+checkXCIn :: Widgets -> IO (Maybe String)
+checkXCIn Widgets{..} = checkRequiredText wXCRcvd "Received exchange is empty in contest mode."
+
+addQSOChecks :: Bool -> [Widgets -> IO (Maybe String)]
+addQSOChecks contestMode = allChecks ++ if contestMode then contestChecks else []
+ where
+    allChecks     = [checkCall, checkFreq, checkRxFreq, checkRxRST, checkRST, checkDate, checkTime]
+    contestChecks = [checkXCIn]
 
 --
 -- FUNCTIONS FOR QUERYING WIDGET STATE
@@ -350,7 +356,7 @@ addQSOFromUI state = do
 
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
-    err <- getFirst . mconcat . map First <$> mapM ($ widgets) addQSOChecks
+    err <- getFirst . mconcat . map First <$> mapM ($ widgets) (addQSOChecks contestMode)
 
     if isJust err then do statusbarRemoveAll (wStatus widgets) 0
                           void $ statusbarPush (wStatus widgets) 0 (fromJust err)
