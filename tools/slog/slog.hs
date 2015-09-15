@@ -1,12 +1,14 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind -fno-warn-wrong-do-bind #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative((<$>), (<*))
 import           Control.Conditional(ifM, unlessM)
 import           Control.Exception(bracket_)
-import           Control.Monad((>=>), liftM, unless, void, when)
+import           Control.Monad((>=>), liftM, void, when)
+import           Data.Char(isAlphaNum)
 import           Data.IORef(IORef)
 import           Data.List(isSuffixOf)
 import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
@@ -292,7 +294,13 @@ checkRequiredText entry errorStr = do
     return $ T.null s <??> errorStr
 
 checkCall :: Widgets -> IO (Maybe String)
-checkCall Widgets{..} = checkRequiredText wCall "Call sign is empty."
+checkCall Widgets{..} = do
+    s <- get wCall entryText
+    if | T.null s                     -> return $ Just "Call sign is empty."
+       | any invalidChar (T.unpack s) -> return $ Just "Call may only contain numbers, letters, and /"
+       | otherwise                    -> return Nothing
+ where
+        invalidChar ch = not (isAlphaNum ch) && ch /= '/'
 
 checkFreq :: Widgets -> IO (Maybe String)
 checkFreq widgets@Widgets{..} =
@@ -473,11 +481,12 @@ lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
 lookupCallsign widgets@Widgets{..} store Config{..} = do
     call <- uppercase <$> get wCall entryText
 
-    unless (null call) $ do
-        result <- lookup call confQTHUser confQTHPass
-        maybe (void $ statusbarPush wStatus 0 ("Nothing found for callsign " ++ call))
-              (updateUI call)
-              result
+    checkCall widgets >>= \case
+        Nothing -> do result <- lookup call confQTHUser confQTHPass
+                      maybe (void $ statusbarPush wStatus 0 ("Nothing found for callsign " ++ call))
+                            (updateUI call)
+                            result
+        Just s  -> void $ statusbarPush wStatus 0 s
 
     -- Return false to remove this handler from the main loop.
     return False
