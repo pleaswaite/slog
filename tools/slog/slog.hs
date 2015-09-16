@@ -9,9 +9,12 @@ import           Control.Conditional(ifM, unlessM)
 import           Control.Exception(bracket_)
 import           Control.Monad((>=>), liftM, void, when)
 import           Data.Char(isAlphaNum)
+import           Data.Foldable(forM_)
 import           Data.IORef(IORef)
-import           Data.List(isSuffixOf)
+import           Data.List(elemIndex, isSuffixOf)
+import qualified Data.List as L(lookup)
 import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
+import           Control.Monad.Trans(liftIO)
 import           Data.Monoid(First(..), getFirst, mconcat)
 import qualified Data.Text as T
 import           Data.Time.Clock(UTCTime(..), getCurrentTime)
@@ -162,6 +165,12 @@ addStateCheck Widgets{..} band | band == Just Band160M      = addCheckToTable wS
                                | band == Just Band70CM      = addCheckToTable wStateGrid 13 2
                                | otherwise                  = return ()
 
+antennaForFreq :: Config -> String -> String
+antennaForFreq Config{..} text =
+    case stringToDouble text >>= freqToBand of
+        Nothing -> confDefaultAntenna
+        Just b  -> fromMaybe confDefaultAntenna (L.lookup b confAntennaMap)
+
 blockUI :: Widgets -> Bool -> IO ()
 blockUI Widgets{..} b = do
     -- The "not" is here because it reads a lot better to write "blockUI True" than to pass
@@ -277,6 +286,12 @@ populateTreeView :: ListStore DisplayRow -> [DBResult] -> IO ()
 populateTreeView store results = do
     listStoreClear store
     mapM_ (listStoreAppend store . dbToDR) results
+
+-- Find a string in a ListStore and return its index, or Nothing if it doesn't exist.
+listStoreIndexOf :: ListStore T.Text -> String -> IO (Maybe Int)
+listStoreIndexOf store s = do
+    lst <- listStoreToList store
+    return $ elemIndex (T.pack s) lst
 
 --
 -- INPUT CHECKS
@@ -647,6 +662,16 @@ addSignalHandlers state = do
 
     -- These signal handlers are for menu items.
     on wContestMenu actionActivated (runContestDialog state)
+
+    -- When focus leaves the frequency text entry, change the selected antenna to
+    -- match.  Note that this enforces that if you want to specify a different
+    -- antenna, you have to enter the frequency first.  That's probably what people
+    -- will do most of the time though.
+    on wFreq    focusOutEvent $ tryEvent $ liftIO $ do
+        text <- get wFreq entryText
+        store <- comboBoxGetModelText wAntenna
+        ndx <- listStoreIndexOf store (antennaForFreq conf text)
+        forM_ ndx (comboBoxSetActive wAntenna)
 
     return ()
 

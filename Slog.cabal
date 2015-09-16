@@ -129,6 +129,7 @@ executable slog
   build-depends:   base,
                    cond,
                    gtk,
+                   mtl,
                    old-locale,
                    text,
                    time,
