@@ -87,7 +87,11 @@ addAntennas :: Table -> Config -> IO ComboBox
 addAntennas tbl Config{..} = do
     combo <- comboBoxNewText
     mapM_ (comboBoxAppendText combo . T.strip . T.pack) confAntennas
-    comboBoxSetActive combo 0
+
+    -- Set the default antenna to whatever is given by the config file.
+    store <- comboBoxGetModelText combo
+    ndx <- listStoreIndexOf store confDefaultAntenna
+    forM_ ndx (comboBoxSetActive combo)
 
     tableAttach tbl combo
                 3 4 3 4
