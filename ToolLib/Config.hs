@@ -1,6 +1,7 @@
 {-# LANGUAGE MultiWayIf #-}
 
-module ToolLib.Config ( Config(..),
+module ToolLib.Config ( BandMap,
+                        Config(..),
                         readConfig )
  where
 
@@ -14,20 +15,24 @@ import Text.Read(readMaybe)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
 
+type BandMap = [(ADIF.Band, String)]
+
 data Config = Config {
     confDB        :: String,
     confPassword  :: String,
-    confQTH       :: String,
     confUsername  :: String,
 
     confQTHPass   :: String,
     confQTHUser   :: String,
 
+    confQTHs      :: [String],
+    confDefaultQTH:: String,
+
     confAntennas        :: [String],
-    confAntennaMap      :: [(ADIF.Band, String)],
+    confAntennaMap      :: BandMap,
     confDefaultAntenna  :: String,
 
-    confModeMap     :: [(ADIF.Band, String)],
+    confModeMap     :: BandMap,
     confDefaultMode :: String,
 
     confRadioModel  :: String,
@@ -46,11 +51,13 @@ readConfig = do
 
         database <- get c "DEFAULT" "database"
         password <- get c "LOTW" "password"
-        qth      <- get c "DEFAULT" "qth"
         username <- get c "LOTW" "username"
 
         qthPass  <- get c "Lookup" "password"
         qthUser  <- get c "Lookup" "username"
+
+        qths   <- getQTHs c
+        defQTH <- defaultQTH c qths
 
         antennas     <- getAntennas c
         bandAntennas <- getAntennaMap c
@@ -64,11 +71,13 @@ readConfig = do
 
         return Config { confDB         = database,
                         confPassword   = password,
-                        confQTH        = qth,
                         confUsername   = username,
 
                         confQTHPass    = qthPass,
                         confQTHUser    = qthUser,
+
+                        confQTHs        = qths,
+                        confDefaultQTH  = defQTH,
 
                         confAntennas        = antennas,
                         confAntennaMap      = bandAntennas,
@@ -84,6 +93,12 @@ readConfig = do
         Left cperr   -> fail $ show cperr
         Right c      -> return c
  where
+    getQTHs conf = splitOn "," <$> get conf "QTHs" "qths"
+
+    defaultQTH conf qths = do
+        let givesDefault = has_option conf "QTHs" "default"
+        if givesDefault then get conf "QTHs" "default" else return $ head qths
+
     getAntennas conf = do
         let givesAntennas = has_option conf "Antennas" "antennas"
         if givesAntennas then splitOn "," <$> get conf "Antennas" "antennas" else return []
@@ -106,8 +121,8 @@ readConfig = do
     defaultMode conf = do
         let givesDefault = has_option conf "Modes" "default"
 
-        if | givesDefault           -> get conf "Modes" "default"
-           | otherwise              -> return "SSB"
+        if | givesDefault -> get conf "Modes" "default"
+           | otherwise    -> return "SSB"
 
     getModeMap conf = do
         modes <- items conf "Modes"

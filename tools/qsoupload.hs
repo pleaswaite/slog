@@ -46,7 +46,7 @@ main = do
     let adifs = intercalate "\r\n" $ map (renderRecord . qsoToADIF) qsos
 
     -- Then write out the temporary file, sign it, and upload it.
-    withTempFile "new.adi" (writeAndUpload adifs (sign confQTH))
+    withTempFile "new.adi" (writeAndUpload adifs (sign confDefaultQTH))
 
     -- Finally, update the database to reflect everything that's been uploaded.
     markQSOsAsSent fp ids
