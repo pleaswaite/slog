@@ -27,6 +27,9 @@ data Config = Config {
     confAntennaMap      :: [(ADIF.Band, String)],
     confDefaultAntenna  :: String,
 
+    confModeMap     :: [(ADIF.Band, String)],
+    confDefaultMode :: String,
+
     confRadioModel  :: String,
     confRadioDev    :: String }
 
@@ -53,6 +56,9 @@ readConfig = do
         bandAntennas <- getAntennaMap c
         defAntenna   <- defaultAntenna c antennas
 
+        bandModes   <- getModeMap c
+        defMode     <- defaultMode c
+
         radio    <- get c "Radio" "model"
         device   <- get c "Radio" "device"
 
@@ -67,6 +73,9 @@ readConfig = do
                         confAntennas        = antennas,
                         confAntennaMap      = bandAntennas,
                         confDefaultAntenna  = defAntenna,
+
+                        confModeMap     = bandModes,
+                        confDefaultMode = defMode,
 
                         confRadioModel = radio,
                         confRadioDev   = device }
@@ -93,3 +102,17 @@ readConfig = do
                                                                                 in maybe Nothing (\x -> Just (x, ant)) band
                                               | otherwise                    -> Nothing)
                           antennas
+
+    defaultMode conf = do
+        let givesDefault = has_option conf "Modes" "default"
+
+        if | givesDefault           -> get conf "Modes" "default"
+           | otherwise              -> return "SSB"
+
+    getModeMap conf = do
+        modes <- items conf "Modes"
+        return $ mapMaybe (\(name, mode) -> if | "default_" `isPrefixOf` name -> let name' = drop 8 name
+                                                                                     band  = readMaybe name' :: Maybe ADIF.Band
+                                                                                 in maybe Nothing (\x -> Just (x, mode)) band
+                                               | otherwise                    -> Nothing)
+                          modes

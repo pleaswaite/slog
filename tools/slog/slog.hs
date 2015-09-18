@@ -101,11 +101,15 @@ addAntennas tbl Config{..} = do
     widgetShowAll combo
     return combo
 
-addModes :: Table -> IO ComboBox
-addModes tbl = do
+addModes :: Table -> Config -> IO ComboBox
+addModes tbl Config{..} = do
     combo <- comboBoxNewText
     mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "JT65", "JT9", "FM", "PSK31", "RTTY", "SSB"]
-    comboBoxSetActive combo 7
+
+    -- Set the default mode to whatever is given by the config file.
+    store <- comboBoxGetModelText combo
+    ndx <- listStoreIndexOf store confDefaultMode
+    forM_ ndx (comboBoxSetActive combo)
 
     tableAttach tbl combo
                     1 2 3 4
@@ -174,6 +178,12 @@ antennaForFreq Config{..} text =
     case stringToDouble text >>= freqToBand of
         Nothing -> confDefaultAntenna
         Just b  -> fromMaybe confDefaultAntenna (L.lookup b confAntennaMap)
+
+modeForFreq :: Config -> String -> String
+modeForFreq Config{..} text =
+    case stringToDouble text >>= freqToBand of
+        Nothing -> confDefaultMode
+        Just b  -> fromMaybe confDefaultMode (L.lookup b confModeMap)
 
 blockUI :: Widgets -> Bool -> IO ()
 blockUI Widgets{..} b = do
@@ -667,15 +677,18 @@ addSignalHandlers state = do
     -- These signal handlers are for menu items.
     on wContestMenu actionActivated (runContestDialog state)
 
-    -- When focus leaves the frequency text entry, change the selected antenna to
-    -- match.  Note that this enforces that if you want to specify a different
-    -- antenna, you have to enter the frequency first.  That's probably what people
-    -- will do most of the time though.
+    -- When focus leaves the frequency text entry, change the selected antenna and mode to
+    -- match.  Note that this enforces that if you want to specify a different antenna or
+    -- mode, you have to enter the frequency first.  That's probably what people will do
+    -- most of the time though.
     on wFreq    focusOutEvent $ tryEvent $ liftIO $ do
         text <- get wFreq entryText
-        store <- comboBoxGetModelText wAntenna
-        ndx <- listStoreIndexOf store (antennaForFreq conf text)
-        forM_ ndx (comboBoxSetActive wAntenna)
+        antennaStore <- comboBoxGetModelText wAntenna
+        modeStore <- comboBoxGetModelText wMode
+        antennaNdx <- listStoreIndexOf antennaStore (antennaForFreq conf text)
+        modeNdx <- listStoreIndexOf modeStore (modeForFreq conf text)
+        forM_ antennaNdx (comboBoxSetActive wAntenna)
+        forM_ modeNdx (comboBoxSetActive wMode)
 
     return ()
 
@@ -764,7 +777,7 @@ loadFromGlade conf = do
     buildCombos builder = do
         table <- builderGetObject builder castToTable "newQSOGrid"
         antennaCombo <- addAntennas table conf
-        modeCombo <- addModes table
+        modeCombo <- addModes table conf
         return (antennaCombo, modeCombo)
 
 initContestDialog :: CWidgets -> IO ()
