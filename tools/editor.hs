@@ -9,12 +9,14 @@ import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.Text(Text, pack)
 import Graphics.UI.Gtk hiding(get, set)
 
-import Slog.DB(DBResult, QsosId, getAllQSOs, updateQSO)
+import Slog.DB(DBResult, QsosId, getAllQSOs, initDB, updateQSO)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID, idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Utils(stringToDouble, stringToInteger, uppercase)
 import Slog.QSO
+
+import ToolLib.Config
 
 data Row = Row { rQsoid    :: QsosId,
                  rDate     :: String,
@@ -273,5 +275,8 @@ runGUI rows = do
 
 main :: IO ()
 main = do
-    rows <- getAllQSOs "/home/chris/radio/qsos.db"
+    Config{..} <- readConfig
+    initDB confDB
+
+    rows <- getAllQSOs confDB
     runGUI rows

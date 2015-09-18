@@ -9,7 +9,7 @@ import System.Exit(exitSuccess)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
-import Slog.DB(QsosId, addQSO)
+import Slog.DB(QsosId, addQSO, initDB)
 import Slog.DXCC(idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
@@ -218,6 +218,7 @@ main = do
 
     -- Read in the config file.
     conf <- readConfig
+    initDB (confDB conf)
 
     lookupAndAddQSO conf cmdline >>= \case
         Left err   -> ioError (userError err)

@@ -8,7 +8,7 @@ import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DB(getAllQSOs)
+import Slog.DB(getAllQSOs, initDB)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
 import Slog.QSO(QSO(qDXCC), isConfirmed)
 
@@ -82,6 +82,7 @@ main = do
 
     -- Get the on-disk location of the database.
     let fp = confDB conf
+    initDB (confDB conf)
 
     -- Get all QSOs as (id, QSO, Confirmation) tuples.
     results <- liftM reverse $ getAllQSOs fp

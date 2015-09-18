@@ -5,7 +5,7 @@ import System.Environment(getArgs)
 import System.Exit(exitSuccess)
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(DBResult, getAllQSOs)
+import Slog.DB(DBResult, getAllQSOs, initDB)
 import qualified Slog.Formats.ADIF.Types as ADIF
 
 import ToolLib.Config
@@ -100,6 +100,7 @@ main = do
 
     -- Get the on-disk location of the database.
     let fp = confDB conf
+    initDB (confDB conf)
 
     -- Reporting is a multiple step process:
     -- (1) Get all QSOs.

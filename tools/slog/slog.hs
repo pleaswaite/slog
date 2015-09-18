@@ -886,6 +886,7 @@ main = do
 
     -- Read in the config file.
     conf <- readConfig
+    initDB (confDB conf)
 
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have

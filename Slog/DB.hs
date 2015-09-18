@@ -30,6 +30,7 @@ module Slog.DB(DBResult,
                getQSOsByState,
                getUnconfirmedQSOs,
                getUnsentQSOs,
+               initDB,
                markQSOsAsSent,
                updateQSO)
  where
@@ -89,6 +90,16 @@ share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
 -- getting and combining this data.  So they'll just all get it all now and can decide which parts
 -- are useful and which are not.
 type DBResult = (QsosId, QSO, Confirmation)
+
+--
+-- BASIC FUNCTIONS
+--
+
+-- Given the path to a database, ensure it exists and has the tables all set up.
+-- This should do nothing for a database that already exists, and will initialize
+-- a new one to the proper layout the first time someone runs one of the programs.
+initDB :: FilePath -> IO ()
+initDB filename = runSqlite (pack filename) $ runMigration migrateAll
 
 --
 -- QUERYING FOR QSOs

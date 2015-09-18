@@ -8,7 +8,7 @@ import Data.Maybe(catMaybes, fromJust)
 import Data.Tuple.Utils(snd3)
 import Text.Printf(printf)
 
-import Slog.DB(DBResult, confirmQSO, getQSO, getUnconfirmedQSOs)
+import Slog.DB(DBResult, confirmQSO, getQSO, getUnconfirmedQSOs, initDB)
 import Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import Slog.Formats.ADIF.Parser(parseString)
 import Slog.Formats.ADIF.Utils(freqToBand)
@@ -119,6 +119,7 @@ main = do
     Config{..} <- readConfig
 
     -- Get the on-disk location of the database.
+    initDB confDB
     let fp = confDB
 
     -- Determine the earliest unconfirmed QSO.  We don't want to download everything, as

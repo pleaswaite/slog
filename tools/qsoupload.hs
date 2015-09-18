@@ -8,7 +8,7 @@ import Data.List(intercalate)
 import System.Directory(getTemporaryDirectory, removeFile)
 import System.IO
 
-import Slog.DB(getUnsentQSOs, markQSOsAsSent)
+import Slog.DB(getUnsentQSOs, initDB, markQSOsAsSent)
 import Slog.Formats.ADIF.Writer(renderRecord)
 import Slog.LOTW(sign)
 import Slog.QSO(qsoToADIF)
@@ -38,6 +38,7 @@ main = do
 
     -- Get the on-disk location of the database.
     let fp = confDB
+    initDB confDB
 
     -- Get all the un-uploaded QSOs and their matching ID numbers, and convert them to
     -- a string of ADIF data.  We'll save the IDs for marking in the database later.
