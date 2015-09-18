@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Filter(byBand,
               byCall,
               byConfirmed,
@@ -12,45 +14,44 @@ module Filter(byBand,
               byWAZ)
  where
 
+import Slog.DB(QsosId)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
-import Slog.Utils(uppercase)
 
-import Types(ConfirmInfo)
+byBand :: ADIF.Band -> (QsosId, QSO, Confirmation) -> Bool
+byBand band (_, qso, _) = maybe False (band ==) (freqToBand $ qFreq qso)
 
-byBand :: ADIF.Band -> ConfirmInfo -> Bool
-byBand band (qso, _) = maybe False (band ==) (freqToBand $ qFreq qso)
+byCall :: String -> (QsosId, QSO, Confirmation) -> Bool
+byCall call (_, qso, _) = call == qCall qso
 
-byCall :: String -> ConfirmInfo -> Bool
-byCall call (qso, _) = uppercase call == uppercase (qCall qso)
+byConfirmed :: Bool -> (QsosId, QSO, Confirmation) -> Bool
+byConfirmed conf (_, _, conf') =
+    isConfirmed conf' && conf
 
-byConfirmed :: Bool -> ConfirmInfo -> Bool
-byConfirmed conf (_, conf') = conf == conf'
+byDigital :: (QsosId, QSO, Confirmation) -> Bool
+byDigital (_, qso, _) = ADIF.digitalMode (qMode qso)
 
-byDigital :: ConfirmInfo -> Bool
-byDigital (qso, _) = ADIF.digitalMode (qMode qso)
+byDXCC :: Integer -> (QsosId, QSO, Confirmation) -> Bool
+byDXCC dxcc (_, qso, _) = maybe False (dxcc ==) (qDXCC qso)
 
-byDXCC :: Integer -> ConfirmInfo -> Bool
-byDXCC dxcc (qso, _) = maybe False (dxcc ==) (qDXCC qso)
+byImage :: (QsosId, QSO, Confirmation) -> Bool
+byImage (_, qso, _) = ADIF.imageMode (qMode qso)
 
-byImage :: ConfirmInfo -> Bool
-byImage (qso, _) = ADIF.imageMode (qMode qso)
+byITU :: Integer -> (QsosId, QSO, Confirmation) -> Bool
+byITU itu (_, qso, _) = maybe False (itu ==) (qITU qso)
 
-byITU :: Integer -> ConfirmInfo -> Bool
-byITU itu (qso, _) = maybe False (itu ==) (qITU qso)
+byMode :: ADIF.Mode -> (QsosId, QSO, Confirmation) -> Bool
+byMode mode (_, qso, _) = mode == qMode qso
 
-byMode :: ADIF.Mode -> ConfirmInfo -> Bool
-byMode mode (qso, _) = mode == qMode qso
-
-byNone :: ConfirmInfo -> Bool
+byNone :: (QsosId, QSO, Confirmation) -> Bool
 byNone _ = True
 
-byPhone :: ConfirmInfo -> Bool
-byPhone (qso, _) = ADIF.phoneMode (qMode qso)
+byPhone :: (QsosId, QSO, Confirmation) -> Bool
+byPhone (_, qso, _) = ADIF.phoneMode (qMode qso)
 
-bySatellite :: ConfirmInfo -> Bool
-bySatellite (qso, _) = maybe False (ADIF.SAT ==) (qPropMode qso)
+bySatellite :: (QsosId, QSO, Confirmation) -> Bool
+bySatellite (_, qso, _) = maybe False (ADIF.SAT ==) (qPropMode qso)
 
-byWAZ :: Integer -> ConfirmInfo -> Bool
-byWAZ waz (qso, _) = maybe False (waz ==) (qWAZ qso)
+byWAZ :: Integer -> (QsosId, QSO, Confirmation) -> Bool
+byWAZ waz (_, qso, _) = maybe False (waz ==) (qWAZ qso)

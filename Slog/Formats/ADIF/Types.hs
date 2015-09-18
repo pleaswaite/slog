@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveDataTypeable, MultiParamTypeClasses #-}
+
 -- | This module contains a wide variety of data types representing the
 -- guts of an ADIF file.  ADIF is the standard format for amateur radio log
 -- files, and is especially used as the import/export format for LOTW and
@@ -34,6 +35,8 @@ import Database.HDBC.SqlValue(SqlValue(SqlString))
 import Text.Printf(printf)
 
 import Slog.Utils(invert, uppercase)
+
+{-# ANN module "HLint: ignore Use camelCase" #-}
 
 --
 -- BASIC FIELD DATA TYPES
@@ -319,7 +322,7 @@ data Continent = NA | SA | EU | AF | OC | AS | AN
 data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
             CW | DSTAR | DOMINO | DOMINOF | FAX | FM | FMHELL | FSK31 | FSK441 |
             GTOR | HELL | HELL80 | HFSK | JT44 | JT4A | JT4B | JT4C | JT4D |
-            JT4E | JT4F | JT4G | JT65 | JT65A | JT65B | JT65C | JT6M | MFSK8 |
+            JT4E | JT4F | JT4G | JT65 | JT65A | JT65B | JT65C | JT6M | JT9 | MFSK8 |
             MFSK16 | MT63 | OLIVIA | PAC | PAC2 | PAC3 | PAX | PAX2 | PCW |
             PSK10 | PSK31 | PSK63 | PSK63F | PSK125 | PSKAM10 | PSKAM31 |
             PSKAM50 | PSKFEC31 | PSKHELL | Q15 | QPSK31 | QPSK63 | QPSK125 |

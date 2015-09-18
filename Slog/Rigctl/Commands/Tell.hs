@@ -19,12 +19,13 @@ module Slog.Rigctl.Commands.Tell(Command(..),
  where
 
 import Data.Bits
-import Data.List(null)
 import Data.Maybe(fromMaybe)
 
 import Slog.Rigctl.Commands.Class
 import qualified Slog.Rigctl.Commands.Ask as A
 import Slog.Utils(invert, stringToDouble, stringToInteger)
+
+{-# ANN module "HLint: ignore Use camelCase" #-}
 
 -- | These are all the tell commands as supported by rigctl.
 data Command = Frequency Integer                -- ^ Set the frequency, in Hz.
@@ -68,7 +69,7 @@ instance Serializable Command where
     ser (RIT i)            = Just $ "J " ++ show i
     ser (XIT i)            = Just $ "Z " ++ show i
     ser (PTT b)            = Just $ "T " ++ if b then "1" else "0"
-    ser (RepeaterShift d)  = Just $ "R " ++ (maybe "" show d)
+    ser (RepeaterShift d)  = Just $ "R " ++ maybe "" show d
     ser (RepeaterOffset i) = Just $ "O " ++ show i
     ser (CTCSSTone i)      = Just $ "C " ++ show i
     ser (DCSCode i)        = Just $ "D " ++ show i
@@ -87,9 +88,9 @@ instance Serializable Command where
     ser (Channel i)        = Just $ "H " ++ show i
     ser (Transcieve s)     = Just $ "A " ++ show s
     ser (Antenna i)        = Just $ "Y " ++ show i
-    ser (Reset _ _ _ _ _)  = Just $ "\\reset 0"
+    ser (Reset {})         = Just "\\reset 0"
     ser (Morse s)          = Just $ "b " ++ s
-    ser (PowerStatus _ _ _) = Just $ "\\set_powerstatus 0"
+    ser (PowerStatus {})    = Just "\\set_powerstatus 0"
     ser (DTMF s)           = Just $ "\\send_dtmf " ++ s
     ser _                  = Nothing
 
@@ -102,7 +103,7 @@ toTell cmd str =
     case cmd of
         A.Frequency         -> toInt str 0 >>= Just . Frequency
         A.Mode              -> ifTwo str readMode
-        A.VFO               -> Just $ VFO (read (str !! 0) :: RigVFO)
+        A.VFO               -> Just $ VFO (read (head str) :: RigVFO)
         A.RIT               -> toInt str 0 >>= Just . RIT
         A.XIT               -> toInt str 0 >>= Just . XIT
         A.PTT               -> toInt str 0 >>= \i -> Just $ PTT (i == 1)
@@ -122,14 +123,14 @@ toTell cmd str =
         A.Param             -> ifTwo str readParam
         A.Memory            -> toInt str 0 >>= Just . Memory
         A.Channel           -> toInt str 0 >>= Just . Channel
-        A.Transcieve        -> Just $ Transcieve (read (str !! 0) :: TranscieveMode)
+        A.Transcieve        -> Just $ Transcieve (read (head str) :: TranscieveMode)
         A.Antenna           -> toInt str 0 >>= Just . Antenna
         A.PowerStatus       -> toInt str 0 >>= \i -> Just PowerStatus {powerOff     = i == 0,
                                                                        powerOn      = testBit i 1,
                                                                        powerStandby = testBit i 2}
-        A.DTMF              -> Just $ DTMF (str !! 0)
+        A.DTMF              -> Just $ DTMF (head str)
  where
-    first lst = fst (lst !! 0)
+    first lst = fst (head lst)
 
     ifNotEmpty l v | null l     = Nothing
                    | otherwise  = Just v

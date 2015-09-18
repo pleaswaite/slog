@@ -1,9 +1,8 @@
+{-# OPTIONS_GHC -Wall #-}
+
 module Types where
 
-import Slog.QSO
-
 type EntryTy = Bool
-type ConfirmInfo = (QSO, Bool)
 
 data BandRow = BandRow {
     row160M :: EntryTy,

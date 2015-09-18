@@ -1,121 +1,40 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
-{-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs  #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE RecordWildCards #-}
 
 import Control.Applicative((<$>))
-import Control.Monad(unless, when)
-import Control.Monad.Trans(liftIO)
-import Database.Esqueleto hiding(count, on)
-import Database.Persist.Sqlite(runSqlite)
-import Database.Persist.TH
+import Control.Monad(when)
 import Data.List(sort)
-import Data.Maybe(fromJust, isJust)
-import Data.Text(pack)
+import Data.Maybe(fromJust, fromMaybe, isJust)
+import Data.Text(Text, pack)
 import Graphics.UI.Gtk hiding(get, set)
+
+import Slog.DB(DBResult, QsosId, getAllQSOs, updateQSO)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID, idFromName)
+import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.Utils(stringToDouble, stringToInteger, uppercase)
+import Slog.QSO
 
--- A template haskell description of the database format.
-share [mkPersist sqlSettings] [persistLowerCase|
- Qsos id=qsoid
-    qsoid Int
-    date String
-    time String
-    freq Double
-    rx_freq Double Maybe
-    mode String
-    dxcc Int Maybe
-    grid String Maybe
-    state String Maybe
-    name String Maybe
-    notes String Maybe
-    xc_in String Maybe
-    xc_out String Maybe
-    rst_rcvd String
-    rst_sent String
-    itu Int Maybe
-    waz Int Maybe
-    call String
-    prop_mode String Maybe
-    sat_name String Maybe
-    antenna String Maybe
-    deriving Eq Show
- Confirmations id=confid
-    confid Int
-    qsoid Int
-    qsl_rdate String Maybe
-    qsl_sdate String Maybe
-    qsl_rcvd_via String Maybe
-    qsl_sent_via String Maybe
-    lotw_rdate String Maybe
-    lotw_sdate String Maybe
-    UniqueQsoid qsoid
-    deriving Eq Show
-|]
-
--- And then GTK is terrible, so I get to duplicate as much of the above as I want in order to
--- provide a data type for the store.
-data Row = Row { rQsoid    :: Int,
+data Row = Row { rQsoid    :: QsosId,
                  rDate     :: String,
                  rTime     :: String,
-                 rCall     :: String,
                  rFreq     :: Double,
                  rRxFreq   :: Maybe Double,
                  rMode     :: String,
+                 rDXCC     :: Maybe Int,
+                 rGrid     :: Maybe String,
+                 rState    :: Maybe String,
                  rRSTRcvd  :: String,
                  rRSTSent  :: String,
-                 rDXCC     :: Maybe Int,
                  rITU      :: Maybe Int,
                  rWAZ      :: Maybe Int,
+                 rCall     :: String,
                  rAntenna  :: Maybe String,
                  rUploaded :: Bool,
 
                  rEdited :: Bool }
  deriving Show
-
--- Given a path to a database, open it and extract all the QSOs and their confirmation
--- information as a list of tuples.
-readDB :: FilePath -> IO [(Qsos, Confirmations)]
-readDB filename = runSqlite (pack filename) $ do
-    rows <- select $ from $ \(q, c) -> do where_ (q ^. QsosQsoid ==. c ^. ConfirmationsQsoid)
-                                          orderBy [desc (q ^. QsosDate), desc (q ^. QsosTime)]
-                                          return (q, c)
-    return $ map (\(q, c) -> (entityVal q, entityVal c)) rows
-
--- Update a single row in the database.  This happens regardless of whether the row has changed
--- or not.  It is recommended to call editedRows first.
-updateOne :: FilePath -> Row -> IO ()
-updateOne filename row = runSqlite (pack filename) $ do
-    liftIO $ putStrLn $ show row
-    update $ \r -> do
-        set r [ QsosDate =. (val $ rDate row),
-                QsosTime =. (val $ rTime row),
-                QsosCall =. (val $ rCall row),
-                QsosFreq =. (val $ rFreq row),
-                QsosRx_freq =. (val $ rRxFreq row),
-                QsosMode =. (val $ rMode row),
-                QsosRst_rcvd =. (val $ rRSTRcvd row),
-                QsosRst_sent =. (val $ rRSTSent row),
-                QsosDxcc =. (val $ rDXCC row),
-                QsosItu =. (val $ rITU row),
-                QsosWaz =. (val $ rWAZ row),
-                QsosAntenna =. (val $ rAntenna row)
-              ]
-        where_ (r ^. QsosQsoid ==. (val $ rQsoid row))
-
-    -- For now, only support going from uploaded to not uploaded.  That's okay because
-    -- typically this program will be used to re-upload things that failed.  I can't really
-    -- see why you'd want to mark previously not uploaded things as uploaded.
-    unless (rUploaded row) $ do
-        update $ \r -> do
-            set r [ ConfirmationsLotw_sdate =. (val Nothing) ]
-            where_ (r ^.ConfirmationsQsoid ==. (val $ rQsoid row))
 
 -- Return a list of all the rows in the store that were modified via the UI.  This then tells
 -- us what rows need to be written back into the database.
@@ -127,7 +46,30 @@ editedRows store =
 updateEdited :: ListStore Row -> IO ()
 updateEdited store = do
     lst <- editedRows store
-    mapM_ (updateOne "/home/chris/radio/qsos.db") lst
+    mapM_ (\r@Row{..} -> updateQSO "/home/chris/radio/qsos.db" (rQsoid, rowToQSO r, not rUploaded)) lst
+ where
+    rowToQSO :: Row -> QSO
+    rowToQSO Row{..} =
+        QSO rDate
+            rTime
+            rFreq
+            rRxFreq
+            (read rMode :: ADIF.Mode)
+            (toInteger <$> rDXCC)
+            rGrid
+            rState
+            Nothing
+            Nothing
+            Nothing
+            Nothing
+            rRSTRcvd
+            rRSTSent
+            (toInteger <$> rITU)
+            (toInteger <$> rWAZ)
+            rCall
+            Nothing
+            Nothing
+            rAntenna
 
 -- Because the glade format in gtk2 is so bad, we have to add all the columns in code instead of
 -- in glade.  So here it goes.
@@ -187,10 +129,20 @@ addColumns store view = do
     cellLayoutSetAttributes dxccColumn dxccCell store $ \row -> [ cellText := defaultEntityText (rDXCC row),
                                                                   cellTextEditable := True,
                                                                   cellComboHasEntry := False,
-                                                                  cellComboTextModel := (dxccModel, makeColumnIdString 0) ]
+                                                                  cellComboTextModel := (dxccModel, makeColumnIdString 0 :: ColumnId row Text ) ]
     on dxccCell edited $ editedCell store (\row text -> row { rDXCC=fmap fromInteger (idFromName text), rEdited=True })
     treeViewAppendColumn view dxccColumn
-    treeViewColumnSetTitle dxccColumn "DXCC"
+    treeViewColumnSetTitle dxccColumn ("DXCC" :: Text)
+
+    -- GRID
+    (gridCol, gridCell) <- newTextColumn store "Grid" $ \row -> fromMaybe "" (rGrid row)
+    on gridCell edited $ editedCell store (\row text -> row { rGrid=Just text, rEdited=True })
+    treeViewAppendColumn view gridCol
+
+    -- STATE
+    (stateCol, stateCell) <- newTextColumn store "State" $ \row -> fromMaybe "" (rState row)
+    on stateCell edited $ editedCell store (\row text -> row { rState=Just text, rEdited=True })
+    treeViewAppendColumn view stateCol
 
     -- ITU
     (ituCol, ituCell) <- newTextColumn store "ITU" $ \row -> maybe "" show (rITU row)
@@ -205,7 +157,7 @@ addColumns store view = do
     treeViewAppendColumn view wazCol
 
     -- ANTENNA
-    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> maybe "" id (rAntenna row)
+    (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> fromMaybe "" (rAntenna row)
     on antCell edited $ editedCell store (\row text -> row { rAntenna=Just text, rEdited=True })
     treeViewAppendColumn view antCol
 
@@ -217,7 +169,7 @@ addColumns store view = do
     on uploadedCell cellToggled $ toggledCell store (\row -> if rUploaded row then row { rUploaded=False, rEdited=True }
                                                              else row)
     treeViewAppendColumn view uploadedCol
-    treeViewColumnSetTitle uploadedCol "Uploaded?"
+    treeViewColumnSetTitle uploadedCol ("Uploaded?" :: Text)
  where
     -- Create and return a new text column and cell renderer, setting a bunch of attributes
     -- along the way.  The fn argument is used to set additional parameters, such as how
@@ -244,7 +196,7 @@ addColumns store view = do
     -- fn does the hard part of actually doing the editing, since we moight want to do some sort of
     -- sanity checking on the cell's contents instead of blindly cramming it into a row.
     editedCell :: ListStore Row -> (Row -> String -> Row) -> TreePath -> String -> IO ()
-    editedCell model fn path text = do
+    editedCell model fn path text =
         withTreePath model path $ \model' ndx -> do cur <- listStoreGetValue model' ndx
                                                     listStoreSetValue model' ndx (fn cur text)
 
@@ -253,8 +205,8 @@ addColumns store view = do
     -- got to get converted.  (2) There's obviously no text stored in the model for a toggled cell, so
     -- argument numbers are different everywhere.
     toggledCell :: ListStore Row -> (Row -> Row) -> String -> IO ()
-    toggledCell model fn path = do
-        withTreePath model (stringToTreePath path) $
+    toggledCell model fn path =
+        withTreePath model (stringToTreePath $ pack path) $
                      \model' ndx -> do cur <- listStoreGetValue model' ndx
                                        listStoreSetValue model' ndx (fn cur)
 
@@ -263,55 +215,56 @@ addColumns store view = do
     -- takes care to check various error conditions and default to 291 (USA) on error.
     defaultEntityText :: Maybe Int -> String
     defaultEntityText (Just i) = let i' = toInteger i
-                                 in  if i' `elem` entityIDs then entityNameFromID i'
-                                     else                        entityNameFromID 291
+                                 in  entityNameFromID (if i' `elem` entityIDs then i' else 291)
     defaultEntityText _        = entityNameFromID 291
 
     entityNameFromID :: Integer -> String
-    entityNameFromID = (dxccEntity . fromJust . entityFromID)
+    entityNameFromID = dxccEntity . fromJust . entityFromID
 
-runGUI :: [(Qsos, Confirmations)] -> IO ()
-runGUI pairs = do
+runGUI :: [DBResult] -> IO ()
+runGUI rows = do
     initGUI
 
     -- Grab what little bit of the UI can be defined in glade.
     builder <- builderNew
     builderAddFromFile builder "/home/chris/src/slog/data/editor.ui"
 
-    window <- builderGetObject builder castToWindow "mainWindow"
+    window <- builderGetObject builder castToWindow ("mainWindow" :: Text)
     onDestroy window mainQuit
 
     -- Create the store here.  The glade format recognized is pretty lame, so I have to do
     -- all the construction by hand instead of in glade.  Oh well.
     store <- listStoreNew ([] :: [Row])
-    view <- builderGetObject builder castToTreeView "qsoView"
+    view <- builderGetObject builder castToTreeView ("qsoView" :: Text)
 
     addColumns store view
 
     -- Add everything into the store.
-    mapM (\(q, c) -> listStoreAppend store $ Row { rQsoid=qsosQsoid q,
-                                                   rDate=qsosDate q,
-                                                   rTime=qsosTime q,
-                                                   rCall=qsosCall q,
-                                                   rFreq=qsosFreq q,
-                                                   rRxFreq=qsosRx_freq q,
-                                                   rMode=qsosMode q,
-                                                   rRSTRcvd=qsosRst_rcvd q,
-                                                   rRSTSent=qsosRst_sent q,
-                                                   rDXCC=qsosDxcc q,
-                                                   rITU=qsosItu q,
-                                                   rWAZ=qsosWaz q,
-                                                   rAntenna=qsosAntenna q,
-                                                   rUploaded=isJust $ confirmationsLotw_sdate c,
-                                                   rEdited=False }
-         )
-         pairs
+    mapM_ (\(i, QSO{..}, c) -> listStoreAppend store Row { rQsoid=i,
+                                                           rDate=qDate,
+                                                           rTime=qTime,
+                                                           rFreq=qFreq,
+                                                           rRxFreq=qRxFreq,
+                                                           rMode=show qMode,
+                                                           rDXCC=fromInteger <$> qDXCC,
+                                                           rGrid=qGrid,
+                                                           rState=qState,
+                                                           rRSTRcvd=qRST_Rcvd,
+                                                           rRSTSent=qRST_Sent,
+                                                           rITU=fromInteger <$> qITU,
+                                                           rWAZ=fromInteger <$> qWAZ,
+                                                           rCall=qCall,
+                                                           rAntenna=qAntenna,
+                                                           rUploaded=isJust $ qLOTW_SDate c,
+                                                           rEdited=False }
+          )
+          rows
 
     -- Finally, hook up the view and store.
     treeViewSetModel view store
 
     -- Make the buttons do something.
-    [cancelButton, okButton] <-  mapM (builderGetObject builder castToButton) ["cancelButton", "okButton"]
+    [cancelButton, okButton] <-  mapM (builderGetObject builder castToButton) ["cancelButton" :: Text, "okButton" :: Text]
     on cancelButton buttonActivated mainQuit
     on okButton buttonActivated (updateEdited store >> mainQuit)
 
@@ -320,5 +273,5 @@ runGUI pairs = do
 
 main :: IO ()
 main = do
-    rows <- readDB "/home/chris/radio/qsos.db"
+    rows <- getAllQSOs "/home/chris/radio/qsos.db"
     runGUI rows

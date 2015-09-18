@@ -8,12 +8,10 @@
 -- must also have curl and the tsql programs installed, as there are not satisfactory
 -- Haskell interfaces to do everything in this module.
 module Slog.LOTW(sign,
-                 download,
-                 upload)
+                 download)
  where
 
 import Data.List(isInfixOf)
-import System.Cmd(system)
 import System.Directory(doesFileExist)
 import System.Exit(ExitCode(..))
 import System.FilePath(replaceExtension)
@@ -33,7 +31,7 @@ download date call password = do
         -- LOTW can send errors as an HTML chunk (not a full page), so that needs
         -- to be intercepted here.
         ExitSuccess     -> if "LoTW is Offline" `isInfixOf` stdout
-                           then fail $ "Fetching from LOTW failed: LOTW is offline"
+                           then fail "Fetching from LOTW failed: LOTW is offline"
                            else return stdout
         ExitFailure _   -> fail $ "Fetching from LOTW failed: " ++ stderr
 
@@ -48,19 +46,9 @@ sign qth file = do
     exists <- doesFileExist file
 
     if exists then do
-        -- I'd add a -x here to tell tqsl to quit after signing, but that
-        -- apparently makes it exit with 255 instead of 0.  Oh well.
-        rc <- system $ printf "tqsl -d -l %s %s" qth file
-        case rc of
+        (exitcode, _, stderr) <- readProcessWithExitCode "tqsl" ["-u", "-d", "-l", qth, file, "-x"] ""
+        case exitcode of
             ExitSuccess     -> return $ replaceExtension file ".tq8"
-            ExitFailure _   -> fail "Signing failed."
+            ExitFailure _   -> fail $ "Signing failed: " ++ stderr
     else
         fail "File does not exist."
-
--- | Upload a signed ADIF file to LOTW.
-upload :: FilePath -> IO ()
-upload file = do
-    (exitcode, _, stderr) <- readProcessWithExitCode "curl" ["-F", "upfile=@" ++ file, "https://lotw.arrl.org/lotw/upload"] ""
-    case exitcode of
-        ExitSuccess     -> return ()
-        ExitFailure _   -> fail $ "Uploading to LOTW failed: " ++ stderr

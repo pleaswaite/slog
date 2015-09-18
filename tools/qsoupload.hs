@@ -1,49 +1,51 @@
+{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
+import Control.Applicative((<$>))
 import Control.Exception(IOException, catch, finally)
-import Data.List(intersperse)
-import Prelude hiding(catch)
+import Data.List(intercalate)
 import System.Directory(getTemporaryDirectory, removeFile)
 import System.IO
 
-import Slog.DB(getUnsentQSOs, markQSOsAsSent, runTransaction)
+import Slog.DB(getUnsentQSOs, markQSOsAsSent)
 import Slog.Formats.ADIF.Writer(renderRecord)
-import Slog.LOTW(sign, upload)
+import Slog.LOTW(sign)
 import Slog.QSO(qsoToADIF)
 
 import ToolLib.Config
 
 type SignFuncTy = FilePath -> IO FilePath
-type UploadFuncTy = FilePath -> IO ()
 
 withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
 withTempFile pattern func = do
-    tempdir <- catch (getTemporaryDirectory) (\(_ :: IOException) -> return ".")
+    tempdir <- catch getTemporaryDirectory (\(_ :: IOException) -> return ".")
     (tempfile, temph) <- openTempFile tempdir pattern
     finally (func tempfile temph)
-            (do removeFile tempfile)
+            (removeFile tempfile)
 
-writeAndUpload :: String -> SignFuncTy -> UploadFuncTy -> FilePath -> Handle -> IO ()
-writeAndUpload adifs signFunc uploadFunc tempname temph = do
+writeAndUpload :: String -> SignFuncTy -> FilePath -> Handle -> IO ()
+writeAndUpload adifs signFunc tempname temph = do
     hPutStrLn temph adifs
     hClose temph
     signedFile <- signFunc tempname
-    finally (uploadFunc signedFile)
-            (do removeFile signedFile)
+    removeFile signedFile
 
 main :: IO ()
 main = do
     -- Read in the config file.
-    conf <- readConfig
+    Config{..} <- readConfig
 
     -- Get the on-disk location of the database.
-    let fp = confDB conf
+    let fp = confDB
 
-    -- Get all the un-uploaded QSOs and convert them to a string of ADIF data.
-    qsos <- runTransaction fp getUnsentQSOs
-    let adifs = concat $ intersperse "\r\n" $ map (renderRecord . qsoToADIF) qsos
+    -- Get all the un-uploaded QSOs and their matching ID numbers, and convert them to
+    -- a string of ADIF data.  We'll save the IDs for marking in the database later.
+    (ids, qsos) <- unzip <$> map (\(a, b, _) -> (a, b)) <$> getUnsentQSOs fp
+    let adifs = intercalate "\r\n" $ map (renderRecord . qsoToADIF) qsos
 
     -- Then write out the temporary file, sign it, and upload it.
-    withTempFile "new.adi" (writeAndUpload adifs (sign $ confQTH conf) upload)
+    withTempFile "new.adi" (writeAndUpload adifs (sign confQTH))
 
     -- Finally, update the database to reflect everything that's been uploaded.
-    runTransaction fp $ markQSOsAsSent qsos
+    markQSOsAsSent fp ids

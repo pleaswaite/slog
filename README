@@ -1,14 +1,9 @@
 How to use all this crud:
 
-(1) Install a bunch of stuff with yum:
+(1) Install a bunch of stuff with cabal:
 
-    - ghc-Cabal ghc-ConfigFile ghc-MissingH ghc-gtk ghc-parsec ghc-xml
-    - the -devel versions of all the above
-    - tqsllib trustedqsl
-
-    Install a bunch of stuff with cabal:
-
-    - HDBC HDBC-sqlite3 convertible
+    $ cabal sandbox init
+    $ cabal install --dependencies-only
 
 (2) Set up an account at http://www.hamqth.com.  You will need this to do call sign lookups.
     It's easy.
@@ -31,6 +26,9 @@ How to use all this crud:
     username = kg6cih
     password = <my password here>
 
+    [Antennas]
+    antennas=Dipole, 1.25m J-Pole, HT
+
     It's okay if the file referenced by database does not yet exist.  The first time you
     run qsoadd, it will be created.  I highly recomment having a radio/ directory as you
     will start to accumulate a ton of files for using LOTW.  Also, the qth setting needs
@@ -38,5 +36,5 @@ How to use all this crud:
 
 (5) Build everything:
 
-    $ runhaskell Setup.hs configure --user
-    $ runhaskell Setup.hs build
+    $ cabal build
+    $ cabal run slog

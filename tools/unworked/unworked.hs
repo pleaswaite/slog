@@ -1,13 +1,16 @@
+{-# OPTIONS_GHC -Wall #-}
+
 import Control.Monad(liftM)
 import Data.List((\\), nub, sort)
-import Data.Maybe(catMaybes, mapMaybe)
+import Data.Maybe(mapMaybe)
+import Data.Tuple.Utils(snd3, thd3)
 import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
+import Slog.DB(getAllQSOs)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID)
-import Slog.QSO(QSO(qDXCC))
+import Slog.QSO(QSO(qDXCC), isConfirmed)
 
 import ToolLib.Config
 
@@ -39,11 +42,11 @@ mkFilterAction opt f =
 
 opts :: [OptDescr OptAction]
 opts = [
-    Option ['a'] ["all"]         (NoArg (\opt -> return opt {optConfirmedOnly = False }))
+    Option "a" ["all"]         (NoArg (\opt -> return opt {optConfirmedOnly = False }))
            "filter out all worked entities, not just confirmed",
-    Option [] ["filter-band"]    (ReqArg (\arg opt -> return $ mkFilterAction opt (F.qsoByBand (read arg :: ADIF.Band))) "BAND")
+    Option [] ["filter-band"]  (ReqArg (\arg opt -> return $ mkFilterAction opt (F.qsoByBand (read arg :: ADIF.Band))) "BAND")
            "filter by band",
-    Option [] ["filter-cont"]    (ReqArg (\arg opt -> return opt {optFilterDXCC = (F.dxccByContinent (read arg :: ADIF.Continent))}) "CONT")
+    Option [] ["filter-cont"]  (ReqArg (\arg opt -> return opt {optFilterDXCC = F.dxccByContinent (read arg :: ADIF.Continent)}) "CONT")
            "show only results for a given continent"
  ]
 
@@ -54,6 +57,7 @@ handleOpts argv =
         (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header opts))
                         where header = "Usage: unworked [OPTIONS]"
 
+processArgs :: Monad m => m ([Options -> m Options], t) -> m Options
 processArgs argsFunc = do
     (actions, _) <- argsFunc
     foldl (>>=) (return defaultOptions) actions
@@ -66,7 +70,7 @@ processArgs argsFunc = do
 -- been worked.
 unworkedIDs :: [QSO] -> [Integer]
 unworkedIDs qsos =
-    entityIDs \\ (nub $ catMaybes (map qDXCC qsos))
+    entityIDs \\ nub (mapMaybe qDXCC qsos)
 
 main :: IO ()
 main = do
@@ -79,19 +83,18 @@ main = do
     -- Get the on-disk location of the database.
     let fp = confDB conf
 
-    -- Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ runTransaction fp getAllQSOs
-    unconfirmed <- runTransaction fp getUnconfirmedQSOs
+    -- Get all QSOs as (id, QSO, Confirmation) tuples.
+    results <- liftM reverse $ getAllQSOs fp
 
     -- If we are reporting based on only confirmed QSOs, remove unconfirmed
     -- ones from the list.  Otherwise, use all the QSOs in the log.
-    let qsos' = if optConfirmedOnly cmdline then qsos \\ unconfirmed
-                else qsos
+    let qsos = map snd3 $ if optConfirmedOnly cmdline then filter (isConfirmed . thd3) results
+                          else results
 
     -- Reduce the list of worked QSOs down to just those on the given band
     -- (or whatever) we want to consider.  Then, convert that into a list of
     -- DXCC entity IDs that have not been worked.
-    let unworked = unworkedIDs $ foldl (flip filter) qsos' (optFilterQSO cmdline)
+    let unworked = unworkedIDs $ foldl (flip filter) qsos (optFilterQSO cmdline)
 
     -- And then we need to convert the list of entity numbers into a list of
     -- entity objects.  This is roundabout because DXCC doesn't expose the

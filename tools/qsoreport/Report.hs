@@ -1,3 +1,6 @@
+{-# OPTIONS_GHC -Wall #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module Report(reportAll,
               reportChallenge,
               reportDXCC,
@@ -6,30 +9,30 @@ module Report(reportAll,
 
 import Data.List(groupBy, nubBy, sortBy)
 import Data.Maybe(listToMaybe)
+import Data.Tuple.Utils(snd3, thd3)
 import Text.XHtml.Strict hiding(caption)
 import Text.XHtml.Table
 
+import Slog.DB(DBResult)
 import Slog.DXCC(DXCC(..), entityFromID)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
 import Slog.QSO
 import Slog.Utils(colonifyTime, dashifyDate)
 
-import Types(ConfirmInfo)
-
 -- This defines a row in a general query table, fitting the header given below.
-qsoToRow :: (QSO, Bool) -> HtmlTable
-qsoToRow (qso, isConfirmed) =
-    besides [td $ toHtml (dashifyDate $ qDate qso),
-             td $ toHtml (colonifyTime $ qTime qso),
-             td $ toHtml (qCall qso),
-             td $ toHtml (show $ qFreq qso),
-             td $ toHtml (show $ qMode qso),
-             td $ toHtml (qDXCC qso >>= entityFromID >>= Just . dxccEntity),
-             td $ toHtml (qGrid qso),
-             td $ toHtml (maybe "" show $ qITU qso),
-             td $ toHtml (maybe "" show $ qWAZ qso),
-             td $ toHtml (if isConfirmed then "Y" else "")
+resultToRow :: DBResult -> HtmlTable
+resultToRow (_, QSO{..}, c) =
+    besides [td $ toHtml (dashifyDate qDate),
+             td $ toHtml (colonifyTime qTime),
+             td $ toHtml qCall,
+             td $ toHtml (show qFreq),
+             td $ toHtml (show qMode),
+             td $ toHtml (qDXCC >>= entityFromID >>= Just . dxccEntity),
+             td $ toHtml qGrid,
+             td $ toHtml (maybe "" show qITU),
+             td $ toHtml (maybe "" show qWAZ),
+             td $ toHtml (if isConfirmed c then "Y" else "")
      ]
 
 -- This header is suitable for printing out general queries - dumping all logged QSOs,
@@ -48,22 +51,22 @@ tableHeader =
              (th $ toHtml "Confirmed")
      ]
 
-report :: String -> [ConfirmInfo] -> Html
-report caption ci = concatHtml [
+report :: String -> [DBResult] -> Html
+report caption results = concatHtml [
     table ! [border 1] << (toHtml tableBody),
     br,
     toHtml $ show nQSOs ++ " " ++ caption ++ ", " ++ show nConfirmed ++ " confirmed" ]
  where
     nQSOs = length results
-    nConfirmed = length $ filter id (map snd ci)
+    nConfirmed = length $ filter isConfirmed (map thd3 results)
 
-    results = map qsoToRow ci
+    results' = map resultToRow results
 
     tableBody = if null results then tableHeader
-                else tableHeader `above` aboves results
+                else tableHeader `above` aboves results'
 
 -- Just dump all logged QSOs to HTML.
-reportAll :: [ConfirmInfo] -> Html
+reportAll :: [DBResult] -> Html
 reportAll = report "QSOs logged"
 
 -- The DXCC challenge award requires a lot of special code.
@@ -138,8 +141,8 @@ challengeHeader = besides $ [th $ toHtml "DXCC"] ++ map (th . toHtml . show) cha
                       ADIF.Band20M, ADIF.Band17M, ADIF.Band15M, ADIF.Band12M, ADIF.Band10M,
                       ADIF.Band6M]
 
-reportChallenge :: [ConfirmInfo] -> Html
-reportChallenge ci = table ! [border 1] << (toHtml tableBody)
+reportChallenge :: [DBResult] -> Html
+reportChallenge results = table ! [border 1] << (toHtml tableBody)
  where
     dxccSorter qsoA qsoB = case (qDXCC qsoA, qDXCC qsoB) of
         (Just a, Just b) -> nameA `compare` nameB
@@ -152,46 +155,48 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
 
     createRecords dxccList = foldl addToRec mkChallengeRec dxccList
      where
-        addToRec rec entry = case freqToBand (qFreq entry) of
-            Just ADIF.Band160M      -> rec { c160M = (c160M rec) ++ [entry] }
-            Just ADIF.Band80M       -> rec { c80M = (c80M rec) ++ [entry] }
-            Just ADIF.Band40M       -> rec { c40M = (c40M rec) ++ [entry] }
-            Just ADIF.Band30M       -> rec { c30M = (c30M rec) ++ [entry] }
-            Just ADIF.Band20M       -> rec { c20M = (c20M rec) ++ [entry] }
-            Just ADIF.Band17M       -> rec { c17M = (c17M rec) ++ [entry] }
-            Just ADIF.Band15M       -> rec { c15M = (c15M rec) ++ [entry] }
-            Just ADIF.Band12M       -> rec { c12M = (c12M rec) ++ [entry] }
-            Just ADIF.Band10M       -> rec { c10M = (c10M rec) ++ [entry] }
-            Just ADIF.Band6M        -> rec { c6M = (c6M rec) ++ [entry] }
+        addToRec rec@ChallengeRec{..} entry = case freqToBand (qFreq entry) of
+            Just ADIF.Band160M      -> rec { c160M = c160M ++ [entry] }
+            Just ADIF.Band80M       -> rec { c80M  = c80M  ++ [entry] }
+            Just ADIF.Band40M       -> rec { c40M  = c40M  ++ [entry] }
+            Just ADIF.Band30M       -> rec { c30M  = c30M  ++ [entry] }
+            Just ADIF.Band20M       -> rec { c20M  = c20M  ++ [entry] }
+            Just ADIF.Band17M       -> rec { c17M  = c17M  ++ [entry] }
+            Just ADIF.Band15M       -> rec { c15M  = c15M  ++ [entry] }
+            Just ADIF.Band12M       -> rec { c12M  = c12M  ++ [entry] }
+            Just ADIF.Band10M       -> rec { c10M  = c10M  ++ [entry] }
+            Just ADIF.Band6M        -> rec { c6M   = c6M   ++ [entry] }
             _                       -> rec
 
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    -- Since this function doesn't use report, we can really just get rid of all the
+    -- qsoid and confirmation stuff.
+    qsos = map snd3 results
 
     -- Create a new list where each element is a list of all QSOs for a specific
     -- DXCC entity.
-    dxccBuckets = groupBy dxccGrouper (sortBy dxccSorter ci')
+    dxccBuckets = groupBy dxccGrouper (sortBy dxccSorter qsos)
 
     -- Then convert that list into a list of tuples.  The first element is a ChallengeRec
     -- where each element holds a list of QSOs for a single band.  The second element
     -- is the first QSO, from which we can extract the DXCC entity later on.
     bandDxccBuckets = map (\bucket -> (createRecords bucket, bucket !! 0)) dxccBuckets
 
-    results = map recToRow bandDxccBuckets
+    results' = map recToRow bandDxccBuckets
     totals = countUp mkCountRec bandDxccBuckets
      where
         a ++? b = a + (if not (null b) then 1 else 0)
 
-        addTo rec result = rec { n160M = (n160M rec) ++? (c160M result),
-                                 n80M = (n80M rec) ++? (c80M result),
-                                 n40M = (n40M rec) ++? (c40M result),
-                                 n30M = (n30M rec) ++? (c30M result),
-                                 n20M = (n20M rec) ++? (c20M result),
-                                 n17M = (n17M rec) ++? (c17M result),
-                                 n15M = (n15M rec) ++? (c15M result),
-                                 n12M = (n12M rec) ++? (c12M result),
-                                 n10M = (n10M rec) ++? (c10M result),
-                                 n6M = (n6M rec) ++? (c6M result) }
+        addTo rec@ChallengeCount{..} ChallengeRec{..} =
+            rec { n160M = n160M ++? c160M,
+                  n80M  = n80M  ++? c80M,
+                  n40M  = n40M  ++? c40M,
+                  n30M  = n30M  ++? c30M,
+                  n20M  = n20M  ++? c20M,
+                  n17M  = n17M  ++? c17M,
+                  n15M  = n15M  ++? c15M,
+                  n12M  = n12M  ++? c12M,
+                  n10M  = n10M  ++? c10M,
+                  n6M   = n6M   ++? c6M }
         countUp rec ((r, _):lst) = countUp (addTo rec r) lst
         countUp rec [] = rec
 
@@ -199,40 +204,34 @@ reportChallenge ci = table ! [border 1] << (toHtml tableBody)
                        map (\band -> th $ toHtml $ show (band rec))
                            [n160M, n80M, n40M, n30M, n20M, n17M, n15M, n12M, n10M, n6M]
 
-    tableBody = if null results then challengeHeader
-                else challengeHeader `above` aboves results `above` (reportTotals totals)
+    tableBody = if null results' then challengeHeader
+                else challengeHeader `above` aboves results' `above` (reportTotals totals)
 
 -- Dump all logged QSOs for various DXCC awards.  The results of this can be filtered down
 -- further by band or mode to get the sub-awards.
-reportDXCC :: [ConfirmInfo] -> Html
-reportDXCC ci = report "DXCC QSOs logged" (zip uniq $ repeat True)
+reportDXCC :: [DBResult] -> Html
+reportDXCC results = report "DXCC QSOs logged" uniq
  where
-    dxccEq qsoA qsoB = qDXCC qsoA == qDXCC qsoB
-
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    dxccEq (_, qsoA, _) (_, qsoB, _) = qDXCC qsoA == qDXCC qsoB
 
     -- Reduce the list to only unique entities.
-    uniq = nubBy dxccEq ci'
+    uniq = nubBy dxccEq results
 
 -- Dump all logged QSOs for the VUCC award.
-reportVUCC :: [ConfirmInfo] -> Html
-reportVUCC ci = report "VUCC QSOs logged" (zip uniq $ repeat True)
+reportVUCC :: [DBResult] -> Html
+reportVUCC results  = report "VUCC QSOs logged" uniq
  where
     -- Due to the way the VUCC award works, we cannot rely on the grid square given by
     -- doing a lookup.  The other station could be in a different grid than their QTH.
     -- Thus, we need to use the grid from the exchange.  For ease of reporting, though,
     -- I'm just going to stick that value back into the grid field so the rest of the
     -- reporting code does not need to be changed.
-    modifyGrid qso = maybe qso (\grid -> qso { qGrid = Just $ take 4 grid }) (qXcIn qso)
+    modifyGrid (i, q, c) = (i, maybe q (\grid -> q { qGrid = Just $ take 4 grid }) (qXcIn q), c)
 
-    gridsEq qsoA qsoB = qGrid qsoA == qGrid qsoB
-
-    -- Remove the confirmation info, since everything's confirmed.
-    ci' = fst $ unzip ci
+    gridsEq (_, qsoA, _) (_, qsoB, _) = qGrid qsoA == qGrid qsoB
 
     -- Grab everything 50 MHz and up.
-    sixAndUp = filter (\qso -> maybe False (>= ADIF.Band6M) (freqToBand $ qFreq qso)) ci'
+    sixAndUp = filter (\(_, q, _) -> maybe False (>= ADIF.Band6M) (freqToBand $ qFreq q)) results
 
     -- Reduce the grid element of each QSO to just four characters.
     trimmedGrids = map modifyGrid sixAndUp

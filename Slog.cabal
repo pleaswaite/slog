@@ -39,10 +39,13 @@ library
                    containers,
                    convertible,
                    directory,
+                   esqueleto,
                    filepath,
                    mtl,
                    network,
                    parsec,
+                   persistent-sqlite,
+                   persistent-template,
                    process,
                    split,
                    text,
@@ -50,7 +53,6 @@ library
                    xml,
                    ConfigFile,
                    HDBC,
-                   HDBC-sqlite3,
                    HTTP,
                    MissingH
 
@@ -72,11 +74,6 @@ executable qsoadd
   hs-source-dirs:  tools
 
   build-depends:   base,
-                   gtk,
-                   mtl,
-                   old-locale,
-                   time,
-                   HDBC,
                    MissingH,
                    Slog
 
@@ -85,8 +82,8 @@ executable qsoconfirm
   hs-source-dirs:  tools
 
   build-depends:   base,
+                   MissingH,
                    mtl,
-                   HDBC,
                    Slog
 
 executable qsoreport
@@ -100,7 +97,8 @@ executable qsoreport
   build-depends:   base,
                    containers,
                    xhtml,
-                   Slog
+                   Slog,
+                   MissingH
 
 executable qsoupload
   main-is:         qsoupload.hs
@@ -117,4 +115,23 @@ executable unworked
   other-modules:   Filter
 
   build-depends:   base,
+                   MissingH,
+                   Slog
+
+executable slog
+  main-is:         slog.hs
+  hs-source-dirs:  tools/slog
+
+  other-modules:   Contest,
+                   State,
+                   Types
+
+  build-depends:   base,
+                   cond,
+                   gtk,
+                   mtl,
+                   old-locale,
+                   text,
+                   time,
+                   utf8-string,
                    Slog

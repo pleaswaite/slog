@@ -1,25 +1,24 @@
-import Control.Monad(liftM)
+{-# OPTIONS_GHC -Wall #-}
+
 import System.Console.GetOpt
 import System.Environment(getArgs)
-import System.Exit(ExitCode(..), exitWith)
+import System.Exit(exitSuccess)
 import Text.XHtml.Strict(Html, showHtml)
 
-import Slog.DB(getAllQSOs, getUnconfirmedQSOs, runTransaction)
+import Slog.DB(DBResult, getAllQSOs)
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.Utils(uppercase)
 
 import ToolLib.Config
 
 import qualified Filter as F
 import Report(reportAll, reportChallenge, reportDXCC, reportVUCC)
-import Types(ConfirmInfo)
 
 --
 -- OPTION PROCESSING CODE
 --
 
-type FilterFunc = (ConfirmInfo -> Bool)
-type ReportFunc = ([ConfirmInfo] -> Html)
+type FilterFunc = (DBResult -> Bool)
+type ReportFunc = ([DBResult] -> Html)
 
 data Options = Options {
     optFilter :: [FilterFunc],
@@ -40,7 +39,7 @@ opts :: [OptDescr OptAction]
 opts = [
     Option [] ["filter-band"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byBand (read arg :: ADIF.Band))) "BAND")
            "filter by band",
-    Option [] ["filter-call"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byCall $ uppercase arg)) "CALL")
+    Option [] ["filter-call"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byCall arg)) "CALL")
            "filter QSOs by call sign",
     Option [] ["filter-confirmed"]      (NoArg (\opt -> return $ mkFilterAction opt (F.byConfirmed True)))
            "filter confirmed QSOs",
@@ -70,8 +69,8 @@ opts = [
     Option [] ["vucc"]                  (NoArg (\opt -> return (mkFilterAction opt (F.byConfirmed True)) { optReport = reportVUCC }))
            "display VUCC progress",
 
-    Option ['h'] ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
-                                                           exitWith ExitSuccess))
+    Option "h" ["help"]               (NoArg   (\_ -> do putStrLn (usageInfo "qsoreport" opts)
+                                                         exitSuccess))
            "print program usage"
  ]
 
@@ -103,22 +102,16 @@ main = do
     let fp = confDB conf
 
     -- Reporting is a multiple step process:
-    -- (1) Get all QSOs and all unconfirmed QSOs.
-    qsos <- liftM reverse $ runTransaction fp getAllQSOs
-    unconfirmed <- runTransaction fp getUnconfirmedQSOs
+    -- (1) Get all QSOs.
+    results <- getAllQSOs fp
 
-    -- (2) Construct a list of tuples:  a QSO, and a boolean saying whether it's
-    -- been confirmed or not.
-    let confirms = map (`notElem` unconfirmed) qsos
-    let ci = zip qsos confirms
-
-    -- (3) Filter the results based on band, call, or whatever else was requested
+    -- (2) Filter the results based on band, call, or whatever else was requested
     -- on the command line.
-    let ci' = foldl (flip filter) ci (optFilter cmdline)
+    let results' = foldl (flip filter) results (optFilter cmdline)
 
-    -- (4) Convert to HTML based upon whatever header and body formatting was requested
+    -- (3) Convert to HTML based upon whatever header and body formatting was requested
     -- on the command line.  This is what makes it a report.
-    let html = showHtml $ (optReport cmdline) ci'
+    let html = showHtml $ optReport cmdline results'
 
     -- (5) Display.
     putStrLn html

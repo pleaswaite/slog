@@ -6,7 +6,7 @@ module Slog.Cluster( Spot(..),
 
 import Control.Exception(IOException, try)
 import Control.Monad.State
-import Data.List(findIndex)
+import Data.List(elemIndex)
 import Data.List.Split(splitOn)
 import Data.Maybe(fromJust, mapMaybe)
 import Network.HTTP
@@ -32,15 +32,15 @@ data Spot = Spot { spCall :: String,                  -- ^ the DX's call sign
 
 makeSpot :: [String] -> Maybe Spot
 makeSpot [call, freq, spotter, comment, datetime, lotw, eqsl, continent] =
-    Just $ Spot { spCall = call,
-                  spFreq = fromJust $ stringToDouble freq,
-                  spSpotter = spotter,
-                  spComment = asMaybe comment,
-                  spDate = date,
-                  spTime = time,
-                  spLOTW = lotw == "L",
-                  spEQSL = eqsl == "E",
-                  spContinent = read continent :: ADIF.Continent }
+    Just Spot { spCall = call,
+                spFreq = fromJust $ stringToDouble freq,
+                spSpotter = spotter,
+                spComment = asMaybe comment,
+                spDate = date,
+                spTime = time,
+                spLOTW = lotw == "L",
+                spEQSL = eqsl == "E",
+                spContinent = read continent :: ADIF.Continent }
  where
     asMaybe "" = Nothing
     asMaybe x  = Just x
@@ -67,16 +67,16 @@ parseString s = mapMaybe parseOne (lines s)
 grabSpots :: IO String
 grabSpots = do
     let url = "http://hamqth.com/dxc_csv.php?limit=25"
-    result <- try ((simpleHTTP $ getRequest url) >>= getResponseBody) :: IO (Either IOException String)
-    return $ either (\_ -> "") (id) result
+    result <- try (simpleHTTP (getRequest url) >>= getResponseBody) :: IO (Either IOException String)
+    return $ either (const "") id result
 
 -- Given a list of new spots and the latest spot we previously grabbed, return all the spots that
 -- are newer.
 removeOldSpots :: [Spot] -> Spot -> [Spot]
 removeOldSpots newSpots latestOld =
     maybe newSpots
-          (flip take newSpots)
-          (findIndex (== latestOld) newSpots)
+          (`take` newSpots)
+          (elemIndex latestOld newSpots)
 
 -- | Return a list of the DX cluster spots that have appeared since the last time
 -- this function was called.
