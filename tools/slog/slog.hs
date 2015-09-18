@@ -891,8 +891,8 @@ main = do
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have
     -- to check all over the place anyway.
-    unlessM isRigctldRunning $
-        runRigctld (confRadioModel conf) (confRadioDev conf)
+--    unlessM isRigctldRunning $
+--        runRigctld (confRadioModel conf) (confRadioDev conf)
 
     (widgets, cWidgets) <- loadFromGlade conf
 
