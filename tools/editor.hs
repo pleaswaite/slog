@@ -9,6 +9,8 @@ import Data.Maybe(fromJust, fromMaybe, isJust)
 import Data.Text(Text, pack)
 import Graphics.UI.Gtk hiding(get, set)
 
+import Paths_Slog(getDataFileName)
+
 import Slog.DB(DBResult, QsosId, getAllQSOs, initDB, updateQSO)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID, idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
@@ -45,10 +47,10 @@ editedRows store =
     filter rEdited <$> listStoreToList store
 
 -- Update all rows in the database that need it.
-updateEdited :: ListStore Row -> IO ()
-updateEdited store = do
+updateEdited :: FilePath -> ListStore Row -> IO ()
+updateEdited db store = do
     lst <- editedRows store
-    mapM_ (\r@Row{..} -> updateQSO "/home/chris/radio/qsos.db" (rQsoid, rowToQSO r, not rUploaded)) lst
+    mapM_ (\r@Row{..} -> updateQSO db (rQsoid, rowToQSO r, not rUploaded)) lst
  where
     rowToQSO :: Row -> QSO
     rowToQSO Row{..} =
@@ -223,13 +225,14 @@ addColumns store view = do
     entityNameFromID :: Integer -> String
     entityNameFromID = dxccEntity . fromJust . entityFromID
 
-runGUI :: [DBResult] -> IO ()
-runGUI rows = do
+runGUI :: [DBResult] -> FilePath -> IO ()
+runGUI rows db = do
     initGUI
 
     -- Grab what little bit of the UI can be defined in glade.
     builder <- builderNew
-    builderAddFromFile builder "/home/chris/src/slog/data/editor.ui"
+    gladeFile <- getDataFileName "editor.ui"
+    builderAddFromFile builder gladeFile
 
     window <- builderGetObject builder castToWindow ("mainWindow" :: Text)
     onDestroy window mainQuit
@@ -268,7 +271,7 @@ runGUI rows = do
     -- Make the buttons do something.
     [cancelButton, okButton] <-  mapM (builderGetObject builder castToButton) ["cancelButton" :: Text, "okButton" :: Text]
     on cancelButton buttonActivated mainQuit
-    on okButton buttonActivated (updateEdited store >> mainQuit)
+    on okButton buttonActivated (updateEdited db store >> mainQuit)
 
     widgetShowAll window
     mainGUI
@@ -279,4 +282,4 @@ main = do
     initDB confDB
 
     rows <- getAllQSOs confDB
-    runGUI rows
+    runGUI rows confDB
