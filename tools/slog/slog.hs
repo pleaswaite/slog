@@ -83,41 +83,34 @@ lookup call user pass =
 -- WORKING WITH COMBO BOXES
 --
 
-addAntennas :: Table -> Config -> IO ComboBox
-addAntennas tbl Config{..} = do
-    combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.strip . T.pack) confAntennas
+loadAntennas :: ComboBox -> Config -> Maybe QTH -> IO ()
+loadAntennas combo Config{..} qth = do
+    -- Clear out the antenna store.  This could potentially change every time the
+    -- QTH is changed.
+    store <- comboBoxGetModelText combo
+    listStoreClear store
+
+    -- Add the antennas for the given QTH, or "Unknown" if none was provided.
+    let antennas = maybe ["Unknown"] getAntennas qth
+    mapM_ (comboBoxAppendText combo . T.strip . T.pack) antennas
 
     -- Set the default antenna to whatever is given by the config file.
-    store <- comboBoxGetModelText combo
-    ndx <- listStoreIndexOf store confDefaultAntenna
+    ndx <- listStoreIndexOf store (maybe "Unknown" qthDefaultAntenna qth)
     forM_ ndx (comboBoxSetActive combo)
 
-    tableAttach tbl combo
-                3 4 3 4
-                [Fill] []
-                0 0
-
     widgetShowAll combo
-    return combo
 
-addModes :: Table -> Config -> IO ComboBox
-addModes tbl Config{..} = do
-    combo <- comboBoxNewText
-    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW", "JT65", "JT9", "FM", "PSK31", "RTTY", "SSB"]
+loadModes :: ComboBox -> Config -> IO ()
+loadModes combo Config{..} = do
+    -- Add all the modes we care about.
+    mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW","JT65", "JT9", "FM", "PSK31", "RTTY", "SSB"]
 
-    -- Set the default mode to whatever is given by the config file.
+    -- Set the default mode to whatever is given by the config flie.
     store <- comboBoxGetModelText combo
     ndx <- listStoreIndexOf store confDefaultMode
     forM_ ndx (comboBoxSetActive combo)
 
-    tableAttach tbl combo
-                    1 2 3 4
-                    [Fill] []
-                    0 0
-
     widgetShowAll combo
-    return combo
 
 --
 -- UI HELPERS
@@ -173,11 +166,18 @@ addStateCheck Widgets{..} band | band == Just Band160M      = addCheckToTable wS
                                | band == Just Band70CM      = addCheckToTable wStateGrid 13 2
                                | otherwise                  = return ()
 
-antennaForFreq :: Config -> String -> String
-antennaForFreq Config{..} text =
+antennaForFreq :: String -> Config -> String -> String
+antennaForFreq qthName Config{..} text = let
+    qth = L.lookup qthName confQTHs
+ in
     case stringToDouble text >>= freqToBand of
-        Nothing -> confDefaultAntenna
-        Just b  -> fromMaybe confDefaultAntenna (L.lookup b confAntennaMap)
+        -- The frequency given doesn't fall in any ham band.  Return the default antenna for the
+        -- given QTH.  If there's no default QTH, just return "Unknown".
+        Nothing -> maybe "Unknown" qthDefaultAntenna qth
+        -- The frequency given does fall into a ham band.  Look up the antenna for that band in
+        -- the QTH's map.  If there's no antenna given, use the QTH's default.  If there's no
+        -- default QTH, just return "Unknown".  Lots can go wrong here.
+        Just b  -> maybe "Unknown" (\qth' -> fromMaybe (qthDefaultAntenna qth') (L.lookup b $ qthAntennaMap qth')) qth
 
 modeForFreq :: Config -> String -> String
 modeForFreq Config{..} text =
@@ -651,6 +651,7 @@ addSignalHandlers state = do
     conf <- readState state psConf
     prevStore <- readState state psPrevStore
     w@Widgets{..} <- readState state psWidgets
+    qthName <- readState state psQTH
 
     -- Install a bunch of regular signal handlers.
     onDestroy wMainWindow mainQuit
@@ -685,7 +686,7 @@ addSignalHandlers state = do
         text <- get wFreq entryText
         antennaStore <- comboBoxGetModelText wAntenna
         modeStore <- comboBoxGetModelText wMode
-        antennaNdx <- listStoreIndexOf antennaStore (antennaForFreq conf text)
+        antennaNdx <- listStoreIndexOf antennaStore (antennaForFreq qthName conf text)
         modeNdx <- listStoreIndexOf modeStore (modeForFreq conf text)
         forM_ antennaNdx (comboBoxSetActive wAntenna)
         forM_ modeNdx (comboBoxSetActive wMode)
@@ -717,8 +718,8 @@ loadContestWidgets builder = do
                       zoneZone
                       tenState
 
-loadWidgets :: Builder -> ComboBox -> ComboBox -> IO Widgets
-loadWidgets builder antennas modes = do
+loadWidgets :: Builder -> IO Widgets
+loadWidgets builder = do
     [call, freq, rxFreq, rst_rcvd,
      rst_sent, xc_rcvd, xc_sent, date, time] <- mapM (builderGetObject builder castToEntry)
                                                      ["callEntry", "freqEntry", "rxFreqEntry",
@@ -739,10 +740,14 @@ loadWidgets builder antennas modes = do
 
     [newQSO, dxccGrid, gridGrid, stateGrid] <- mapM (builderGetObject builder castToTable) ["newQSOGrid", "dxccGrid", "gridGrid", "stateGrid"]
 
-    [mainWindow] <- mapM (builderGetObject builder castToWindow) ["window1"]
-    [contestDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog"]
+    [antennas, modes] <- mapM (builderGetObject builder castToComboBox) ["antennaCombo", "modeCombo"]
+    void $ comboBoxSetModelText antennas
+    void $ comboBoxSetModelText modes
 
-    [contestMenu] <- mapM (builderGetObject builder castToAction) ["contestMenuItem"]
+    [mainWindow] <- mapM (builderGetObject builder castToWindow) ["window1"]
+    [contestDlg, qthDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog", "configQTHDialog"]
+
+    [contestMenu, qthMenu] <- mapM (builderGetObject builder castToAction) ["contestMenuItem", "qthMenuItem"]
 
     return $ Widgets call freqLabel freq rxFreqLabel rxFreq
                      rst_rcvd rst_sent xc_rcvd xc_sent
@@ -758,27 +763,16 @@ loadWidgets builder antennas modes = do
                      contestDlg
                      contestMenu
 
-loadFromGlade :: Config -> IO (Widgets, CWidgets)
-loadFromGlade conf = do
+loadFromGlade :: IO (Widgets, CWidgets)
+loadFromGlade = do
     -- Read in the glade file.
     builder <- builderNew
     builderAddFromFile builder "data/slog.ui"
 
-    -- Now that we have a builder, we can build a couple combo boxes that cannot be
-    -- specified in glade and then add those into the Widgets record.  That will make
-    -- it easier to deal with everywhere else.
-    (antennaCombo, modeCombo) <- buildCombos builder
-    widgets <- loadWidgets builder antennaCombo modeCombo
+    widgets <- loadWidgets builder
     cWidgets <- loadContestWidgets builder
 
     return (widgets, cWidgets)
- where
-    buildCombos :: Builder -> IO (ComboBox, ComboBox)
-    buildCombos builder = do
-        table <- builderGetObject builder castToTable "newQSOGrid"
-        antennaCombo <- addAntennas table conf
-        modeCombo <- addModes table conf
-        return (antennaCombo, modeCombo)
 
 initContestDialog :: CWidgets -> IO ()
 initContestDialog CWidgets{..} = do
@@ -885,8 +879,8 @@ main = do
     initGUI
 
     -- Read in the config file.
-    conf <- readConfig
-    initDB (confDB conf)
+    conf@Config{..} <- readConfig
+    initDB confDB
 
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have
@@ -894,7 +888,12 @@ main = do
 --    unlessM isRigctldRunning $
 --        runRigctld (confRadioModel conf) (confRadioDev conf)
 
-    (widgets, cWidgets) <- loadFromGlade conf
+    (widgets, cWidgets) <- loadFromGlade
+
+    -- Initialize the modes combo and the antenna combo.  The modes combo doesn't change,
+    -- but the antenna combo can change whenever the QTH is changed.
+    loadModes (wMode widgets) conf
+    loadAntennas (wAntenna widgets) conf (L.lookup confDefaultQTH confQTHs)
 
     -- Create the previous QSOs view store but leave it empty.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -902,7 +901,7 @@ main = do
 
     -- Create the all QSOs view store right now, but this one we want to populate immediately.
     allStore <- listStoreNew ([] :: [DisplayRow])
-    allQSOs <- getAllQSOs $ confDB conf
+    allQSOs <- getAllQSOs confDB
     initTreeView allStore (wAllView widgets)
     populateTreeView allStore allQSOs
 
@@ -914,5 +913,6 @@ main = do
                             psPrevStore = previousStore,
                             psAllStore = allStore,
                             psContestMode = False,
-                            psContestVal = mkNoneContest "" }
+                            psContestVal = mkNoneContest "",
+                            psQTH = confDefaultQTH }
     runGUI ps

@@ -29,7 +29,9 @@ data PState = PState {
     psAllStore :: ListStore DisplayRow,      -- ^ the 'ListStore' of all contacts in the database
 
     psContestMode :: Bool,                   -- ^ are we in contest mode?
-    psContestVal :: Contest                  -- ^ the 'Contest' record for generating exchange data
+    psContestVal :: Contest,                 -- ^ the 'Contest' record for generating exchange data
+
+    psQTH :: String                          -- ^ where are we located?
  }
 
 -- | Apply a modification function to an existing 'PState' record and store that result

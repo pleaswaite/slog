@@ -294,6 +294,19 @@
                       </packing>
                     </child>
                     <child>
+                      <object class="GtkComboBox" id="modeCombo">
+                        <property name="visible">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">1</property>
+                        <property name="right_attach">2</property>
+                        <property name="top_attach">3</property>
+                        <property name="bottom_attach">4</property>
+                        <property name="x_options">fill</property>
+                        <property name="y_options"/>
+                      </packing>
+                    </child>
+                    <child>
                       <object class="GtkLabel" id="rstRcvdLabel">
                         <property name="visible">True</property>
                         <property name="label" translatable="yes">&lt;b&gt;RST Rcvd&lt;/b&gt;</property>
@@ -622,6 +635,19 @@
                       <packing>
                         <property name="left_attach">2</property>
                         <property name="right_attach">3</property>
+                        <property name="top_attach">3</property>
+                        <property name="bottom_attach">4</property>
+                        <property name="x_options">fill</property>
+                        <property name="y_options"/>
+                      </packing>
+                    </child>
+                    <child>
+                      <object class="GtkComboBox" id="antennaCombo">
+                        <property name="visible">True</property>
+                      </object>
+                      <packing>
+                        <property name="left_attach">3</property>
+                        <property name="right_attach">4</property>
                         <property name="top_attach">3</property>
                         <property name="bottom_attach">4</property>
                         <property name="x_options">fill</property>
