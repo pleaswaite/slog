@@ -53,6 +53,7 @@ initContestDialog CWidgets{..} = do
                            3 -> set cwNotebook [ notebookPage := 3 ]         -- cq ww dx
                            4 -> set cwNotebook [ notebookPage := 2 ]         -- generic grid-based contest
                            5 -> set cwNotebook [ notebookPage := 4 ]         -- generic serial-based contest
+                           _ -> return ()                                    -- do nothing just in case
 
     return ()
 
@@ -115,6 +116,8 @@ runContestDialog state = do
 
                 4 -> do v <- stringToInteger <$> get (cwSerialSerial cw) entryText
                         return $ mkSerialContest (fromMaybe 0 v)
+
+                _ -> return $ mkNoneContest ""
          else
              return $ mkNoneContest ""
 
