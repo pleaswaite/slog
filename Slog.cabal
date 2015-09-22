@@ -123,6 +123,7 @@ executable slog
   hs-source-dirs:  tools/slog
 
   other-modules:   Contest,
+                   Dialogs.Contest,
                    State,
                    Types,
                    UI
