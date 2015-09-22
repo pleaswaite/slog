@@ -1,11 +1,23 @@
 {-# OPTIONS_GHC #-}
-module UI(comboBoxSetActiveText,
+module UI(addCheckToTable,
+          comboBoxSetActiveText,
           listStoreIndexOf)
  where
 
 import Data.Foldable(forM_)
 import Data.List(elemIndex)
 import Graphics.UI.Gtk
+
+-- | Display a check mark in a table, at a given location.
+addCheckToTable :: Table -> Int -> Int -> IO ()
+addCheckToTable tbl col row = do
+    img <- imageNewFromStock stockApply IconSizeButton
+    tableAttach tbl img
+                col (col+1) row (row+1)
+                [] []
+                0 0
+    widgetShowAll tbl
+    return ()
 
 -- | Attempt to set the active text in a combo box to the provided string.
 comboBoxSetActiveText :: ComboBoxClass self => self -> ComboBoxText -> IO ()

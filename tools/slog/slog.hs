@@ -39,7 +39,7 @@ import Dialogs.Contest(initContestDialog, loadContestWidgets, runContestDialog)
 import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
 import State
 import Types
-import UI(comboBoxSetActiveText)
+import UI(addCheckToTable, comboBoxSetActiveText)
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
 {-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
@@ -124,16 +124,6 @@ loadQTHs combo Config{..} = do
 --
 -- UI HELPERS
 --
-
-addCheckToTable :: Table -> Int -> Int -> IO ()
-addCheckToTable tbl col row = do
-    img <- imageNewFromStock stockApply IconSizeButton
-    tableAttach tbl img
-                col (col+1) row (row+1)
-                [] []
-                0 0
-    widgetShowAll tbl
-    return ()
 
 addEntityCheck :: Widgets -> Maybe Band -> IO ()
 addEntityCheck Widgets{..} band | band == Just Band160M = addCheckToTable wDXCCGrid 0  2
