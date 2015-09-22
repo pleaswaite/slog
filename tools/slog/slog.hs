@@ -6,7 +6,6 @@
 
 import           Control.Applicative((<$>), (<*))
 import           Control.Conditional(ifM, unlessM)
-import           Control.Exception(bracket_)
 import           Control.Monad((>=>), liftM, void, when)
 import           Data.Char(isAlphaNum)
 import           Data.IORef(IORef)
@@ -194,14 +193,6 @@ modeForFreq Config{..} text =
     case stringToDouble text >>= freqToBand of
         Nothing -> confDefaultMode
         Just b  -> fromMaybe confDefaultMode (L.lookup b confModeMap)
-
-blockUI :: Widgets -> Bool -> IO ()
-blockUI Widgets{..} b = do
-    -- The "not" is here because it reads a lot better to write "blockUI True" than to pass
-    -- the correct value.
-    set wCurrent [ widgetSensitive := not b ]
-    mapM_ (\widget -> set widget [ widgetSensitive := not b ])
-          [wLookup, wClear, wAdd]
 
 clearChecks :: Widgets -> IO ()
 clearChecks Widgets{..} = do
@@ -614,10 +605,7 @@ addSignalHandlers state = do
                                     widgetGrabFocus wCall)
     on wAdd     buttonActivated (do addQSOFromUI state
                                     widgetGrabFocus wCall)
-    on wLookup  buttonActivated (void $ idleAdd (bracket_ (blockUI w True)
-                                                          (blockUI w False)
-                                                          (lookupCallsign w prevStore conf <* widgetGrabFocus wCall))
-                                                 priorityDefaultIdle)
+    on wLookup  buttonActivated (void $ lookupCallsign w prevStore conf <* widgetGrabFocus wCall)
 
     -- This signal is how we watch for a new QSO being added to the database and then
     -- updating the view of all QSOs.  This is to prevent having to pass stores all
