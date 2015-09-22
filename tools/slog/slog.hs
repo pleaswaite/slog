@@ -112,6 +112,19 @@ loadModes combo Config{..} = do
 
     widgetShowAll combo
 
+loadQTHs :: ComboBox -> Config -> IO ()
+loadQTHs combo Config{..} = do
+    -- Add all the QTHs given in the config file.
+    mapM_ (comboBoxAppendText combo . T.pack)
+          (map fst confQTHs)
+
+    -- Set the default QTH to whatever is given by the config file.
+    store <- comboBoxGetModelText combo
+    ndx <- listStoreIndexOf store confDefaultQTH
+    forM_ ndx (comboBoxSetActive combo)
+
+    widgetShowAll combo
+
 --
 -- UI HELPERS
 --
@@ -632,6 +645,30 @@ runContestDialog state = do
 
     widgetHide dlg
 
+runQTHDialog :: IORef PState -> IO ()
+runQTHDialog state = do
+    currentQTH <- readState state psQTH
+    conf <- readState state psConf
+    CFGWidgets{..} <- readState state psCFGWidgets
+
+    -- Set the dialog to display the current QTH and its call sign.
+    store <- comboBoxGetModelText cfgQTHCombo
+    ndx <- listStoreIndexOf store currentQTH
+    forM_ ndx (comboBoxSetActive cfgQTHCombo)
+
+    let call = maybe "Unknown" qthCall (L.lookup currentQTH $ confQTHs conf)
+    set cfgQTHCall [ labelText := call]
+
+    dlg <- readState state (wQTHDlg . psWidgets)
+    dialogRun dlg
+    widgetHide dlg
+
+    -- Change the current QTH in the program state so that newly added QSOs will be correct
+    -- in the database.  If something went wrong and there's no active text in the combo
+    -- (no idea how that could happen), just use the old one.
+    newQTH <- maybe currentQTH T.unpack <$> comboBoxGetActiveText cfgQTHCombo
+    modifyState state (\v -> v { psQTH = newQTH })
+
 -- When a message is pushed into the status bar, check it to see if it's the message that'd be
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
@@ -651,6 +688,7 @@ addSignalHandlers state = do
     conf <- readState state psConf
     prevStore <- readState state psPrevStore
     w@Widgets{..} <- readState state psWidgets
+    CFGWidgets{..} <- readState state psCFGWidgets
     qthName <- readState state psQTH
 
     -- Install a bunch of regular signal handlers.
@@ -677,6 +715,11 @@ addSignalHandlers state = do
 
     -- These signal handlers are for menu items.
     on wContestMenu actionActivated (runContestDialog state)
+    on wQTHMenu     actionActivated (runQTHDialog state)
+
+    -- When the QTH is changed, change the displayed call sign.
+    on cfgQTHCombo  changed         (do let call = maybe "Unknown" qthCall (L.lookup qthName $ confQTHs conf)
+                                        set cfgQTHCall [ labelText := call])
 
     -- When focus leaves the frequency text entry, change the selected antenna and mode to
     -- match.  Note that this enforces that if you want to specify a different antenna or
@@ -692,6 +735,16 @@ addSignalHandlers state = do
         forM_ modeNdx (comboBoxSetActive wMode)
 
     return ()
+
+loadConfigWidgets :: Builder -> IO CFGWidgets
+loadConfigWidgets builder = do
+    [qthCombo] <- mapM (builderGetObject builder castToComboBox) ["qthCombo"]
+    void $ comboBoxSetModelText qthCombo
+
+    [callSignLabel] <- mapM (builderGetObject builder castToLabel) ["qthCallSignLabel"]
+
+    return $ CFGWidgets qthCombo
+                        callSignLabel
 
 loadContestWidgets :: Builder -> IO CWidgets
 loadContestWidgets builder = do
@@ -760,10 +813,10 @@ loadWidgets builder = do
                      newQSO dxccGrid gridGrid stateGrid
                      antennas modes
                      mainWindow
-                     contestDlg
-                     contestMenu
+                     contestDlg qthDlg
+                     contestMenu qthMenu
 
-loadFromGlade :: IO (Widgets, CWidgets)
+loadFromGlade :: IO (Widgets, CWidgets, CFGWidgets)
 loadFromGlade = do
     -- Read in the glade file.
     builder <- builderNew
@@ -771,8 +824,9 @@ loadFromGlade = do
 
     widgets <- loadWidgets builder
     cWidgets <- loadContestWidgets builder
+    cfgWidgets <- loadConfigWidgets builder
 
-    return (widgets, cWidgets)
+    return (widgets, cWidgets, cfgWidgets)
 
 initContestDialog :: CWidgets -> IO ()
 initContestDialog CWidgets{..} = do
@@ -888,12 +942,15 @@ main = do
 --    unlessM isRigctldRunning $
 --        runRigctld (confRadioModel conf) (confRadioDev conf)
 
-    (widgets, cWidgets) <- loadFromGlade
+    (widgets, cWidgets, cfgWidgets) <- loadFromGlade
 
     -- Initialize the modes combo and the antenna combo.  The modes combo doesn't change,
     -- but the antenna combo can change whenever the QTH is changed.
     loadModes (wMode widgets) conf
     loadAntennas (wAntenna widgets) conf (L.lookup confDefaultQTH confQTHs)
+
+    -- And then load up the QTH config dialog.
+    loadQTHs (cfgQTHCombo cfgWidgets) conf
 
     -- Create the previous QSOs view store but leave it empty.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -910,6 +967,7 @@ main = do
     ps <- newState PState { psConf = conf,
                             psWidgets = widgets,
                             psCWidgets = cWidgets,
+                            psCFGWidgets = cfgWidgets,
                             psPrevStore = previousStore,
                             psAllStore = allStore,
                             psContestMode = False,

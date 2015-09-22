@@ -51,9 +51,11 @@ data Widgets = Widgets {
     wMode :: ComboBox,              -- ^ mode choices for this contact - will be populated in code
 
     wMainWindow :: Window,          -- ^ the main window
-    wContestDlg :: Dialog,          -- ^ the contest configuration dialog
+    wContestDlg :: Dialog,          -- ^ the contest mode dialog
+    wQTHDlg :: Dialog,              -- ^ the QTH configuration dialog
 
-    wContestMenu :: Action          -- ^ menu item for bringing up the contest configuration dialog
+    wContestMenu :: Action,         -- ^ menu item for bringing up the contest mode dialog
+    wQTHMenu :: Action              -- ^ menu item for bringing up the QTH configuration dialog
  }
 
 -- | A record to hold all the widgets for the contest config dialog.
@@ -77,6 +79,12 @@ data CWidgets = CWidgets {
     cwZoneZone :: SpinButton,       -- ^ selector for CQ zone, on the zone page
 
     cwTenState :: Entry             -- ^ entry for state, on the sweeps page
+ }
+
+-- | A record to hold all the widgets for configuration dialogs.
+data CFGWidgets = CFGWidgets {
+    cfgQTHCombo :: ComboBox,        -- ^ QTH choices - has lots of effects in the code
+    cfgQTHCall :: Label             -- ^ display the callsign associated with this QTH
  }
 
 -- | The data type stored in a 'ListStore' and displayed in one of two places:  On the main
