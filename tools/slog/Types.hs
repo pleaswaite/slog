@@ -51,8 +51,6 @@ data Widgets = Widgets {
     wMode :: ComboBox,              -- ^ mode choices for this contact - will be populated in code
 
     wMainWindow :: Window,          -- ^ the main window
-    wContestDlg :: Dialog,          -- ^ the contest mode dialog
-    wQTHDlg :: Dialog,              -- ^ the QTH configuration dialog
 
     wContestMenu :: Action,         -- ^ menu item for bringing up the contest mode dialog
     wQTHMenu :: Action              -- ^ menu item for bringing up the QTH configuration dialog
@@ -60,6 +58,7 @@ data Widgets = Widgets {
 
 -- | A record to hold all the widgets for the contest config dialog.
 data CWidgets = CWidgets {
+    cwDialog :: Dialog,             -- ^ the contest mode dialog
     cwBox :: Box,                   -- ^ box holding all the other widgets in the dialog
 
     cwEnable :: RadioButton,        -- ^ are we in contest mode or not?
@@ -83,6 +82,7 @@ data CWidgets = CWidgets {
 
 -- | A record to hold all the widgets for configuration dialogs.
 data CFGWidgets = CFGWidgets {
+    cfgQTHDialog :: Dialog,         -- ^ the QTH configuration dialog
     cfgQTHCombo :: ComboBox,        -- ^ QTH choices - has lots of effects in the code
     cfgQTHCall :: Label             -- ^ display the callsign associated with this QTH
  }

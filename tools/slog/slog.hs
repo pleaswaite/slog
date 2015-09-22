@@ -585,7 +585,7 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
 
 runContestDialog :: IORef PState -> IO ()
 runContestDialog state = do
-    dlg <- readState state (wContestDlg . psWidgets)
+    dlg <- readState state (cwDialog . psCWidgets)
     rc <- dialogRun dlg
 
     -- If the user clicked OK, we need to grab the values out of the fields and
@@ -646,9 +646,8 @@ runQTHDialog state = do
     let call = maybe "Unknown" qthCall (L.lookup currentQTH $ confQTHs conf)
     set cfgQTHCall [ labelText := call]
 
-    dlg <- readState state (wQTHDlg . psWidgets)
-    dialogRun dlg
-    widgetHide dlg
+    dialogRun cfgQTHDialog
+    widgetHide cfgQTHDialog
 
     -- Change the current QTH in the program state so that newly added QSOs will be correct
     -- in the database.  If something went wrong and there's no active text in the combo
@@ -721,16 +720,19 @@ addSignalHandlers state = do
 
 loadConfigWidgets :: Builder -> IO CFGWidgets
 loadConfigWidgets builder = do
+    [qthDlg] <- mapM (builderGetObject builder castToDialog) ["configQTHDialog"]
     [qthCombo] <- mapM (builderGetObject builder castToComboBox) ["qthCombo"]
     void $ comboBoxSetModelText qthCombo
 
     [callSignLabel] <- mapM (builderGetObject builder castToLabel) ["qthCallSignLabel"]
 
-    return $ CFGWidgets qthCombo
+    return $ CFGWidgets qthDlg
+                        qthCombo
                         callSignLabel
 
 loadContestWidgets :: Builder -> IO CWidgets
 loadContestWidgets builder = do
+    [contestDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog"]
     [box] <- mapM (builderGetObject builder castToBox) ["contestDialogBox"]
 
     [gridGrid, serialSerial, sweepsSerial, sweepsPrec, sweepsCall,
@@ -745,7 +747,8 @@ loadContestWidgets builder = do
 
     [sweepsCheck, zoneZone] <- mapM (builderGetObject builder castToSpinButton) ["sweepsCheck", "zoneZone"]
 
-    return $ CWidgets box
+    return $ CWidgets contestDlg
+                      box
                       enable
                       notebook
                       gridGrid
@@ -781,7 +784,6 @@ loadWidgets builder = do
     void $ comboBoxSetModelText modes
 
     [mainWindow] <- mapM (builderGetObject builder castToWindow) ["window1"]
-    [contestDlg, qthDlg] <- mapM (builderGetObject builder castToDialog) ["contestDialog", "configQTHDialog"]
 
     [contestMenu, qthMenu] <- mapM (builderGetObject builder castToAction) ["contestMenuItem", "qthMenuItem"]
 
@@ -796,7 +798,6 @@ loadWidgets builder = do
                      newQSO dxccGrid gridGrid stateGrid
                      antennas modes
                      mainWindow
-                     contestDlg qthDlg
                      contestMenu qthMenu
 
 loadFromGlade :: IO (Widgets, CWidgets, CFGWidgets)
