@@ -17,7 +17,7 @@ import State
 import Types
 import UI(comboBoxSetActiveText)
 
-loadQTHWidgets :: Builder -> IO CFGWidgets
+loadQTHWidgets :: Builder -> IO QTHWidgets
 loadQTHWidgets builder = do
     [qthDlg]    <- mapM (builderGetObject builder castToDialog)     ["configQTHDialog"]
     [qthCombo]  <- mapM (builderGetObject builder castToComboBox)   ["qthCombo"]
@@ -25,7 +25,7 @@ loadQTHWidgets builder = do
 
     [callSignLabel] <- mapM (builderGetObject builder castToLabel)  ["qthCallSignLabel"]
 
-    return $ CFGWidgets qthDlg
+    return $ QTHWidgets qthDlg
                         qthCombo
                         callSignLabel
 
@@ -33,19 +33,19 @@ runQTHDialog :: IORef PState -> IO ()
 runQTHDialog state = do
     currentQTH <- readState state psQTH
     conf <- readState state psConf
-    CFGWidgets{..} <- readState state psCFGWidgets
+    QTHWidgets{..} <- readState state psQTHWidgets
 
     -- Set the dialog to display the current QTH and its call sign.
-    comboBoxSetActiveText cfgQTHCombo (T.pack currentQTH)
+    comboBoxSetActiveText qthCombo (T.pack currentQTH)
 
     let call = maybe "Unknown" qthCall (lookup currentQTH $ confQTHs conf)
-    set cfgQTHCall [ labelText := call]
+    set qthCallLabel [ labelText := call]
 
-    dialogRun cfgQTHDialog
-    widgetHide cfgQTHDialog
+    dialogRun qthDialog
+    widgetHide qthDialog
 
     -- Change the current QTH in the program state so that newly added QSOs will be correct
     -- in the database.  If something went wrong and there's no active text in the combo
     -- (no idea how that could happen), just use the old one.
-    newQTH <- maybe currentQTH T.unpack <$> comboBoxGetActiveText cfgQTHCombo
+    newQTH <- maybe currentQTH T.unpack <$> comboBoxGetActiveText qthCombo
     modifyState state (\v -> v { psQTH = newQTH })

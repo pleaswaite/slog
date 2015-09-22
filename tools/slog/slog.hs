@@ -601,7 +601,7 @@ addSignalHandlers state = do
     conf <- readState state psConf
     prevStore <- readState state psPrevStore
     w@Widgets{..} <- readState state psWidgets
-    CFGWidgets{..} <- readState state psCFGWidgets
+    QTHWidgets{..} <- readState state psQTHWidgets
     qthName <- readState state psQTH
 
     -- Install a bunch of regular signal handlers.
@@ -631,8 +631,8 @@ addSignalHandlers state = do
     on wQTHMenu     actionActivated (runQTHDialog state)
 
     -- When the QTH is changed, change the displayed call sign.
-    on cfgQTHCombo  changed         (do let call = maybe "Unknown" qthCall (L.lookup qthName $ confQTHs conf)
-                                        set cfgQTHCall [ labelText := call])
+    on qthCombo changed             (do let call = maybe "Unknown" qthCall (L.lookup qthName $ confQTHs conf)
+                                        set qthCallLabel [ labelText := call])
 
     -- When focus leaves the frequency text entry, change the selected antenna and mode to
     -- match.  Note that this enforces that if you want to specify a different antenna or
@@ -688,7 +688,7 @@ loadWidgets builder = do
                      mainWindow
                      contestMenu qthMenu
 
-loadFromGlade :: IO (Widgets, CWidgets, CFGWidgets)
+loadFromGlade :: IO (Widgets, CWidgets, QTHWidgets)
 loadFromGlade = do
     -- Read in the glade file.
     builder <- builderNew
@@ -781,7 +781,7 @@ main = do
 --    unlessM isRigctldRunning $
 --        runRigctld (confRadioModel conf) (confRadioDev conf)
 
-    (widgets, cWidgets, cfgWidgets) <- loadFromGlade
+    (widgets, cWidgets, qthWidgets) <- loadFromGlade
 
     -- Initialize the modes combo and the antenna combo.  The modes combo doesn't change,
     -- but the antenna combo can change whenever the QTH is changed.
@@ -789,7 +789,7 @@ main = do
     loadAntennas (wAntenna widgets) conf (L.lookup confDefaultQTH confQTHs)
 
     -- And then load up the QTH config dialog.
-    loadQTHs (cfgQTHCombo cfgWidgets) conf
+    loadQTHs (qthCombo qthWidgets) conf
 
     -- Create the previous QSOs view store but leave it empty.
     previousStore <- listStoreNew ([] :: [DisplayRow])
@@ -806,7 +806,7 @@ main = do
     ps <- newState PState { psConf = conf,
                             psWidgets = widgets,
                             psCWidgets = cWidgets,
-                            psCFGWidgets = cfgWidgets,
+                            psQTHWidgets = qthWidgets,
                             psPrevStore = previousStore,
                             psAllStore = allStore,
                             psContestMode = False,

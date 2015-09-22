@@ -80,11 +80,11 @@ data CWidgets = CWidgets {
     cwTenState :: Entry             -- ^ entry for state, on the sweeps page
  }
 
--- | A record to hold all the widgets for configuration dialogs.
-data CFGWidgets = CFGWidgets {
-    cfgQTHDialog :: Dialog,         -- ^ the QTH configuration dialog
-    cfgQTHCombo :: ComboBox,        -- ^ QTH choices - has lots of effects in the code
-    cfgQTHCall :: Label             -- ^ display the callsign associated with this QTH
+-- | A record to hold all the widgets for the QTH config dialog.
+data QTHWidgets = QTHWidgets {
+    qthDialog :: Dialog,            -- ^ the QTH configuration dialog
+    qthCombo :: ComboBox,           -- ^ QTH choices - has lots of effects in the code
+    qthCallLabel :: Label           -- ^ display the callsign associated with this QTH
  }
 
 -- | The data type stored in a 'ListStore' and displayed in one of two places:  On the main

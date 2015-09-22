@@ -24,7 +24,7 @@ data PState = PState {
 
     psWidgets :: Widgets,                    -- ^ 'Widgets' that appear on the main screen
     psCWidgets :: CWidgets,                  -- ^ 'CWidgets' that appear on the contest config dialog
-    psCFGWidgets :: CFGWidgets,              -- ^ various widgets used in config dialogs
+    psQTHWidgets :: QTHWidgets,              -- ^ various widgets used in config dialogs
 
     psPrevStore :: ListStore DisplayRow,     -- ^ the 'ListStore' of previous contacts with a looked up call
     psAllStore :: ListStore DisplayRow,      -- ^ the 'ListStore' of all contacts in the database
