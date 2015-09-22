@@ -37,6 +37,7 @@ import ToolLib.Config
 
 import Contest(contestNext, contestStr, mkNoneContest)
 import Dialogs.Contest(initContestDialog, loadContestWidgets, runContestDialog)
+import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
 import State
 import Types
 import UI(comboBoxSetActiveText)
@@ -581,27 +582,6 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 
-runQTHDialog :: IORef PState -> IO ()
-runQTHDialog state = do
-    currentQTH <- readState state psQTH
-    conf <- readState state psConf
-    CFGWidgets{..} <- readState state psCFGWidgets
-
-    -- Set the dialog to display the current QTH and its call sign.
-    comboBoxSetActiveText cfgQTHCombo (T.pack currentQTH)
-
-    let call = maybe "Unknown" qthCall (L.lookup currentQTH $ confQTHs conf)
-    set cfgQTHCall [ labelText := call]
-
-    dialogRun cfgQTHDialog
-    widgetHide cfgQTHDialog
-
-    -- Change the current QTH in the program state so that newly added QSOs will be correct
-    -- in the database.  If something went wrong and there's no active text in the combo
-    -- (no idea how that could happen), just use the old one.
-    newQTH <- maybe currentQTH T.unpack <$> comboBoxGetActiveText cfgQTHCombo
-    modifyState state (\v -> v { psQTH = newQTH })
-
 -- When a message is pushed into the status bar, check it to see if it's the message that'd be
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
@@ -665,18 +645,6 @@ addSignalHandlers state = do
 
     return ()
 
-loadConfigWidgets :: Builder -> IO CFGWidgets
-loadConfigWidgets builder = do
-    [qthDlg] <- mapM (builderGetObject builder castToDialog) ["configQTHDialog"]
-    [qthCombo] <- mapM (builderGetObject builder castToComboBox) ["qthCombo"]
-    void $ comboBoxSetModelText qthCombo
-
-    [callSignLabel] <- mapM (builderGetObject builder castToLabel) ["qthCallSignLabel"]
-
-    return $ CFGWidgets qthDlg
-                        qthCombo
-                        callSignLabel
-
 loadWidgets :: Builder -> IO Widgets
 loadWidgets builder = do
     [call, freq, rxFreq, rst_rcvd,
@@ -728,7 +696,7 @@ loadFromGlade = do
 
     widgets <- loadWidgets builder
     cWidgets <- loadContestWidgets builder
-    cfgWidgets <- loadConfigWidgets builder
+    cfgWidgets <- loadQTHWidgets builder
 
     return (widgets, cWidgets, cfgWidgets)
 

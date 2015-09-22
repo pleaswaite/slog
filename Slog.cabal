@@ -124,6 +124,7 @@ executable slog
 
   other-modules:   Contest,
                    Dialogs.Contest,
+                   Dialogs.QTH,
                    State,
                    Types,
                    UI
