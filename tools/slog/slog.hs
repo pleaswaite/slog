@@ -9,9 +9,8 @@ import           Control.Conditional(ifM, unlessM)
 import           Control.Exception(bracket_)
 import           Control.Monad((>=>), liftM, void, when)
 import           Data.Char(isAlphaNum)
-import           Data.Foldable(forM_)
 import           Data.IORef(IORef)
-import           Data.List(elemIndex, isSuffixOf)
+import           Data.List(isSuffixOf)
 import qualified Data.List as L(lookup)
 import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
 import           Control.Monad.Trans(liftIO)
@@ -39,6 +38,7 @@ import ToolLib.Config
 import Contest
 import State
 import Types
+import UI(comboBoxSetActiveText, listStoreIndexOf)
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
 {-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
@@ -95,8 +95,7 @@ loadAntennas combo Config{..} qth = do
     mapM_ (comboBoxAppendText combo . T.strip . T.pack) antennas
 
     -- Set the default antenna to whatever is given by the config file.
-    ndx <- listStoreIndexOf store (maybe "Unknown" qthDefaultAntenna qth)
-    forM_ ndx (comboBoxSetActive combo)
+    comboBoxSetActiveText combo (T.pack $ maybe "Unknown" qthDefaultAntenna qth)
 
     widgetShowAll combo
 
@@ -106,9 +105,7 @@ loadModes combo Config{..} = do
     mapM_ (comboBoxAppendText combo . T.pack) ["AM", "CW","JT65", "JT9", "FM", "PSK31", "RTTY", "SSB"]
 
     -- Set the default mode to whatever is given by the config flie.
-    store <- comboBoxGetModelText combo
-    ndx <- listStoreIndexOf store confDefaultMode
-    forM_ ndx (comboBoxSetActive combo)
+    comboBoxSetActiveText combo (T.pack confDefaultMode)
 
     widgetShowAll combo
 
@@ -119,9 +116,7 @@ loadQTHs combo Config{..} = do
           (map fst confQTHs)
 
     -- Set the default QTH to whatever is given by the config file.
-    store <- comboBoxGetModelText combo
-    ndx <- listStoreIndexOf store confDefaultQTH
-    forM_ ndx (comboBoxSetActive combo)
+    comboBoxSetActiveText combo (T.pack confDefaultQTH)
 
     widgetShowAll combo
 
@@ -313,12 +308,6 @@ populateTreeView :: ListStore DisplayRow -> [DBResult] -> IO ()
 populateTreeView store results = do
     listStoreClear store
     mapM_ (listStoreAppend store . dbToDR) results
-
--- Find a string in a ListStore and return its index, or Nothing if it doesn't exist.
-listStoreIndexOf :: ListStore T.Text -> String -> IO (Maybe Int)
-listStoreIndexOf store s = do
-    lst <- listStoreToList store
-    return $ elemIndex (T.pack s) lst
 
 --
 -- INPUT CHECKS
@@ -652,9 +641,7 @@ runQTHDialog state = do
     CFGWidgets{..} <- readState state psCFGWidgets
 
     -- Set the dialog to display the current QTH and its call sign.
-    store <- comboBoxGetModelText cfgQTHCombo
-    ndx <- listStoreIndexOf store currentQTH
-    forM_ ndx (comboBoxSetActive cfgQTHCombo)
+    comboBoxSetActiveText cfgQTHCombo (T.pack currentQTH)
 
     let call = maybe "Unknown" qthCall (L.lookup currentQTH $ confQTHs conf)
     set cfgQTHCall [ labelText := call]
@@ -727,12 +714,8 @@ addSignalHandlers state = do
     -- most of the time though.
     on wFreq    focusOutEvent $ tryEvent $ liftIO $ do
         text <- get wFreq entryText
-        antennaStore <- comboBoxGetModelText wAntenna
-        modeStore <- comboBoxGetModelText wMode
-        antennaNdx <- listStoreIndexOf antennaStore (antennaForFreq qthName conf text)
-        modeNdx <- listStoreIndexOf modeStore (modeForFreq conf text)
-        forM_ antennaNdx (comboBoxSetActive wAntenna)
-        forM_ modeNdx (comboBoxSetActive wMode)
+        comboBoxSetActiveText wAntenna (T.pack $ antennaForFreq qthName conf text)
+        comboBoxSetActiveText wMode    (T.pack $ modeForFreq conf text)
 
     return ()
 

@@ -124,7 +124,8 @@ executable slog
 
   other-modules:   Contest,
                    State,
-                   Types
+                   Types,
+                   UI
 
   build-depends:   base,
                    cond,
