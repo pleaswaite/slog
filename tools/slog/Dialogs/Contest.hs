@@ -17,8 +17,8 @@ import           Graphics.UI.Gtk
 import Slog.Utils(stringToInteger)
 
 import Contest
-import State
-import Types
+import State(PState(..), modifyState, readState, withStateWidget_)
+import Types(CWidgets(..), Widgets(..))
 
 contestActive :: CWidgets -> IO Bool
 contestActive CWidgets{..} = get cwEnable toggleButtonActive

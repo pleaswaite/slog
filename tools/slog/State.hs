@@ -4,7 +4,15 @@
 -- program state.  Unfortunately we need to have one of these, since this is a
 -- graphical program and thus inherently has state.
 
-module State where
+module State(PState(..),
+             modifyState,
+             newState,
+             readState,
+             withState,
+             withState_,
+             withStateWidget,
+             withStateWidget_)
+ where
 
 import Control.Applicative((<$>))
 import Control.Monad(void)
@@ -13,8 +21,8 @@ import Graphics.UI.Gtk
 
 import ToolLib.Config(Config)
 
-import Contest
-import Types
+import Contest(Contest)
+import Types(CWidgets, DisplayRow, QTHWidgets, Widgets)
 
 -- | A record containing all the important global program state.  Its members are useful
 -- in lots of different places, so having them all wrapped up in one single record is

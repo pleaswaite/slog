@@ -10,7 +10,17 @@
 -- This module supports both well-known contests (like the ARRL Sweepstakes,
 -- CQ WW DX, and ARRL VHF/UHF contests), as well as generic serial number-based
 -- and grid-based contests.  This makes up a majority of the contests I care about.
-module Contest where
+module Contest(Contest(..),
+               Sweeps(..),
+               contestNext,
+               contestStr,
+               mkGridContest,
+               mkNoneContest,
+               mkSerialContest,
+               mkSweepsContest,
+               mkTenMeterContest,
+               mkZoneContest)
+ where
 
 import Text.Printf(printf)
 

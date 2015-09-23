@@ -4,7 +4,11 @@
 -- most part, this is GUI-related stuff.  This module should not import any other modules
 -- in the 'Slog' collection.
 
-module Types where
+module Types(CWidgets(..),
+             DisplayRow(..),
+             QTHWidgets(..),
+             Widgets(..))
+ where
 
 import Graphics.UI.Gtk
 

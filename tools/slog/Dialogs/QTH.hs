@@ -13,8 +13,8 @@ import           Graphics.UI.Gtk
 
 import ToolLib.Config(Config(..), QTH(..))
 
-import State
-import Types
+import State(PState(..), readState, modifyState)
+import Types(QTHWidgets(..))
 import UI(comboBoxSetActiveText)
 
 loadQTHWidgets :: Builder -> IO QTHWidgets
