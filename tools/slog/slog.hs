@@ -606,7 +606,9 @@ addSignalHandlers state = do
 
     -- These signal handlers are for menu items.
     on wContestMenu actionActivated (runContestDialog state)
-    on wQTHMenu     actionActivated (runQTHDialog state)
+    on wQTHMenu     actionActivated (do runQTHDialog state
+                                        qthName' <- readState state psQTH
+                                        loadAntennas wAntenna conf (L.lookup qthName' $ confQTHs conf))
 
     -- When the QTH is changed, change the displayed call sign.
     on qthCombo changed             (do let call = maybe "Unknown" qthCall (L.lookup qthName $ confQTHs conf)
