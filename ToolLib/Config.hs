@@ -1,11 +1,9 @@
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE RecordWildCards #-}
 
 module ToolLib.Config ( BandMap,
                         QTHMap,
                         Config(..),
                         QTH(..),
-                        getAntennas,
                         readConfig )
  where
 
@@ -64,11 +62,6 @@ data QTH = QTH {
     qthDefaultAntenna   :: String           -- the antenna to use by default
  }
  deriving(Show)
-
--- | Given a 'QTH', return a list of all the antennas in use there.  This is suitable
--- for populating a UI.
-getAntennas :: QTH -> [String]
-getAntennas QTH{..} = map snd qthAntennaMap
 
 -- | Read the config file and return a 'Config' record.
 readConfig :: IO Config

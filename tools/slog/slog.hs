@@ -92,7 +92,7 @@ loadAntennas combo Config{..} qth = do
     listStoreClear store
 
     -- Add the antennas for the given QTH, or "Unknown" if none was provided.
-    let antennas = maybe ["Unknown"] getAntennas qth
+    let antennas = maybe ["Unknown"] qthAntennas qth
     mapM_ (comboBoxAppendText combo . T.strip . T.pack) antennas
 
     -- Set the default antenna to whatever is given by the config file.
