@@ -372,6 +372,7 @@ addQSOFromUI state = do
     widgets <- readState state psWidgets
     conf <- readState state psConf
     contestMode <- readState state psContestMode
+    qthName <- readState state psQTH
 
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
@@ -420,7 +421,9 @@ addQSOFromUI state = do
                       qCall     = call,
                       qPropMode = Nothing,
                       qSatName  = Nothing,
-                      qAntenna  = fmap T.unpack antenna }
+                      qAntenna  = fmap T.unpack antenna,
+                      qMyCall   = qthCall . fromJust $ L.lookup qthName (confQTHs conf),
+                      qMyQTH    = qthName }
 
         -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
         -- go around and update the list of all QSOs to include the latest.

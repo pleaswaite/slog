@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wall -fno-warn-unused-do-bind #-}
-{-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 
@@ -42,7 +41,9 @@ data Options = Options {
     optCall :: Maybe String,
     optPropMode :: Maybe ADIF.Propagation,
     optSatName :: Maybe String,
-    optAntenna :: Maybe String }
+    optAntenna :: Maybe String,
+    optMyCall :: Maybe String,
+    optMyQTH :: Maybe String }
  deriving (Show)
 
 type OptAction = (Options -> IO Options)
@@ -68,7 +69,9 @@ defaultOptions = Options {
     optCall = Nothing,
     optPropMode = Nothing,
     optSatName = Nothing,
-    optAntenna = Nothing }
+    optAntenna = Nothing,
+    optMyCall = Nothing,
+    optMyQTH = Nothing }
 
 opts :: [OptDescr OptAction]
 opts = [
@@ -78,6 +81,8 @@ opts = [
                                                                 optPropMode = Just ADIF.SAT })
                                       "SATELLITE")
            "name of satellite",
+    Option "C" ["mycall"]     (ReqArg (\arg opt -> return opt { optMyCall = Just arg }) "MYCALL")
+           "the call sign this contact was made using (REQUIRED)",
     Option "c" ["dxcc"]       (ReqArg (\arg opt -> return opt { optDXCC = stringToInteger arg }) "DXCC")
            "their DXCC entity",
     Option "d" ["date"]       (ReqArg (\arg opt -> return opt { optDate = Just arg }) "DATE")
@@ -87,6 +92,8 @@ opts = [
                                                                    optRxFreq = maybe Nothing stringToDouble (snd sp) })
                                       "FREQ")
            "frequency used (or their freq:your freq for split mode) (REQUIRED)",
+    Option "g" ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
+           "their grid square",
     Option "h" ["help"]       (NoArg  (\_ -> do
                                                  putStrLn (usageInfo "qsoadd" opts)
                                                  exitSuccess))
@@ -101,6 +108,8 @@ opts = [
            "their name",
     Option "o" ["notes"]      (ReqArg (\arg opt -> return opt { optNotes = Just arg }) "NOTES")
            "notes",
+    Option "q" ["qth"]        (ReqArg (\arg opt -> return opt { optTime = Just arg }) "QTH")
+           "where this contact was made from (must match what LoTW expects) (REQUIRED)",
     Option "r" ["rst"]        (ReqArg (\arg opt -> do let sp = splitArg arg
                                                       return opt { optRSTRcvd = fst sp, optRSTSent = snd sp })
                                       "RST")
@@ -109,8 +118,6 @@ opts = [
            "their state",
     Option "t" ["time"]       (ReqArg (\arg opt -> return opt { optTime = Just arg }) "TIME")
            "time the QSO was made (in UTC) (REQUIRED)",
-    Option "q" ["grid"]       (ReqArg (\arg opt -> return opt { optGrid = Just arg }) "GRID")
-           "their grid square",
     Option "w" ["waz"]        (ReqArg (\arg opt -> return opt { optWAZ = stringToInteger arg }) "WAZ")
            "their WAZ zone",
     Option "x" ["xc"]         (ReqArg (\arg opt -> do let sp = splitArg arg
@@ -157,9 +164,11 @@ buildQSO RadioAmateur{..} Options{..} = do
     rstR <- optRSTRcvd <!> "You must specify a received signal report."
     rstS <- optRSTSent <!> "You must specify a sent signal report."
     call <- optCall ||| raCall <!> "You must specify a call sign."
-    Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call)
+    myCall <- optMyCall <!> "You must specify your call sign."
+    qth  <- optMyQTH <!> "You must specify your QTH."
+    Right $ doBuildQSO (date, time, freq, mode, rstR, rstS, call, myCall, qth)
  where
-    doBuildQSO (date, time, freq, mode, rstR, rstS, call) =
+    doBuildQSO (date, time, freq, mode, rstR, rstS, call, myCall, qth) =
         QSO { qDate     = undashifyDate date,
               qTime     = uncolonifyTime time,
               qFreq     = freq,
@@ -179,7 +188,9 @@ buildQSO RadioAmateur{..} Options{..} = do
               qCall     = call,
               qPropMode = optPropMode <?> Nothing,
               qSatName  = optSatName <?> Nothing,
-              qAntenna  = optAntenna <?> Nothing }
+              qAntenna  = optAntenna <?> Nothing,
+              qMyCall   = myCall,
+              qMyQTH    = qth }
 
     -- If the left side has a value, use it.  Otherwise, use the right side.
     Just v  ||| _       = Just v

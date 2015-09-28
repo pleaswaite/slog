@@ -46,7 +46,9 @@ data QSO = QSO {
     qCall      :: String,
     qPropMode  :: Maybe ADIF.Propagation,
     qSatName   :: Maybe String,
-    qAntenna   :: Maybe String}
+    qAntenna   :: Maybe String,
+    qMyCall    :: String,
+    qMyQTH     :: String }
  deriving (Eq, Show, Read)
 
 -- | A 'Confirmation' record is used to convey information about whether a 'QSO'
@@ -78,7 +80,8 @@ qsoToADIF QSO{..} = if isNothing band then [] else
      ADIF.Mode qMode,
      ADIF.RST_Received qRST_Rcvd,
      ADIF.RST_Sent qRST_Sent,
-     ADIF.Call qCall] ++
+     ADIF.Call qCall,
+     ADIF.StationCall qMyCall] ++
 
     -- LOTW wants the band, not the frequency, so just make sure that's
     -- included here.

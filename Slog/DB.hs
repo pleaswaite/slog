@@ -72,6 +72,8 @@ share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
     prop_mode String Maybe
     sat_name String Maybe
     antenna String Maybe
+    my_call String
+    my_qth String
     deriving Eq Show
  Confirmations
     qsoid QsosId
@@ -216,6 +218,7 @@ addQSO filename QSO{..} = runSqlite (pack filename) $ do
                            (fmap show qPropMode)
                            qSatName
                            qAntenna
+                           qMyCall qMyQTH
 
     -- And then add a reference in the confirmations table.
     insert $ Confirmations qsoid Nothing Nothing Nothing Nothing Nothing Nothing
@@ -238,7 +241,9 @@ updateQSO filename (qsoid, QSO{..}, markNotUploaded) = runSqlite (pack filename)
                 QsosItu =. val (fromInteger <$> qITU),
                 QsosWaz =. val (fromInteger <$> qWAZ),
                 QsosCall =. val qCall,
-                QsosAntenna =. val qAntenna
+                QsosAntenna =. val qAntenna,
+                QsosMy_call =. val qMyCall,
+                QsosMy_qth =. val qMyQTH
               ]
         where_ (r ^. QsosId ==. val qsoid)
 
@@ -309,6 +314,7 @@ sqlToQSO Qsos{..} =
         (fmap (\p -> read p :: ADIF.Propagation) qsosProp_mode)
         qsosSat_name
         qsosAntenna
+        qsosMy_call qsosMy_qth
 
 sqlToConf :: Confirmations -> Confirmation
 sqlToConf Confirmations{..} =

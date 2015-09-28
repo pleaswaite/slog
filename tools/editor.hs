@@ -35,6 +35,8 @@ data Row = Row { rQsoid    :: QsosId,
                  rWAZ      :: Maybe Int,
                  rCall     :: String,
                  rAntenna  :: Maybe String,
+                 rMyCall   :: String,
+                 rMyQTH    :: String,
                  rUploaded :: Bool,
 
                  rEdited :: Bool }
@@ -74,6 +76,8 @@ updateEdited db store = do
             Nothing
             Nothing
             rAntenna
+            rMyCall
+            rMyQTH
 
 -- Because the glade format in gtk2 is so bad, we have to add all the columns in code instead of
 -- in glade.  So here it goes.
@@ -164,6 +168,16 @@ addColumns store view = do
     (antCol, antCell) <- newTextColumn store "Antenna" $ \row -> fromMaybe "" (rAntenna row)
     on antCell edited $ editedCell store (\row text -> row { rAntenna=Just text, rEdited=True })
     treeViewAppendColumn view antCol
+
+    -- MY CALL
+    (myCallCol, myCallCell) <- newTextColumn store "My Call" rMyCall
+    on myCallCell edited $ editedCell store (\row text -> row { rMyCall=text, rEdited=True })
+    treeViewAppendColumn view myCallCol
+
+    -- MY QTH
+    (myQTHCol, myQTHCell) <- newTextColumn store "Antenna" rMyQTH
+    on myQTHCell edited $ editedCell store (\row text -> row { rMyQTH=text, rEdited=True })
+    treeViewAppendColumn view myQTHCol
 
     -- UPLOADED TO LOTW?
     uploadedCol <- treeViewColumnNew
@@ -261,6 +275,8 @@ runGUI rows db = do
                                                            rCall=qCall,
                                                            rAntenna=qAntenna,
                                                            rUploaded=isJust $ qLOTW_SDate c,
+                                                           rMyCall=qMyCall,
+                                                           rMyQTH=qMyQTH,
                                                            rEdited=False }
           )
           rows
