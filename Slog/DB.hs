@@ -30,6 +30,7 @@ module Slog.DB(DBResult,
                getQSOsByState,
                getUnconfirmedQSOs,
                getUnsentQSOs,
+               getUnsentQSOsQ,
                initDB,
                markQSOsAsSent,
                updateQSO)
@@ -190,6 +191,15 @@ getUnsentQSOs :: FilePath -> IO [DBResult]
 getUnsentQSOs filename = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ (isNothing $ c ^. ConfirmationsLotw_sdate)
+                                                     return (q ^. QsosId, q, c)
+    return $ map fmtTuple rows
+
+-- | Return a list of all 'DBResult' records for a specific QTH that have not been uploaded to LOTW.
+getUnsentQSOsQ :: FilePath -> String -> IO [DBResult]
+getUnsentQSOsQ filename qth = runSqlite (pack filename) $ do
+    rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
+                                                     where_ (isNothing (c ^. ConfirmationsLotw_sdate) &&.
+                                                             (q ^. QsosMy_qth ==. val (uppercase qth)))
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
 
