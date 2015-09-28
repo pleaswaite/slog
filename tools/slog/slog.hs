@@ -518,7 +518,7 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
         clearChecks widgets
 
         -- If they're a LOTW user, put a nice big check mark image in there.
-        when (raLOTW ra' == Just Yes) $ addCheckToTable wNewQSOGrid 1 7
+        when (raLOTW ra' == Just Yes) $ addCheckToTable wNewQSOGrid 1 8
 
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
