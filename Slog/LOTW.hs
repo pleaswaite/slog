@@ -25,7 +25,7 @@ download :: String -> String -> String -> IO String
 download date call password = do
     -- Argh, Network.HTTP does not support HTTPS so we have to be all convoluted
     -- here to get the results.  At least curl will spit the data out to stdout.
-    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" [printf "https://lotw.arrl.org/lotwuser/lotwreport.adi?qso_query=1&qso_withown=yes&qso_qslsince=%s&qso_owncall=%s&login=%s&password=%s&qso_qsldetail=yes" date call call password] ""
+    (exitcode, stdout, stderr) <- readProcessWithExitCode "curl" [printf "https://lotw.arrl.org/lotwuser/lotwreport.adi?qso_query=1&qso_withown=yes&qso_qslsince=%s&login=%s&password=%s&qso_qsldetail=yes" date call password] ""
 
     case exitcode of
         -- LOTW can send errors as an HTML chunk (not a full page), so that needs
