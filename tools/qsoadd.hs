@@ -23,7 +23,6 @@ import ToolLib.Config
 --
 
 data Options = Options {
-    optGraphical :: Bool,
     optDate :: Maybe String,
     optTime :: Maybe String,
     optFreq :: Maybe Double,
@@ -50,7 +49,6 @@ type OptAction = (Options -> IO Options)
 
 defaultOptions :: Options
 defaultOptions = Options {
-    optGraphical = False,
     optDate = Nothing,
     optTime = Nothing,
     optFreq = Nothing,
