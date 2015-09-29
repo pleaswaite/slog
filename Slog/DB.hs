@@ -199,7 +199,7 @@ getUnsentQSOsQ :: FilePath -> String -> IO [DBResult]
 getUnsentQSOsQ filename qth = runSqlite (pack filename) $ do
     rows <- select $ from $ \(q `InnerJoin` c) -> do on (q ^. QsosId ==. c ^. ConfirmationsQsoid)
                                                      where_ (isNothing (c ^. ConfirmationsLotw_sdate) &&.
-                                                             (q ^. QsosMy_qth ==. val (uppercase qth)))
+                                                             (q ^. QsosMy_qth ==. val qth))
                                                      return (q ^. QsosId, q, c)
     return $ map fmtTuple rows
 
