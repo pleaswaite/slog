@@ -6,7 +6,7 @@
 
 import           Control.Applicative((<$>), (<*))
 import           Control.Conditional(ifM, unlessM)
-import           Control.Monad((>=>), liftM, void, when)
+import           Control.Monad(liftM, void, when)
 import           Data.Char(isAlphaNum)
 import           Data.IORef(IORef)
 import           Data.List(isSuffixOf)
@@ -25,7 +25,7 @@ import           Slog.DB
 import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import           Slog.Formats.ADIF.Types(Band(..), Mode)
 import           Slog.Formats.ADIF.Utils(freqToBand)
-import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
+import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
 import qualified Slog.Rigctl.Commands.Ask as Ask
 import qualified Slog.Rigctl.Commands.Tell as Tell
 import           Slog.Rigctl.Rigctl(ask, isRigctldRunning, runRigctld)
@@ -78,7 +78,13 @@ getFreqs = do
 
 lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
 lookup call user pass =
-    login user pass >>= maybe (return Nothing) (lookupCall call)
+    -- If doing the full lookup via lookupCall fails, use lookupCallD to get
+    -- the most basic information.  Either way, return a RadioAmateur on success.
+    login user pass >>= \case
+        Nothing     -> lookupCallD call
+        Just sid    -> do result <- lookupCall call sid
+                          if isJust result then return result
+                          else lookupCallD call
 
 --
 -- WORKING WITH COMBO BOXES

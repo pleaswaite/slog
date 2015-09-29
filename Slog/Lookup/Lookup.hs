@@ -12,7 +12,9 @@ module Slog.Lookup.Lookup(RadioAmateur(..),
                           RAUses(..),
                           SessionID,
                           emptyRadioAmateur,
-                          lookupCall, login)
+                          lookupCall,
+                          lookupCallD,
+                          login)
  where
 
 import Control.Exception(IOException, try)
@@ -25,8 +27,9 @@ import Text.XML.Light.Input(parseXMLDoc)
 import Text.XML.Light.Proc(filterElement, strContent)
 import Text.XML.Light.Types(Element, QName, elName, qName)
 
+import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import qualified Slog.Formats.ADIF.Types as A
-import Slog.Utils(stringToInteger, uppercase)
+import           Slog.Utils(stringToInteger, uppercase)
 
 -- | A RadioAmateur is a record used to return information following a query to
 -- http://www.hamqth.com.  Not all fields will be provided for every call sign,
@@ -204,6 +207,25 @@ xmlToRadioAmateur xml = Just
  where
     x <?> e = mplus (getElementValue e x) Nothing
 
+-- Given a parsed XML document from a simple DXCC lookup, return a RadioAmateur record.
+-- This will have a whole lot more empty values in it.  Hence, we'll start with an
+-- emptyRadioAmateur and build up from there.
+xmlToRadioAmateurD :: Element -> Maybe RadioAmateur
+xmlToRadioAmateurD xml = Just
+    emptyRadioAmateur {
+        raCall      = xml <?> "callsign",
+        raNick      = xml <?> "name",
+        raContinent = xml <?> "continent" >>= \c -> Just (read c :: A.Continent),
+        raUTCOffset = xml <?> "utc" >>= stringToInteger,
+        raWAZ       = xml <?> "waz" >>= stringToInteger,
+        raITU       = xml <?> "itu" >>= stringToInteger,
+        raLatitude  = xml <?> "lat",
+        raLongitude = xml <?> "lng",
+        raADIF      = xml <?> "adif" >>= stringToInteger,
+        raCountry   = xml <?> "adif" >>= stringToInteger >>= entityFromID >>= Just . dxccEntity }
+ where
+    x <?> e = mplus (getElementValue e x) Nothing
+
 -- We can't just use a straight-up == on QNames here because qURI is set and
 -- the default comparison takes that into account, so anything made with unqual
 -- above will fail.
@@ -240,6 +262,18 @@ lookupCall call sid =
         _         -> return Nothing
  where
     url = printf "http://www.hamqth.com/xml.php?id=%s&callsign=%s&prg=slog" sid call
+
+-- | Given a call sign, perform a simple DXCC lookup.  This does not give us all the fancy
+-- information like the user's name, grid, etc. but it is enough to get us the DXCC entity
+-- so we know whether we've worked this station before and if we need them on a band.  This
+-- should be performed after 'lookupCall' has returned Nothing.
+lookupCallD :: String -> IO (Maybe RadioAmateur)
+lookupCallD call =
+    (try (getXML url) :: IO (Either IOException String)) >>= \case
+        Right s -> return $ parseXMLDoc s >>= responseIsValid >>= xmlToRadioAmateurD
+        _       -> return Nothing
+ where
+    url = printf "http://www.hamqth.com/dxcc.php?callsign=%s" call
 
 -- | Given a user name and password, login to <http://www.hamqth.com> and return the
 -- returned session ID.  This operation may fail.  Be prepared.
