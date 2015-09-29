@@ -5,9 +5,11 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative((<$>), (<*))
-import           Control.Conditional(ifM, unlessM)
+import           Control.Conditional(ifM)
+import           Control.Exception(finally)
 import           Control.Monad(liftM, void, when)
 import           Data.Char(isAlphaNum)
+import           Data.Foldable(forM_)
 import           Data.IORef(IORef)
 import           Data.List(isSuffixOf)
 import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
@@ -26,7 +28,7 @@ import           Slog.Formats.ADIF.Utils(freqToBand)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
 import qualified Slog.Rigctl.Commands.Ask as Ask
 import qualified Slog.Rigctl.Commands.Tell as Tell
-import           Slog.Rigctl.Rigctl(ask, isRigctldRunning, runRigctld)
+import           Slog.Rigctl.Rigctl(ask, isRigctldRunning, killRigctld, runRigctld)
 import           Slog.Utils
 import           Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 
@@ -69,6 +71,15 @@ getFreqs = do
                   _                             -> return Nothing
 
     if rxFreq == freq then return (freq, Nothing) else return (freq, rxFreq)
+
+updateFreqsFromRigctl :: Widgets -> IO ()
+updateFreqsFromRigctl Widgets{..} = do
+    (freq, rxFreq) <- getFreqs
+    set wFreq       [ entryText := maybe "" show freq ]
+    -- FIXME: See the comment in getFreq above about why this is disabled due to my
+    -- IC-7000 problems.
+    -- set (wRxFreq widgets)   [ entryText := maybe "" show rxFreq ]
+    set wRxFreq     [ entryText := "" ]
 
 --
 -- WORKING WITH CALL SIGNS
@@ -463,7 +474,13 @@ addQSOFromUI state = do
     getFreq :: Widgets -> IO (Maybe Double, Maybe Double)
     getFreq widgets =
         ifM (rigctlActive widgets)
-            getFreqs
+            -- FIXME:  Getting the split frequency is currently disabled, because hamlib
+            -- doesn't support figuring out whether split mode is active or not on my radio
+            -- (IC-7000).  Instead it just always gives back the frequency from whenever you
+            -- last had split mode active.  Not helpful.
+            -- getFreqs
+            (do (f, _) <- getFreqs
+                return (f, Nothing))
             (do f <- get (wFreq widgets) entryText
                 rxF <- getMaybe (wRxFreq widgets)
                 return (stringToDouble f, maybe Nothing stringToDouble rxF))
@@ -491,6 +508,9 @@ rigctlToggled widgets@Widgets{..} = do
         set wFreq           [ widgetSensitive := not active ]
         set wRxFreqLabel    [ widgetSensitive := not active ]
         set wRxFreq         [ widgetSensitive := not active ]
+
+        -- And then update the frequency displayed in the entries if rigctl is running.
+        when active (updateFreqsFromRigctl widgets)
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
@@ -706,10 +726,7 @@ clearUI state = do
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
 
-    when rigctlRunning $ do
-        (freq, rxFreq) <- getFreqs
-        set (wFreq widgets)     [ entryText := maybe "" show freq ]
-        set (wRxFreq widgets)   [ entryText := maybe "" show rxFreq ]
+    when rigctlRunning (updateFreqsFromRigctl widgets)
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
@@ -765,8 +782,9 @@ main = do
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have
     -- to check all over the place anyway.
---    unlessM isRigctldRunning $
---        runRigctld (confRadioModel conf) (confRadioDev conf)
+    pid <- ifM isRigctldRunning
+               (return Nothing)
+               (runRigctld confRadioModel confRadioDev)
 
     (widgets, cWidgets, qthWidgets) <- loadFromGlade
 
@@ -799,4 +817,4 @@ main = do
                             psContestMode = False,
                             psContestVal = mkNoneContest "",
                             psQTH = confDefaultQTH }
-    runGUI ps
+    runGUI ps `finally` forM_ pid killRigctld

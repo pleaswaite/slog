@@ -44,6 +44,10 @@ How to use all this crud:
     default_30M = PSK31
     default_1.25M = FM
 
+    [Radio]
+    model = 360
+    device = /dev/ic-7000
+
     -------------------------------------------------------------
 
     Here are some rules on the config file:
@@ -77,6 +81,22 @@ How to use all this crud:
     * For both modes and antennas, the default names are important.  They all take the form
     of default_<mode>.  Here, <mode> must be something understood by the second element of
     the bandMap tuples in Slog/Formats/ADIF/Types.hs.
+
+    * The Radio section is for rigctl support.  If you have that program installed, slog will
+    automatically attempt to run rigctld on startup.  model is the model of your radio
+    according to "rigctl -l".  device is the device node used for access.  This may be
+    something like /dev/ttyUSB0, but you might have multiple such devices.  I have added the
+    following for a permanent name:
+
+    $ cat /etc/udev/rules.d/80-radio.rules
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ic-7000"
+
+    It's also suggested you be a member of the dialout group.
+
+    NOTE: Split operation is not currently supported in conjunction with rigctl.  If you
+    need to operate split, temporarily uncheck the rigctl box in the UI.  If you need to
+    call CQ split, slog will remember the frequency settings between QSOs so you do not need
+    to constantly mess with it.
 
 (5) Build everything:
 

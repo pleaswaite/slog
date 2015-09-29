@@ -138,5 +138,6 @@ executable slog
                    old-locale,
                    text,
                    time,
+                   unix,
                    utf8-string,
                    Slog
