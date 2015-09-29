@@ -9,7 +9,6 @@ import System.Console.GetOpt
 import System.Environment(getArgs)
 
 import Slog.DB(QsosId, addQSO, initDB)
-import Slog.DXCC(idFromName)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
 import Slog.QSO
@@ -174,7 +173,7 @@ buildQSO RadioAmateur{..} Options{..} = do
               qFreq     = freq,
               qRxFreq   = optRxFreq <?> Nothing,
               qMode     = mode,
-              qDXCC     = (raCountry >>= idFromName) ||| optDXCC <?> Nothing,
+              qDXCC     = raADIF ||| optDXCC <?> Nothing,
               qGrid     = raGrid ||| optGrid <?> Nothing,
               qState    = raUSState ||| optState <?> Nothing,
               qName     = raNick ||| optName <?> Nothing,

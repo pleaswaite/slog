@@ -22,7 +22,7 @@ import           Prelude hiding(lookup)
 import           System.Locale(defaultTimeLocale)
 
 import           Slog.DB
-import           Slog.DXCC(DXCC(dxccEntity), entityFromID, idFromName)
+import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import           Slog.Formats.ADIF.Types(Band(..), Mode)
 import           Slog.Formats.ADIF.Utils(freqToBand)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall)
@@ -407,7 +407,7 @@ addQSOFromUI state = do
                       qFreq     = fromJust freq,
                       qRxFreq   = rxFreq,
                       qMode     = (fst . head) ((reads $ maybe "SSB" T.unpack mode) :: [(Mode, String)]),
-                      qDXCC     = maybe Nothing (raCountry >=> idFromName) ra,
+                      qDXCC     = maybe Nothing raADIF ra,
                       qGrid     = maybe Nothing raGrid ra,
                       qState    = maybe Nothing raUSState ra,
                       qName     = maybe Nothing raNick ra,
@@ -531,7 +531,7 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
         when (isJust $ raCountry ra') $ do
             set wDXCC [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
 
-            let dxcc = raCountry ra' >>= idFromName
+            let dxcc = raADIF ra'
             when (isJust dxcc) $ do
                 -- Get a list of all QSOs we've had with this entity, narrow it down to just what's
                 -- been confirmed, and then put checkmarks in where appropriate.
