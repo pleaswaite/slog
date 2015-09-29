@@ -11,7 +11,8 @@ module Slog.Rigctl.Rigctl(RigctldError(..),
                           disconnect,
                           tell,
                           isRigctldRunning,
-                          runRigctld)
+                          runRigctld,
+                          killRigctld)
  where
 
 import Control.Exception(IOException, catch)
@@ -19,7 +20,10 @@ import Control.Monad.Reader hiding(ask)
 import Data.List(isInfixOf)
 import Data.Maybe(fromJust, isNothing)
 import Network
-import System.Process(readProcess, system)
+import System.Posix.Process(executeFile, forkProcess)
+import System.Posix.Signals(killProcess, signalProcess)
+import System.Posix.Types(ProcessID)
+import System.Process(readProcess)
 import System.IO
 
 import           Slog.Rigctl.Commands.Class(ser)
@@ -45,16 +49,13 @@ disconnect = hClose
 -- | Given a 'Slog.Rigctl.Commands.Ask.Command', ask the radio for a piece of information.  The result is either an
 -- error code or the matching 'Slog.Rigctl.Commands.Tell.Command' with information filled in.  Note that not every
 -- 'Slog.Rigctl.Commands.Ask.Command' has an equivalent 'Slog.Rigctl.Commands.Tell.Command'.
---
--- This method must be run in the 'RigConn' monad, which requires use of the 'runReaderT'
--- function.
 ask :: A.Command -> IO (Either RigctldError T.Command)
 ask inCmd =
     if isNothing serialized then return $ Left (RigError 1)
     else do
-        result <- readProcess "rigctl"
-                              ["-m", "2", fromJust serialized]
-                              ""
+        result <- catch (readProcess "rigctl" ["-m", "2", fromJust serialized] "")
+                        (\(_ :: IOException) -> return "")
+
         if | result == ""                    -> return $ Left $ RigError 1
            | "not found!" `isInfixOf` result -> return $ Left $ RigError 1
            | otherwise                       -> return $ doAsk inCmd (lines result)
@@ -64,16 +65,13 @@ ask inCmd =
 
 -- | Given a 'Slog.Rigctl.Commands.Tell.Command', tell the radio to either apply a particular setting or run some function.
 -- The result is potentially an error code.
---
--- This method must be run in the 'RigConn' monad, which requires use of the 'runReaderT'
--- function.
 tell :: T.Command -> IO RigctldError
 tell inCmd =
     if isNothing serialized then return $ RigError 1
     else do
-        result <- readProcess "rigctl"
-                              ["-m", "2", fromJust serialized]
-                              ""
+        result <- catch (readProcess "rigctl" ["-m", "2", fromJust serialized] "")
+                        (\(_ :: IOException) -> return "")
+
         if | result == ""   -> return NoError
            | otherwise      -> return $ RigError 1
  where
@@ -90,6 +88,15 @@ isRigctldRunning =
 -- | Attempt to start rigctld.  The first 'String' argument is the model number of the
 -- radio to connect to.  The second 'String' argument is the device node to use for the
 -- connection.  You must have permissions to read and write from this device.
-runRigctld :: String -> String -> IO ()
+-- Returns the 'ProcessID' of the running rigctld process on success, or Nothing on failure.
+-- This process should be killed when the main program exits.
+runRigctld :: String -> String -> IO (Maybe ProcessID)
 runRigctld model device =
-    void $ system $ "rigctld -m " ++ model ++ " -r " ++ device
+    catch (do pid <- forkProcess $ void $ executeFile "rigctld" True ["-m", model, "-r", device] Nothing
+              return $ Just pid)
+          (\(_ :: IOException) -> return Nothing)
+
+-- | Attempt to kill the rigctld process given by the argument.  Of course, there's no guarantee
+-- this is actually rigctld.  It could be any other process.
+killRigctld :: ProcessID -> IO ()
+killRigctld = signalProcess killProcess
