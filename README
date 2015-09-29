@@ -13,10 +13,12 @@ How to use all this crud:
     but the good news is you can log QSOs without the LOTW account.  You just can't
     run qsoconfirm or qsoupload.
 
-(4) Create a ~/.slog config file.  Mine looks like this:
+(4) Create a ~/.slog config file.  Mine looks like this (simplified):
+
+    -------------------------------------------------------------
 
     database = /home/chris/radio/qsos.db
-    qth = Merrimack
+    defaultQTH = Merrimack
 
     [Lookup]
     username = KG6CIH
@@ -26,13 +28,55 @@ How to use all this crud:
     username = kg6cih
     password = <my password here>
 
-    [Antennas]
-    antennas=Dipole, 1.25m J-Pole, HT
+    [QTH1]
+    name = Merrimack
+    call = KG6CIH
 
-    It's okay if the file referenced by database does not yet exist.  The first time you
-    run qsoadd, it will be created.  I highly recomment having a radio/ directory as you
-    will start to accumulate a ton of files for using LOTW.  Also, the qth setting needs
-    to be the same as the value you give to LOTW.  It's not important for running qsoadd.
+    antennas = 80m dipole, Lazy H, 1.25m J-Pole
+    defaultAntenna = Lazy H
+
+    default_80M = 80m dipole
+    default_17M = 80m dipole
+    default_1.25M = 1.25m J-Pole
+
+    [Modes]
+    default = SSB
+    default_30M = PSK31
+    default_1.25M = FM
+
+    -------------------------------------------------------------
+
+    Here are some rules on the config file:
+
+    * It's fine if the database file referenced does not yet exist.  slog will create it
+    for you the first time you run any of the utilities.  I highly recommend having a
+    radio/ directory and keep your database in there.  You will start to accumulate a ton
+    of files by using LOTW.
+
+    * You need a defaultQTH, and you need at least one QTH* section.  That section header
+    name is important.  Within each QTH section, you need a name and a call.  Those must
+    match up what you gave to LOTW for your station location.
+
+    * Each QTH can define the antennas in use there and defaults for various bands.  The
+    antennas option is a free form list of strings, separated by commas.  This list will
+    populate a drop down in the slog GUI.  If you provide no defaultAntenna, the first in
+    the antennas list will be used.  When you enter a frequency, any default antenna for
+    that band will automatically be chosen.  You can change that later.
+
+    * You need to have at least one antenna defined.
+
+    * Modes are defined globally, not on a per-QTH basis.  The theory behind this is that
+    modes are an operator preference, while antennas are whatever you've got wherever you
+    are operating from.
+
+    * Just like with antennas, you can define a global default mode and also per-band modes.
+    You may only have equipment capable of FM on certain bands, and 30m is digital or CW
+    only so you should probably pick one of those.  If no default mode is given, SSB is
+    the default.
+
+    * For both modes and antennas, the default names are important.  They all take the form
+    of default_<mode>.  Here, <mode> must be something understood by the second element of
+    the bandMap tuples in Slog/Formats/ADIF/Types.hs.
 
 (5) Build everything:
 
