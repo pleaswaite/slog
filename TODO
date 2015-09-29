@@ -1,0 +1,14 @@
+- add digital rows to checkmark grids
+- add menu option for confirming & uploading
+- add quit menu option
+- add support for printing cluster spots
+- add support for reporting spots
+- backups
+- contest reporting
+- disable hamqth lookups if no network
+- fix all keyboard accelerators
+- move QTH selection to a menu option
+- sanity check config file
+- sort out rigctld interaction
+- sort out operator vs. owner vs. station callsigns
+- update ADIF support
