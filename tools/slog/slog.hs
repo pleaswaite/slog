@@ -10,7 +10,6 @@ import           Control.Monad(liftM, void, when)
 import           Data.Char(isAlphaNum)
 import           Data.IORef(IORef)
 import           Data.List(isSuffixOf)
-import qualified Data.List as L(lookup)
 import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
 import           Control.Monad.Trans(liftIO)
 import           Data.Monoid(First(..), getFirst, mconcat)
@@ -18,7 +17,6 @@ import qualified Data.Text as T
 import           Data.Time.Clock(UTCTime(..), getCurrentTime)
 import           Data.Time.Format(formatTime)
 import           Graphics.UI.Gtk hiding(disconnect)
-import           Prelude hiding(lookup)
 import           System.Locale(defaultTimeLocale)
 
 import           Slog.DB
@@ -76,8 +74,8 @@ getFreqs = do
 -- WORKING WITH CALL SIGNS
 --
 
-lookup :: String -> String -> String -> IO (Maybe RadioAmateur)
-lookup call user pass =
+getRA :: String -> String -> String -> IO (Maybe RadioAmateur)
+getRA call user pass =
     -- If doing the full lookup via lookupCall fails, use lookupCallD to get
     -- the most basic information.  Either way, return a RadioAmateur on success.
     login user pass >>= \case
@@ -173,7 +171,7 @@ addStateCheck Widgets{..} band | band == Just Band160M      = addCheckToTable wS
 
 antennaForFreq :: String -> Config -> String -> String
 antennaForFreq qthName Config{..} text = let
-    qth = L.lookup qthName confQTHs
+    qth = lookup qthName confQTHs
  in
     case stringToDouble text >>= freqToBand of
         -- The frequency given doesn't fall in any ham band.  Return the default antenna for the
@@ -182,13 +180,13 @@ antennaForFreq qthName Config{..} text = let
         -- The frequency given does fall into a ham band.  Look up the antenna for that band in
         -- the QTH's map.  If there's no antenna given, use the QTH's default.  If there's no
         -- default QTH, just return "Unknown".  Lots can go wrong here.
-        Just b  -> maybe "Unknown" (\qth' -> fromMaybe (qthDefaultAntenna qth') (L.lookup b $ qthAntennaMap qth')) qth
+        Just b  -> maybe "Unknown" (\qth' -> fromMaybe (qthDefaultAntenna qth') (lookup b $ qthAntennaMap qth')) qth
 
 modeForFreq :: Config -> String -> String
 modeForFreq Config{..} text =
     case stringToDouble text >>= freqToBand of
         Nothing -> confDefaultMode
-        Just b  -> fromMaybe confDefaultMode (L.lookup b confModeMap)
+        Just b  -> fromMaybe confDefaultMode (lookup b confModeMap)
 
 clearChecks :: Widgets -> IO ()
 clearChecks Widgets{..} = do
@@ -392,7 +390,7 @@ addQSOFromUI state = do
         -- Oh, we also have to look up the call sign yet again.  There's nowhere to store
         -- a previous lookup, and there's not any guarantee a lookup has been performed.  Some
         -- of the data we get back will get put into the database.
-        ra <- lookup call (confQTHUser conf) (confQTHPass conf)
+        ra <- getRA call (confQTHUser conf) (confQTHPass conf)
 
         -- And then a bunch of annoying UI field grabbing.
         date <- undashifyDate <$> getDate widgets
@@ -428,7 +426,7 @@ addQSOFromUI state = do
                       qPropMode = Nothing,
                       qSatName  = Nothing,
                       qAntenna  = fmap T.unpack antenna,
-                      qMyCall   = qthCall . fromJust $ L.lookup qthName (confQTHs conf),
+                      qMyCall   = qthCall . fromJust $ lookup qthName (confQTHs conf),
                       qMyQTH    = qthName }
 
         -- We can finally add the QSO.  Afterwards, make sure to clear out the UI for another
@@ -502,7 +500,7 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
     call <- uppercase <$> get wCall entryText
 
     checkCall widgets >>= \case
-        Nothing -> do result <- lookup call confQTHUser confQTHPass
+        Nothing -> do result <- getRA call confQTHUser confQTHPass
                       maybe (void $ statusbarPush wStatus 0 ("Nothing found for callsign " ++ call))
                             (updateUI call)
                             result
@@ -617,10 +615,10 @@ addSignalHandlers state = do
     on wContestMenu actionActivated (runContestDialog state)
     on wQTHMenu     actionActivated (do runQTHDialog state
                                         qthName' <- readState state psQTH
-                                        loadAntennas wAntenna conf (L.lookup qthName' $ confQTHs conf))
+                                        loadAntennas wAntenna conf (lookup qthName' $ confQTHs conf))
 
     -- When the QTH is changed, change the displayed call sign.
-    on qthCombo changed             (do let call = maybe "Unknown" qthCall (L.lookup qthName $ confQTHs conf)
+    on qthCombo changed             (do let call = maybe "Unknown" qthCall (lookup qthName $ confQTHs conf)
                                         set qthCallLabel [ labelText := call])
 
     -- When focus leaves the frequency text entry, change the selected antenna and mode to
@@ -775,7 +773,7 @@ main = do
     -- Initialize the modes combo and the antenna combo.  The modes combo doesn't change,
     -- but the antenna combo can change whenever the QTH is changed.
     loadModes (wMode widgets) conf
-    loadAntennas (wAntenna widgets) conf (L.lookup confDefaultQTH confQTHs)
+    loadAntennas (wAntenna widgets) conf (lookup confDefaultQTH confQTHs)
 
     -- And then load up the QTH config dialog.
     loadQTHs (qthCombo qthWidgets) conf
