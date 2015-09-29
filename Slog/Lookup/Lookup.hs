@@ -3,7 +3,7 @@
 -- | The Lookup module provides a mechanism to query the <http://www.hamqth.com> website
 -- for information about a call sign.  Information is returned in a 'RadioAmateur'
 -- record.
--- 
+--
 -- Before using this module, you must have a valid login on the website in order to
 -- provide authentication credentials to the 'login' method.  Having done that, you
 -- first call 'login' to obtain a 'SessionID'.  Then, simply repeatedly call
@@ -38,6 +38,7 @@ data RadioAmateur = RadioAmateur {
     raNick :: Maybe String,            -- ^ real name
     raQTH :: Maybe String,             -- ^ home city/country/etc.
     raCountry :: Maybe String,         -- ^ country related to call, not address
+    raADIF :: Maybe Integer,           -- ^ ADIF ID of country
     raITU :: Maybe Integer,            -- ^ ITU zone
     raWAZ :: Maybe Integer,            -- ^ CQ (WAZ) zone
     raGrid :: Maybe String,            -- ^ four or six digit grid identifier
@@ -46,16 +47,18 @@ data RadioAmateur = RadioAmateur {
     raAddrCity :: Maybe String,        -- ^ city address
     raAddrZip :: Maybe String,         -- ^ ZIP code
     raAddrCountry :: Maybe String,     -- ^ country related to the address
+    raAddrADIF :: Maybe Integer,       -- ^ ADIF ID of country related to the address
     raDistrict :: Maybe String,        -- ^ station district
     raUSState :: Maybe String,         -- ^ US state (US calls only)
     raUSCounty :: Maybe String,        -- ^ US county (US calls only)
     raOblast :: Maybe String,          -- ^ Russian district (Russian calls only)
     raDOK :: Maybe Integer,            -- ^ DL stations
-    raLOTW :: Maybe RAUses,            -- ^ Logbook of the World user?
     raIOTA :: Maybe Integer,           -- ^ Islands on the air reference number
     raQSLVia :: Maybe String,          -- ^ how to QSL
-    raQSL :: Maybe RAUses,             -- ^ accepts QSL cards?
+    raLOTW :: Maybe RAUses,            -- ^ Logbook of the World user?
     raEQSL :: Maybe RAUses,            -- ^ eQSL user?
+    raQSL :: Maybe RAUses,             -- ^ accepts QSL cards?
+    raQSLDirect :: Maybe RAUses,       -- ^ accepts QSL cards directly?
     raEMail :: Maybe String,           -- ^ email address
     raJabber :: Maybe String,          -- ^ jabber address
     raICQ :: Maybe Integer,            -- ^ ICQ number
@@ -68,7 +71,14 @@ data RadioAmateur = RadioAmateur {
     raLatitude :: Maybe String,        -- ^ station position (lat)
     raLongitude :: Maybe String,       -- ^ station position (long)
     raContinent :: Maybe A.Continent,  -- ^ continent
-    raUTCOffset :: Maybe Integer       -- ^ station's offset to UTC time
+    raUTCOffset :: Maybe Integer,      -- ^ station's offset to UTC time
+    raFacebook :: Maybe String,        -- ^ link to facebook profile
+    raTwitter :: Maybe String,         -- ^ link to twitter feed
+    raGPlus :: Maybe String,           -- ^ link to google+ profile
+    raYoutube :: Maybe String,         -- ^ link to youtube channel
+    raLinkedIn :: Maybe String,        -- ^ link to linked in profile
+    raFlickr :: Maybe String,          -- ^ link to flickr profile
+    raVimeo :: Maybe String            -- ^ link to vimeo channel
  }
  deriving(Show)
 
@@ -98,6 +108,7 @@ emptyRadioAmateur = RadioAmateur {
     raNick           = Nothing,
     raQTH            = Nothing,
     raCountry        = Nothing,
+    raADIF           = Nothing,
     raITU            = Nothing,
     raWAZ            = Nothing,
     raGrid           = Nothing,
@@ -106,16 +117,18 @@ emptyRadioAmateur = RadioAmateur {
     raAddrCity       = Nothing,
     raAddrZip        = Nothing,
     raAddrCountry    = Nothing,
+    raAddrADIF       = Nothing,
     raDistrict       = Nothing,
     raUSState        = Nothing,
     raUSCounty       = Nothing,
     raOblast         = Nothing,
     raDOK            = Nothing,
-    raLOTW           = Nothing,
     raIOTA           = Nothing,
     raQSLVia         = Nothing,
-    raQSL            = Nothing,
+    raLOTW           = Nothing,
     raEQSL           = Nothing,
+    raQSL            = Nothing,
+    raQSLDirect      = Nothing,
     raEMail          = Nothing,
     raJabber         = Nothing,
     raICQ            = Nothing,
@@ -128,7 +141,14 @@ emptyRadioAmateur = RadioAmateur {
     raLatitude       = Nothing,
     raLongitude      = Nothing,
     raContinent      = Nothing,
-    raUTCOffset      = Nothing
+    raUTCOffset      = Nothing,
+    raFacebook       = Nothing,
+    raTwitter        = Nothing,
+    raGPlus          = Nothing,
+    raYoutube        = Nothing,
+    raLinkedIn       = Nothing,
+    raFlickr         = Nothing,
+    raVimeo          = Nothing
  }
 
 -- Given a parsed XML document, return a RadioAmateur record.
@@ -138,6 +158,7 @@ xmlToRadioAmateur xml = Just
                    raNick        = xml <?> "nick",
                    raQTH         = xml <?> "qth",
                    raCountry     = xml <?> "country",
+                   raADIF        = xml <?> "adif" >>= stringToInteger,
                    raITU         = xml <?> "itu" >>= stringToInteger,
                    raWAZ         = xml <?> "cq" >>= stringToInteger,
                    raGrid        = xml <?> "grid",
@@ -148,6 +169,7 @@ xmlToRadioAmateur xml = Just
                    raAddrCity    = xml <?> "adr_city",
                    raAddrZip     = xml <?> "adr_zip",
                    raAddrCountry = xml <?> "adr_country",
+                   raAddrADIF    = xml <?> "adr_adif" >>= stringToInteger,
                    raDistrict    = xml <?> "district",
                    raUSState     = xml <?> "us_state",
                    raUSCounty    = xml <?> "us_county",
@@ -156,8 +178,9 @@ xmlToRadioAmateur xml = Just
                    raIOTA        = xml <?> "iota" >>= stringToInteger,
                    raQSLVia      = xml <?> "qsl_via",
                    raLOTW        = fmap stringToRAUses (xml <?> "lotw"),
-                   raQSL         = fmap stringToRAUses (xml <?> "qsl"),
                    raEQSL        = fmap stringToRAUses (xml <?> "eqsl"),
+                   raQSL         = fmap stringToRAUses (xml <?> "qsl"),
+                   raQSLDirect   = fmap stringToRAUses (xml <?> "qsldirect"),
                    raEMail       = xml <?> "email",
                    raJabber      = xml <?> "jabber",
                    raICQ         = xml <?> "icq" >>= stringToInteger,
@@ -170,7 +193,14 @@ xmlToRadioAmateur xml = Just
                    raLatitude    = xml <?> "latitude",
                    raLongitude   = xml <?> "longitude",
                    raContinent   = xml <?> "continent" >>= \c -> Just (read c :: A.Continent),
-                   raUTCOffset   = xml <?> "utc_offset" >>= stringToInteger }
+                   raUTCOffset   = xml <?> "utc_offset" >>= stringToInteger,
+                   raFacebook    = xml <?> "facebook",
+                   raTwitter     = xml <?> "twitter",
+                   raGPlus       = xml <?> "gplus",
+                   raYoutube     = xml <?> "youtube",
+                   raLinkedIn    = xml <?> "linkedin",
+                   raFlickr      = xml <?> "flicker",
+                   raVimeo       = xml <?> "vimeo" }
  where
     x <?> e = mplus (getElementValue e x) Nothing
 
