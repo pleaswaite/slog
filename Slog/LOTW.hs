@@ -47,8 +47,7 @@ sign qth file = do
 
     if exists then do
         (exitcode, _, stderr) <- readProcessWithExitCode "tqsl" ["-u", "-d", "-l", qth, file, "-x"] ""
-        case exitcode of
-            ExitSuccess     -> return $ replaceExtension file ".tq8"
-            ExitFailure _   -> fail $ "Signing failed: " ++ stderr
+        if exitcode == ExitSuccess || "Final Status: Success(0)" `isInfixOf` stderr then return $ replaceExtension file ".tq8"
+        else fail $ "Signing failed: " ++ stderr
     else
         fail "File does not exist."
