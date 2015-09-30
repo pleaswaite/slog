@@ -62,8 +62,8 @@ theDate = liftM (formatDateTime "%F") getCurrentTime
 -- WORKING WITH RIGCTL
 --
 
-getFreqs :: IO (Maybe Double, Maybe Double)
-getFreqs = do
+getFreqsFromRigctl :: IO (Maybe Double, Maybe Double)
+getFreqsFromRigctl = do
     freq <- ask Ask.Frequency >>= \case
                 Right (Tell.Frequency f) -> return $ Just $ fromInteger f / 1000000
                 _                        -> return Nothing
@@ -75,9 +75,9 @@ getFreqs = do
 
 updateFreqsFromRigctl :: Widgets -> IO ()
 updateFreqsFromRigctl Widgets{..} = do
-    (freq, rxFreq) <- getFreqs
+    (freq, rxFreq) <- getFreqsFromRigctl
     set wFreq       [ entryText := maybe "" show freq ]
-    -- FIXME: See the comment in getFreq above about why this is disabled due to my
+    -- FIXME: See the comment in getFreq below about why this is disabled due to my
     -- IC-7000 problems.
     -- set (wRxFreq widgets)   [ entryText := maybe "" show rxFreq ]
     set wRxFreq     [ entryText := "" ]
@@ -479,8 +479,8 @@ addQSOFromUI state = do
             -- doesn't support figuring out whether split mode is active or not on my radio
             -- (IC-7000).  Instead it just always gives back the frequency from whenever you
             -- last had split mode active.  Not helpful.
-            -- getFreqs
-            (do (f, _) <- getFreqs
+            -- getFreqsFromRigctl
+            (do (f, _) <- getFreqsFromRigctl
                 return (f, Nothing))
             (do f <- get (wFreq widgets) entryText
                 rxF <- getMaybe (wRxFreq widgets)
