@@ -7,8 +7,6 @@
 -- running any of those utilities.
 module Slog.Rigctl.Rigctl(RigctldError(..),
                           ask,
-                          connect,
-                          disconnect,
                           tell,
                           isRigctldRunning,
                           runRigctld,
@@ -33,18 +31,6 @@ import qualified Slog.Rigctl.Commands.Tell as T
 -- | The result of talking with a radio via rigctld is either 'NoError', or some error code
 -- wrapped in a 'RigError'.  The exact meaning of these error codes is not yet exposed.
 data RigctldError = NoError | RigError Integer
-
--- | Attempt to connect to the rigctld process listening on the hostname 'String'
--- and port number 'Integer'.
-connect :: String -> Integer -> IO Handle
-connect server port = do
-    h <- connectTo server (PortNumber $ fromIntegral port)
-    hSetBuffering h LineBuffering
-    return h
-
--- | Disconnect from the rigctld process previously connected to with the 'connect' function.
-disconnect :: Handle -> IO ()
-disconnect = hClose
 
 -- | Given a 'Slog.Rigctl.Commands.Ask.Command', ask the radio for a piece of information.  The result is either an
 -- error code or the matching 'Slog.Rigctl.Commands.Tell.Command' with information filled in.  Note that not every
@@ -83,7 +69,17 @@ isRigctldRunning :: IO Bool
 isRigctldRunning =
     catch tryConnect (\(_ :: IOException) -> return False)
  where
+    tryConnect :: IO Bool
     tryConnect = connect "localhost" 4532 >>= disconnect >> return True
+
+    connect :: String -> Integer -> IO Handle
+    connect server port = do
+        h <- connectTo server (PortNumber $ fromIntegral port)
+        hSetBuffering h LineBuffering
+        return h
+
+    disconnect :: Handle -> IO ()
+    disconnect = hClose
 
 -- | Attempt to start rigctld.  The first 'String' argument is the model number of the
 -- radio to connect to.  The second 'String' argument is the device node to use for the
