@@ -37,6 +37,7 @@ library
                    ToolLib.Config
 
   build-depends:   base,
+                   cond,
                    containers,
                    convertible,
                    directory,

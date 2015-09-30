@@ -3,7 +3,6 @@
 - add quit menu option
 - add support for printing cluster spots
 - add support for reporting spots
-- backups
 - contest reporting
 - disable hamqth lookups if no network
 - fix all keyboard accelerators

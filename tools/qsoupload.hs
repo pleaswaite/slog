@@ -10,6 +10,7 @@ import System.Directory(getTemporaryDirectory, removeFile)
 import System.Environment(getArgs)
 import System.IO
 
+import Slog.Backups(backup, expire)
 import Slog.DB(getUnsentQSOsQ, initDB, markQSOsAsSent)
 import Slog.Formats.ADIF.Writer(renderRecord)
 import Slog.LOTW(sign)
@@ -93,3 +94,8 @@ main = do
 
     -- Finally, update the database to reflect everything that's been uploaded.
     markQSOsAsSent fp ids
+
+    -- And then back up the database, just in case.  We will only keep 30 backup copies.  That
+    -- ought to be plenty.
+    backup confDB
+    expire confDB 30
