@@ -13,7 +13,33 @@ How to use all this crud:
     but the good news is you can log QSOs without the LOTW account.  You just can't
     run qsoconfirm or qsoupload.
 
-(4) Create a ~/.slog config file.  Mine looks like this (simplified):
+(4) Set up your system to use rigctl, if you want it.  rigctl is a multiplexer that allows
+    multiple programs to control the radio at the same time.  You can use it to have a logging
+    program get data from the radio at the same time as you are using a digital mode program
+    to change frequency.  However, this doesn't work on all radios because support varies.
+
+    For instance, my radio doesn't support a lot of features around VFO selection so it's
+    impossible to tell whether you're working split.  It also means you can't tell wsjtx and
+    fldigi to use rigctl for the interface.  They have to control the radio directly.  That
+    means slog cannot.
+
+    I suggest the following compromise (and have written slog to work this way):  First, use
+    rigctl whenever you are just doing voice operations.  If you need to do split, temporarily
+    uncheck the rigctl checkbox and enter things manually.  Second, if you are using digital
+    mode programs, configure them to control your radio directly and then pass --no-rigctl to
+    slog.  You'll have to enter all your contacts manually, but it seems to be a good compromise.
+
+    You don't need to do anything special to your startup scripts to have rigctl run.  slog will
+    start it and kill it automatically if you have the right lines in your ~/.slog config file.
+    However, it is handy to add a udev rule just in case you end up with multiple radios.  I've
+    got this:
+
+    $ cat /etc/udev/rules.d/80-radio.rules
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ic-7000"
+
+    It's also suggested you add yourself to the dialout group.
+
+(5) Create a ~/.slog config file.  Mine looks like this (simplified):
 
     -------------------------------------------------------------
 
@@ -82,23 +108,11 @@ How to use all this crud:
     of default_<mode>.  Here, <mode> must be something understood by the second element of
     the bandMap tuples in Slog/Formats/ADIF/Types.hs.
 
-    * The Radio section is for rigctl support.  If you have that program installed, slog will
-    automatically attempt to run rigctld on startup.  model is the model of your radio
-    according to "rigctl -l".  device is the device node used for access.  This may be
-    something like /dev/ttyUSB0, but you might have multiple such devices.  I have added the
-    following for a permanent name:
+    * The Radio section is for rigctl support.  model is the model of your radio according
+    to "rigctl -l".  device is the device node used for access.  Please see the other
+    notes under (5) above.
 
-    $ cat /etc/udev/rules.d/80-radio.rules
-    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ic-7000"
-
-    It's also suggested you be a member of the dialout group.
-
-    NOTE: Split operation is not currently supported in conjunction with rigctl.  If you
-    need to operate split, temporarily uncheck the rigctl box in the UI.  If you need to
-    call CQ split, slog will remember the frequency settings between QSOs so you do not need
-    to constantly mess with it.
-
-(5) Build everything:
+(6) Build everything:
 
     $ cabal build
     $ cabal run slog
