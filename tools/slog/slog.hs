@@ -515,9 +515,8 @@ rigctlToggled widgets@Widgets{..} rs = do
         when active (updateFreqsFromRigctl widgets rs)
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
--- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
--- handler so the lookup can proceed while the UI continues to refresh.
-lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO Bool
+-- in HamQTH and fill in some information on the screen.
+lookupCallsign :: Widgets -> ListStore DisplayRow -> Config -> IO ()
 lookupCallsign widgets@Widgets{..} store Config{..} = do
     call <- uppercase <$> get wCall entryText
 
@@ -527,9 +526,6 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
                             (updateUI call)
                             result
         Just s  -> void $ statusbarPush wStatus 0 s
-
-    -- Return false to remove this handler from the main loop.
-    return False
  where
     -- The on-disk database location.
     fp = confDB
@@ -623,7 +619,7 @@ addSignalHandlers state = do
                                     widgetGrabFocus wCall)
     on wAdd     buttonActivated (do addQSOFromUI state
                                     widgetGrabFocus wCall)
-    on wLookup  buttonActivated (void $ lookupCallsign w prevStore conf <* widgetGrabFocus wCall)
+    on wLookup  buttonActivated (lookupCallsign w prevStore conf <* widgetGrabFocus wCall)
 
     -- This signal is how we watch for a new QSO being added to the database and then
     -- updating the view of all QSOs.  This is to prevent having to pass stores all
