@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative((<$>), (<*))
-import           Control.Conditional((<||>), ifM, notM)
+import           Control.Conditional((<||>), ifM, notM, whenM)
 import           Control.Exception(finally)
 import           Control.Monad(liftM, void, when)
 import           Data.Char(isAlphaNum)
@@ -497,8 +497,8 @@ currentToggled widgets@Widgets{..} = do
     set wTime      [ widgetSensitive := not active ]
 
 -- When the "Get frequency from radio" button is toggled, change sensitivity on widgets underneath it.
-rigctlToggled :: Widgets -> Maybe RigctlSupport -> IO ()
-rigctlToggled widgets@Widgets{..} rs = do
+rigctlToggled :: Widgets -> IO ()
+rigctlToggled widgets@Widgets{..} = do
     active <- rigctlActive widgets
     running <- isRigctldRunning
 
@@ -510,9 +510,6 @@ rigctlToggled widgets@Widgets{..} rs = do
         set wFreq           [ widgetSensitive := not active ]
         set wRxFreqLabel    [ widgetSensitive := not active ]
         set wRxFreq         [ widgetSensitive := not active ]
-
-        -- And then update the frequency displayed in the entries if rigctl is running.
-        when active (updateFreqsFromRigctl widgets rs)
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.
@@ -613,7 +610,7 @@ addSignalHandlers state = do
     onDestroy wMainWindow mainQuit
 
     on wCurrent toggled         (currentToggled w)
-    on wRigctl  toggled         (withStateElement_ state psRigSupport $ rigctlToggled w)
+    on wRigctl  toggled         (rigctlToggled w)
     on wClear   buttonActivated (do clearUI state
                                     populateTreeView prevStore []
                                     widgetGrabFocus wCall)
@@ -645,6 +642,15 @@ addSignalHandlers state = do
         text <- get wFreq entryText
         comboBoxSetActiveText wAntenna (T.pack $ antennaForFreq qthName conf text)
         comboBoxSetActiveText wMode    (T.pack $ modeForFreq conf text)
+
+    -- If rigctl is running, we can ask it for the frequency and then update the UI with
+    -- that instead of leaving it at whatever frequency was set the very first time we
+    -- ran.  This looks more responsive.  We only check that rigctl is running once, before
+    -- adding the handler.  We then have to verify that the rigctl checkbox is active every
+    -- time before updating the UI.
+    void $ timeoutAdd (do whenM (rigctlActive w) $ withStateElement_ state psRigSupport (updateFreqsFromRigctl w)
+                          return True)
+                      100
 
     return ()
 
@@ -712,8 +718,6 @@ clearUI state = do
     widgets <- readState state psWidgets
     contestMode <- readState state psContestMode
 
-    rigctlRunning <- isRigctldRunning
-
     -- Blank out most of the text entry widgets.  This makes it easier to operate as the
     -- station with a pile up.  However if we are in contest mode, we don't want to blank
     -- out much at all.
@@ -722,12 +726,9 @@ clearUI state = do
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
 
-    when rigctlRunning $
-        withStateElement_ state psRigSupport $ updateFreqsFromRigctl widgets
-
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
-    set (wRigctl widgets)  [ toggleButtonActive := rigctlRunning ]
+    set (wRigctl widgets)  [ toggleButtonActive :=> isRigctldRunning ]
 
     -- Set the titles on the various frames to something boring.
     set (wPrevious widgets) [ widgetSensitive := False, frameLabel := "Previous contacts with remote station" ]

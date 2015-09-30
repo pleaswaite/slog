@@ -8,6 +8,5 @@
 - fix all keyboard accelerators
 - move QTH selection to a menu option
 - sanity check config file
-- sort out rigctld interaction
 - sort out operator vs. owner vs. station callsigns
 - update ADIF support
