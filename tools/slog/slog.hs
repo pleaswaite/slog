@@ -5,7 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative((<$>), (<*))
-import           Control.Conditional(ifM)
+import           Control.Conditional((<||>), ifM, notM)
 import           Control.Exception(finally)
 import           Control.Monad(liftM, void, when)
 import           Data.Char(isAlphaNum)
@@ -34,6 +34,7 @@ import           Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 
 import ToolLib.Config
 
+import Cmdline(Options(..), processArgs)
 import Contest(contestNext, contestStr, mkNoneContest)
 import Dialogs.Contest(initContestDialog, loadContestWidgets, runContestDialog)
 import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
@@ -779,10 +780,17 @@ main = do
     conf@Config{..} <- readConfig
     initDB confDB
 
+    -- Grab command line settings.
+    Options{..} <- processArgs
+
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have
     -- to check all over the place anyway.
-    pid <- ifM isRigctldRunning
+    --
+    -- However, we also allow disabling rigctl support on the command line.  This is
+    -- necessary if you want to run slog and some other program (like wsjt or fldigi)
+    -- at the same time and rigctl support for your radio is poor.
+    pid <- ifM (isRigctldRunning <||> notM (return optRigctl))
                (return Nothing)
                (runRigctld confRadioModel confRadioDev)
 

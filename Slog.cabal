@@ -125,7 +125,8 @@ executable slog
   main-is:         slog.hs
   hs-source-dirs:  tools/slog
 
-  other-modules:   Contest,
+  other-modules:   Cmdline,
+                   Contest,
                    Dialogs.Contest,
                    Dialogs.QTH,
                    State,
