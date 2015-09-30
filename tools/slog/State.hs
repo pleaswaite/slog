@@ -10,6 +10,8 @@ module State(PState(..),
              readState,
              withState,
              withState_,
+             withStateElement,
+             withStateElement_,
              withStateWidget,
              withStateWidget_)
  where
@@ -71,6 +73,18 @@ withState state doSomethingFn = do
 -- | Same as 'withState', but ignore the result.
 withState_ :: IORef PState -> (PState -> IO a) -> IO ()
 withState_ state doSomethingFn = void $ withState state doSomethingFn
+
+-- | Given an existing 'PState' and an accessor function for pulling out a single
+-- element from that state, perform some function on that element and return the
+-- result.
+withStateElement :: IORef PState -> (PState -> a) -> (a -> IO b) -> IO b
+withStateElement state getElementFn doSomethingFn = do
+    element <- readState state getElementFn
+    doSomethingFn element
+
+-- | Same as 'withStateElement', but ignore the result.
+withStateElement_ :: IORef PState -> (PState -> a) -> (a -> IO b) -> IO ()
+withStateElement_ state getElementFn doSomethingFn = void $ withStateElement state getElementFn doSomethingFn
 
 -- | Given an existing 'PState' and an accessor function for pulling out a single GTK
 -- widget, perform some function on that widget and return the result.

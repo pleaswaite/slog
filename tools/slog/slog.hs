@@ -83,8 +83,8 @@ getFreqsFromRigctl rs =
         _                             -> return Nothing
 
 
-updateFreqsFromRigctl :: Maybe RigctlSupport -> Widgets -> IO ()
-updateFreqsFromRigctl rs Widgets{..} = do
+updateFreqsFromRigctl :: Widgets -> Maybe RigctlSupport -> IO ()
+updateFreqsFromRigctl Widgets{..} rs = do
     (freq, rxFreq) <- getFreqsFromRigctl rs
     set wFreq   [ entryText := maybe "" show freq ]
     set wRxFreq [ entryText := maybe "" show rxFreq ]
@@ -396,7 +396,6 @@ addQSOFromUI state = do
     conf <- readState state psConf
     contestMode <- readState state psContestMode
     qthName <- readState state psQTH
-    rs <- readState state psRigSupport
 
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
@@ -415,7 +414,7 @@ addQSOFromUI state = do
         -- And then a bunch of annoying UI field grabbing.
         date <- undashifyDate <$> getDate widgets
         time <- uncolonifyTime <$> getTime widgets
-        (freq, rxFreq) <- getFreq rs widgets
+        (freq, rxFreq) <- withStateElement state psRigSupport (getFreq widgets)
         xcIn <- getMaybe (wXCRcvd widgets)
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
@@ -480,8 +479,8 @@ addQSOFromUI state = do
             theTime
             (get (wTime widgets) entryText)
 
-    getFreq :: Maybe RigctlSupport -> Widgets -> IO (Maybe Double, Maybe Double)
-    getFreq rs widgets =
+    getFreq :: Widgets -> Maybe RigctlSupport -> IO (Maybe Double, Maybe Double)
+    getFreq widgets rs =
         ifM (rigctlActive widgets)
             (getFreqsFromRigctl rs)
             (do f <- get (wFreq widgets) entryText
@@ -498,8 +497,8 @@ currentToggled widgets@Widgets{..} = do
     set wTime      [ widgetSensitive := not active ]
 
 -- When the "Get frequency from radio" button is toggled, change sensitivity on widgets underneath it.
-rigctlToggled :: Maybe RigctlSupport -> Widgets -> IO ()
-rigctlToggled rs widgets@Widgets{..} = do
+rigctlToggled :: Widgets -> Maybe RigctlSupport -> IO ()
+rigctlToggled widgets@Widgets{..} rs = do
     active <- rigctlActive widgets
     running <- isRigctldRunning
 
@@ -513,7 +512,7 @@ rigctlToggled rs widgets@Widgets{..} = do
         set wRxFreq         [ widgetSensitive := not active ]
 
         -- And then update the frequency displayed in the entries if rigctl is running.
-        when active (updateFreqsFromRigctl rs widgets)
+        when active (updateFreqsFromRigctl widgets rs)
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
@@ -597,8 +596,8 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
 -- all QSOs view.  This is kind of roundabout when we could just do this right after adding the QSO,
 -- but that would mean passing the store all over the place.
-updateAllQSOsView :: ListStore DisplayRow -> Config -> IO ()
-updateAllQSOsView store Config{..} = do
+updateAllQSOsView :: Config -> ListStore DisplayRow -> IO ()
+updateAllQSOsView Config{..} store = do
     result <- getLatestQSO confDB
     listStorePrepend store $ dbToDR result
 
@@ -608,19 +607,17 @@ updateAllQSOsView store Config{..} = do
 
 addSignalHandlers :: IORef PState -> IO ()
 addSignalHandlers state = do
-    allStore <- readState state psAllStore
-    conf <- readState state psConf
     prevStore <- readState state psPrevStore
+    conf <- readState state psConf
     w@Widgets{..} <- readState state psWidgets
     QTHWidgets{..} <- readState state psQTHWidgets
     qthName <- readState state psQTH
-    rs <- readState state psRigSupport
 
     -- Install a bunch of regular signal handlers.
     onDestroy wMainWindow mainQuit
 
     on wCurrent toggled         (currentToggled w)
-    on wRigctl  toggled         (rigctlToggled rs w)
+    on wRigctl  toggled         (withStateElement_ state psRigSupport $ rigctlToggled w)
     on wClear   buttonActivated (do clearUI state
                                     populateTreeView prevStore []
                                     widgetGrabFocus wCall)
@@ -632,14 +629,13 @@ addSignalHandlers state = do
     -- updating the view of all QSOs.  This is to prevent having to pass stores all
     -- around (even though we're doing that to get it into this function already).
     on wStatus  textPushed (\_ s -> when (" added to database." `isSuffixOf` s) $ do
-                                         updateAllQSOsView allStore conf
+                                         withStateElement_ state psAllStore (updateAllQSOsView conf)
                                          populateTreeView prevStore [])
 
     -- These signal handlers are for menu items.
     on wContestMenu actionActivated (runContestDialog state)
     on wQTHMenu     actionActivated (do runQTHDialog state
-                                        qthName' <- readState state psQTH
-                                        loadAntennas wAntenna conf (lookup qthName' $ confQTHs conf))
+                                        withStateElement_ state psQTH (\q -> loadAntennas wAntenna conf (lookup q $ confQTHs conf)))
 
     -- When the QTH is changed, change the displayed call sign.
     on qthCombo changed             (do let call = maybe "Unknown" qthCall (lookup qthName $ confQTHs conf)
@@ -719,7 +715,6 @@ clearUI :: IORef PState -> IO ()
 clearUI state = do
     widgets <- readState state psWidgets
     contestMode <- readState state psContestMode
-    rs <- readState state psRigSupport
 
     rigctlRunning <- isRigctldRunning
 
@@ -731,7 +726,8 @@ clearUI state = do
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
 
-    when rigctlRunning (updateFreqsFromRigctl rs widgets)
+    when rigctlRunning $
+        withStateElement_ state psRigSupport $ updateFreqsFromRigctl widgets
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
