@@ -6,9 +6,11 @@
 -- is assumed in the Slog utilities that the user will have started it up before ever
 -- running any of those utilities.
 module Slog.Rigctl.Rigctl(RigctldError(..),
+                          RigctlSupport(..),
                           ask,
                           tell,
                           isRigctldRunning,
+                          rigctlSupportForModel,
                           runRigctld,
                           killRigctld)
  where
@@ -31,6 +33,10 @@ import qualified Slog.Rigctl.Commands.Tell as T
 -- | The result of talking with a radio via rigctld is either 'NoError', or some error code
 -- wrapped in a 'RigError'.  The exact meaning of these error codes is not yet exposed.
 data RigctldError = NoError | RigError Integer
+
+-- | What level of support does rigctl offer?  Not all radios support everything, and we might
+-- need to tailor program behavior based on these values.
+data RigctlSupport = RigctlSupport { rsSupportsVFOCheck :: Bool }
 
 -- | Given a 'Slog.Rigctl.Commands.Ask.Command', ask the radio for a piece of information.  The result is either an
 -- error code or the matching 'Slog.Rigctl.Commands.Tell.Command' with information filled in.  Note that not every
@@ -80,6 +86,12 @@ isRigctldRunning =
 
     disconnect :: Handle -> IO ()
     disconnect = hClose
+
+-- | Given a radio model number as understood by rigctl, return a record indicating what is and
+-- is not supported.
+rigctlSupportForModel :: String -> RigctlSupport
+rigctlSupportForModel model | model == "360"    = RigctlSupport { rsSupportsVFOCheck=False }
+                            | otherwise         = RigctlSupport { rsSupportsVFOCheck=True }
 
 -- | Attempt to start rigctld.  The first 'String' argument is the model number of the
 -- radio to connect to.  The second 'String' argument is the device node to use for the

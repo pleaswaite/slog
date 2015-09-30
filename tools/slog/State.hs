@@ -19,6 +19,8 @@ import Control.Monad(void)
 import Data.IORef(IORef, atomicWriteIORef, newIORef, readIORef)
 import Graphics.UI.Gtk
 
+import Slog.Rigctl.Rigctl(RigctlSupport)
+
 import ToolLib.Config(Config)
 
 import Contest(Contest)
@@ -40,7 +42,9 @@ data PState = PState {
     psContestMode :: Bool,                   -- ^ are we in contest mode?
     psContestVal :: Contest,                 -- ^ the 'Contest' record for generating exchange data
 
-    psQTH :: String                          -- ^ where are we located?
+    psQTH :: String,                         -- ^ where are we located?
+
+    psRigSupport :: Maybe RigctlSupport      -- ^ if any radio is attached, what does it support?
  }
 
 -- | Apply a modification function to an existing 'PState' record and store that result

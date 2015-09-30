@@ -28,7 +28,7 @@ import           Slog.Formats.ADIF.Utils(freqToBand)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
 import qualified Slog.Rigctl.Commands.Ask as Ask
 import qualified Slog.Rigctl.Commands.Tell as Tell
-import           Slog.Rigctl.Rigctl(ask, isRigctldRunning, killRigctld, runRigctld)
+import           Slog.Rigctl.Rigctl(RigctlSupport(..), ask, isRigctldRunning, killRigctld, rigctlSupportForModel, runRigctld)
 import           Slog.Utils
 import           Slog.QSO(Confirmation(..), QSO(..), isConfirmed)
 
@@ -62,25 +62,32 @@ theDate = liftM (formatDateTime "%F") getCurrentTime
 -- WORKING WITH RIGCTL
 --
 
-getFreqsFromRigctl :: IO (Maybe Double, Maybe Double)
-getFreqsFromRigctl = do
-    freq <- ask Ask.Frequency >>= \case
-                Right (Tell.Frequency f) -> return $ Just $ fromInteger f / 1000000
-                _                        -> return Nothing
-    rxFreq <- ask Ask.SplitFrequency >>= \case
-                  Right (Tell.SplitFrequency f) -> return $ Just $ fromInteger f / 1000000
-                  _                             -> return Nothing
+getFreqsFromRigctl :: Maybe RigctlSupport -> IO (Maybe Double, Maybe Double)
+getFreqsFromRigctl rs =
+    -- No RigctlSupport record was given, so we must assume rigctl is not running.
+    -- Thus return Nothing for both.  I don't know how you'd get here, but here we are.
+    if isNothing rs then return (Nothing, Nothing)
+    -- If the radio does not support getting the VFO status, we cannot tell if we're
+    -- running split or not.  Thus return Nothing in that case, or the frequency if we
+    -- know the radio is reliable.
+    else do freq <- askFreq
+            rxFreq <- if rsSupportsVFOCheck (fromJust rs) then askRxFreq else return Nothing
+            if rxFreq == freq then return (freq, Nothing) else return (freq, rxFreq)
+ where
+    askFreq = ask Ask.Frequency >>= \case
+        Right (Tell.Frequency f) -> return $ Just $ fromInteger f / 1000000
+        _                        -> return Nothing
 
-    if rxFreq == freq then return (freq, Nothing) else return (freq, rxFreq)
+    askRxFreq = ask Ask.SplitFrequency >>= \case
+        Right (Tell.SplitFrequency f) -> return $ Just $ fromInteger f / 1000000
+        _                             -> return Nothing
 
-updateFreqsFromRigctl :: Widgets -> IO ()
-updateFreqsFromRigctl Widgets{..} = do
-    (freq, rxFreq) <- getFreqsFromRigctl
-    set wFreq       [ entryText := maybe "" show freq ]
-    -- FIXME: See the comment in getFreq below about why this is disabled due to my
-    -- IC-7000 problems.
-    -- set (wRxFreq widgets)   [ entryText := maybe "" show rxFreq ]
-    set wRxFreq     [ entryText := "" ]
+
+updateFreqsFromRigctl :: Maybe RigctlSupport -> Widgets -> IO ()
+updateFreqsFromRigctl rs Widgets{..} = do
+    (freq, rxFreq) <- getFreqsFromRigctl rs
+    set wFreq   [ entryText := maybe "" show freq ]
+    set wRxFreq [ entryText := maybe "" show rxFreq ]
 
 --
 -- WORKING WITH CALL SIGNS
@@ -389,6 +396,7 @@ addQSOFromUI state = do
     conf <- readState state psConf
     contestMode <- readState state psContestMode
     qthName <- readState state psQTH
+    rs <- readState state psRigSupport
 
     -- First, check everything the user put into the UI.  If anything's wrong, display an error
     -- message in the info bar and bail out.
@@ -407,7 +415,7 @@ addQSOFromUI state = do
         -- And then a bunch of annoying UI field grabbing.
         date <- undashifyDate <$> getDate widgets
         time <- uncolonifyTime <$> getTime widgets
-        (freq, rxFreq) <- getFreq widgets
+        (freq, rxFreq) <- getFreq rs widgets
         xcIn <- getMaybe (wXCRcvd widgets)
         xcOut <- getMaybe (wXCSent widgets)
         rstIn <- get (wRSTRcvd widgets) entryText
@@ -472,16 +480,10 @@ addQSOFromUI state = do
             theTime
             (get (wTime widgets) entryText)
 
-    getFreq :: Widgets -> IO (Maybe Double, Maybe Double)
-    getFreq widgets =
+    getFreq :: Maybe RigctlSupport -> Widgets -> IO (Maybe Double, Maybe Double)
+    getFreq rs widgets =
         ifM (rigctlActive widgets)
-            -- FIXME:  Getting the split frequency is currently disabled, because hamlib
-            -- doesn't support figuring out whether split mode is active or not on my radio
-            -- (IC-7000).  Instead it just always gives back the frequency from whenever you
-            -- last had split mode active.  Not helpful.
-            -- getFreqsFromRigctl
-            (do (f, _) <- getFreqsFromRigctl
-                return (f, Nothing))
+            (getFreqsFromRigctl rs)
             (do f <- get (wFreq widgets) entryText
                 rxF <- getMaybe (wRxFreq widgets)
                 return (stringToDouble f, maybe Nothing stringToDouble rxF))
@@ -496,8 +498,8 @@ currentToggled widgets@Widgets{..} = do
     set wTime      [ widgetSensitive := not active ]
 
 -- When the "Get frequency from radio" button is toggled, change sensitivity on widgets underneath it.
-rigctlToggled :: Widgets -> IO ()
-rigctlToggled widgets@Widgets{..} = do
+rigctlToggled :: Maybe RigctlSupport -> Widgets -> IO ()
+rigctlToggled rs widgets@Widgets{..} = do
     active <- rigctlActive widgets
     running <- isRigctldRunning
 
@@ -511,7 +513,7 @@ rigctlToggled widgets@Widgets{..} = do
         set wRxFreq         [ widgetSensitive := not active ]
 
         -- And then update the frequency displayed in the entries if rigctl is running.
-        when active (updateFreqsFromRigctl widgets)
+        when active (updateFreqsFromRigctl rs widgets)
 
 -- When the "Lookup" button next to the call sign entry is clicked, we want to look that call up
 -- in HamQTH and fill in some information on the screen.  This is called as a callback in an idle
@@ -612,12 +614,13 @@ addSignalHandlers state = do
     w@Widgets{..} <- readState state psWidgets
     QTHWidgets{..} <- readState state psQTHWidgets
     qthName <- readState state psQTH
+    rs <- readState state psRigSupport
 
     -- Install a bunch of regular signal handlers.
     onDestroy wMainWindow mainQuit
 
     on wCurrent toggled         (currentToggled w)
-    on wRigctl  toggled         (rigctlToggled w)
+    on wRigctl  toggled         (rigctlToggled rs w)
     on wClear   buttonActivated (do clearUI state
                                     populateTreeView prevStore []
                                     widgetGrabFocus wCall)
@@ -716,6 +719,7 @@ clearUI :: IORef PState -> IO ()
 clearUI state = do
     widgets <- readState state psWidgets
     contestMode <- readState state psContestMode
+    rs <- readState state psRigSupport
 
     rigctlRunning <- isRigctldRunning
 
@@ -727,7 +731,7 @@ clearUI state = do
                           else [wCall widgets, wRSTRcvd widgets, wRSTSent widgets, wXCRcvd widgets,
                                 wXCSent widgets, wDate widgets, wTime widgets])
 
-    when rigctlRunning (updateFreqsFromRigctl widgets)
+    when rigctlRunning (updateFreqsFromRigctl rs widgets)
 
     -- Set the current date/time checkbox back to active.
     set (wCurrent widgets) [ toggleButtonActive := True ]
@@ -785,7 +789,8 @@ main = do
 
     -- Try to start rigctld now so we can ask the radio for frequency.  There's no
     -- guarantee it will actually start (what if the radio's not on yet?) so we have
-    -- to check all over the place anyway.
+    -- to check all over the place anyway.  And then if we've started rigctl, figure
+    -- out what the radio supports so we can figure out what to do in the UI.
     --
     -- However, we also allow disabling rigctl support on the command line.  This is
     -- necessary if you want to run slog and some other program (like wsjt or fldigi)
@@ -793,6 +798,7 @@ main = do
     pid <- ifM (isRigctldRunning <||> notM (return optRigctl))
                (return Nothing)
                (runRigctld confRadioModel confRadioDev)
+    let rs = if isNothing pid then Nothing else Just $ rigctlSupportForModel confRadioModel
 
     (widgets, cWidgets, qthWidgets) <- loadFromGlade
 
@@ -824,5 +830,6 @@ main = do
                             psAllStore = allStore,
                             psContestMode = False,
                             psContestVal = mkNoneContest "",
-                            psQTH = confDefaultQTH }
+                            psQTH = confDefaultQTH,
+                            psRigSupport = rs }
     runGUI ps `finally` forM_ pid killRigctld
