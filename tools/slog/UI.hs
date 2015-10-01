@@ -11,7 +11,7 @@ import Graphics.UI.Gtk
 -- | Display a check mark in a table, at a given location.
 addCheckToTable :: Table -> Int -> Int -> IO ()
 addCheckToTable tbl col row = do
-    img <- imageNewFromStock stockApply IconSizeButton
+    img <- imageNewFromStock stockApply IconSizeSmallToolbar
     tableAttach tbl img
                 col (col+1) row (row+1)
                 [] []

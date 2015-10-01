@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 import           Control.Applicative((<$>), (<*))
+import           Control.Arrow((&&&))
 import           Control.Conditional((<||>), ifM, notM, whenM)
 import           Control.Exception(finally)
 import           Control.Monad(liftM, void, when)
@@ -23,7 +24,7 @@ import           System.Locale(defaultTimeLocale)
 
 import           Slog.DB
 import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
-import           Slog.Formats.ADIF.Types(Band(..), Mode)
+import           Slog.Formats.ADIF.Types(Mode)
 import           Slog.Formats.ADIF.Utils(freqToBand)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
 import qualified Slog.Rigctl.Commands.Ask as Ask
@@ -38,6 +39,7 @@ import Cmdline(Options(..), processArgs)
 import Contest(contestNext, contestStr, mkNoneContest)
 import Dialogs.Contest(initContestDialog, loadContestWidgets, runContestDialog)
 import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
+import Progress(addEntityCheck, addGridCheck, addStateCheck, populateAllTables)
 import State
 import Types
 import UI(addCheckToTable, comboBoxSetActiveText)
@@ -147,71 +149,6 @@ loadQTHs combo Config{..} = do
 --
 -- UI HELPERS
 --
-
-populateTable :: Table -> [String] -> [String] -> IO ()
-populateTable table modes bands = do
-    mapM_ (\(band, x, y) -> do l <- createLabel band
-                               tableAttach table l x (x+1) y (y+1) [Fill] [] 0 0)
-          (zip3 bands [0 .. (nBands - 1)] (repeat 0))
-    separator <- hSeparatorNew
-    tableAttach table separator 0 nBands 1 2 [Expand, Fill] [] 0 0
- where
-    nBands = length bands
-    nModes = length modes
-
-    createLabel s = do
-        l <- labelNew (Nothing :: Maybe String)
-        set l [ labelLabel := "<b>" ++ s ++ "</b>",
-                labelUseMarkup := True,
-                miscXalign := 0.5,
-                miscYalign := 0.5 ]
-        return l
-
-populateAllTables :: Widgets -> IO ()
-populateAllTables Widgets{..} = do
-    populateTable wDXCCGrid  [] ["160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M"]
-    populateTable wGridGrid  [] ["6M", "2M", "1.25M", "70CM", "33CM", "23CM"]
-    populateTable wStateGrid [] ["160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M", "2M", "1.25M", "70CM"]
-
-addEntityCheck :: Widgets -> Maybe Band -> IO ()
-addEntityCheck Widgets{..} band | band == Just Band160M = addCheckToTable wDXCCGrid 0  2
-                                | band == Just Band80M  = addCheckToTable wDXCCGrid 1  2
-                                | band == Just Band60M  = addCheckToTable wDXCCGrid 2  2
-                                | band == Just Band40M  = addCheckToTable wDXCCGrid 3  2
-                                | band == Just Band30M  = addCheckToTable wDXCCGrid 4  2
-                                | band == Just Band20M  = addCheckToTable wDXCCGrid 5  2
-                                | band == Just Band17M  = addCheckToTable wDXCCGrid 6  2
-                                | band == Just Band15M  = addCheckToTable wDXCCGrid 7  2
-                                | band == Just Band12M  = addCheckToTable wDXCCGrid 8  2
-                                | band == Just Band10M  = addCheckToTable wDXCCGrid 9  2
-                                | band == Just Band6M   = addCheckToTable wDXCCGrid 10 2
-                                | otherwise             = return ()
-
-addGridCheck :: Widgets -> Maybe Band -> IO ()
-addGridCheck Widgets{..} band | band == Just Band6M        = addCheckToTable wGridGrid 0 2
-                              | band == Just Band2M        = addCheckToTable wGridGrid 1 2
-                              | band == Just Band1Point25M = addCheckToTable wGridGrid 2 2
-                              | band == Just Band70CM      = addCheckToTable wGridGrid 3 2
-                              | band == Just Band33CM      = addCheckToTable wGridGrid 4 2
-                              | band == Just Band23CM      = addCheckToTable wGridGrid 5 2
-                              | otherwise                  = return ()
-
-addStateCheck :: Widgets -> Maybe Band -> IO ()
-addStateCheck Widgets{..} band | band == Just Band160M      = addCheckToTable wStateGrid 0  2
-                               | band == Just Band80M       = addCheckToTable wStateGrid 1  2
-                               | band == Just Band60M       = addCheckToTable wStateGrid 2  2
-                               | band == Just Band40M       = addCheckToTable wStateGrid 3  2
-                               | band == Just Band30M       = addCheckToTable wStateGrid 4  2
-                               | band == Just Band20M       = addCheckToTable wStateGrid 5  2
-                               | band == Just Band17M       = addCheckToTable wStateGrid 6  2
-                               | band == Just Band15M       = addCheckToTable wStateGrid 7  2
-                               | band == Just Band12M       = addCheckToTable wStateGrid 8  2
-                               | band == Just Band10M       = addCheckToTable wStateGrid 9  2
-                               | band == Just Band6M        = addCheckToTable wStateGrid 10 2
-                               | band == Just Band2M        = addCheckToTable wStateGrid 11 2
-                               | band == Just Band1Point25M = addCheckToTable wStateGrid 12 2
-                               | band == Just Band70CM      = addCheckToTable wStateGrid 13 2
-                               | otherwise                  = return ()
 
 antennaForFreq :: String -> Config -> String -> String
 antennaForFreq qthName Config{..} text = let
@@ -580,8 +517,8 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
                 -- Get a list of all QSOs we've had with this entity, narrow it down to just what's
                 -- been confirmed, and then put checkmarks in where appropriate.
                 results <- filter confirmed <$> getQSOsByDXCC fp (fromInteger $ fromJust dxcc)
-                let confirmedBands = map getBand results
-                mapM_ (addEntityCheck widgets) confirmedBands
+                let confirmations = map (getBand &&& getMode) results
+                mapM_ (addEntityCheck widgets) confirmations
 
         -- FIXME: This is not necessarily the right grid.  We really need to know the grid they're
         -- in first, since a station could be in a different grid than their QTH.  We won't know that
@@ -591,8 +528,8 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
             set wGrid [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
 
             results <- filter confirmed <$> getQSOsByGrid fp shortGrid
-            let confirmedBands = map getBand results
-            mapM_ (addGridCheck widgets) confirmedBands
+            let confirmations = map (getBand &&& getMode) results
+            mapM_ (addGridCheck widgets) confirmations
 
         -- And then put their state and checkmarks into that table, too.
         when (isJust $ raUSState ra') $ do
@@ -601,12 +538,14 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
             set wState [ widgetSensitive := True, frameLabel := state ++ " status" ]
 
             results <- filter confirmed <$> getQSOsByState fp state
-            let confirmedBands = map getBand results
-            mapM_ (addStateCheck widgets) confirmedBands
+            let confirmations = map (getBand &&& getMode) results
+            mapM_ (addStateCheck widgets) confirmations
      where
         confirmed (_, _, c) = isJust $ qLOTW_RDate c
 
         getBand (_, q, _) = freqToBand $ qFreq q
+
+        getMode (_, q, _) = qMode q
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
 

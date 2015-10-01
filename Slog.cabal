@@ -129,6 +129,7 @@ executable slog
                    Contest,
                    Dialogs.Contest,
                    Dialogs.QTH,
+                   Progress,
                    State,
                    Types,
                    UI
