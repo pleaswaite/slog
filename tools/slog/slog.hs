@@ -148,6 +148,31 @@ loadQTHs combo Config{..} = do
 -- UI HELPERS
 --
 
+populateTable :: Table -> [String] -> [String] -> IO ()
+populateTable table modes bands = do
+    mapM_ (\(band, x, y) -> do l <- createLabel band
+                               tableAttach table l x (x+1) y (y+1) [Fill] [] 0 0)
+          (zip3 bands [0 .. (nBands - 1)] (repeat 0))
+    separator <- hSeparatorNew
+    tableAttach table separator 0 nBands 1 2 [Expand, Fill] [] 0 0
+ where
+    nBands = length bands
+    nModes = length modes
+
+    createLabel s = do
+        l <- labelNew (Nothing :: Maybe String)
+        set l [ labelLabel := "<b>" ++ s ++ "</b>",
+                labelUseMarkup := True,
+                miscXalign := 0.5,
+                miscYalign := 0.5 ]
+        return l
+
+populateAllTables :: Widgets -> IO ()
+populateAllTables Widgets{..} = do
+    populateTable wDXCCGrid  [] ["160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M"]
+    populateTable wGridGrid  [] ["6M", "2M", "1.25M", "70CM", "33CM", "23CM"]
+    populateTable wStateGrid [] ["160M", "80M", "60M", "40M", "30M", "20M", "17M", "15M", "12M", "10M", "6M", "2M", "1.25M", "70CM"]
+
 addEntityCheck :: Widgets -> Maybe Band -> IO ()
 addEntityCheck Widgets{..} band | band == Just Band160M = addCheckToTable wDXCCGrid 0  2
                                 | band == Just Band80M  = addCheckToTable wDXCCGrid 1  2
@@ -794,6 +819,7 @@ main = do
     let rs = if isNothing pid then Nothing else Just $ rigctlSupportForModel confRadioModel
 
     (widgets, cWidgets, qthWidgets) <- loadFromGlade
+    populateAllTables widgets
 
     -- Initialize the modes combo and the antenna combo.  The modes combo doesn't change,
     -- but the antenna combo can change whenever the QTH is changed.
