@@ -650,7 +650,7 @@ addSignalHandlers state = do
     -- time before updating the UI.
     void $ timeoutAdd (do whenM (rigctlActive w) $ withStateElement_ state psRigSupport (updateFreqsFromRigctl w)
                           return True)
-                      100
+                      350
 
     return ()
 
