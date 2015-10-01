@@ -39,7 +39,7 @@ import Cmdline(Options(..), processArgs)
 import Contest(contestNext, contestStr, mkNoneContest)
 import Dialogs.Contest(initContestDialog, loadContestWidgets, runContestDialog)
 import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
-import Progress(addEntityCheck, addGridCheck, addStateCheck, populateAllTables)
+import Progress(addEntityCheck, addGridCheck, addStateCheck, clearChecks, populateAllTables)
 import State
 import Types
 import UI(addCheckToTable, comboBoxSetActiveText)
@@ -168,16 +168,6 @@ modeForFreq Config{..} text =
     case stringToDouble text >>= freqToBand of
         Nothing -> confDefaultMode
         Just b  -> fromMaybe confDefaultMode (lookup b confModeMap)
-
-clearChecks :: Widgets -> IO ()
-clearChecks Widgets{..} = do
-    mapM_ (\widget -> set widget [ widgetSensitive := False ])
-          [wDXCC, wGrid, wState]
-    mapM_ (\cont -> containerForeach cont (removeImage cont))
-          [wNewQSOGrid, wDXCCGrid, wGridGrid, wStateGrid]
- where
-    removeImage container widget =
-        when (isA widget gTypeImage) $ containerRemove container widget
 
 -- Create the columns and renderers for a given TreeView, leaving it ready to be filled
 -- with data.  This function should only be called once or each column will appear

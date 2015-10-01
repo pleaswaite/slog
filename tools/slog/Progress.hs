@@ -4,9 +4,11 @@
 module Progress(addEntityCheck,
                 addGridCheck,
                 addStateCheck,
+                clearChecks,
                 populateAllTables)
  where
 
+import Control.Monad(when)
 import Graphics.UI.Gtk
 
 import Slog.Formats.ADIF.Types(Band(..), Mode, digitalMode)
@@ -41,6 +43,16 @@ populateTable table modes bands = do
 rowForMode :: Mode -> Int
 rowForMode s | digitalMode s = 3
              | otherwise     = 2
+
+clearChecks :: Widgets -> IO ()
+clearChecks Widgets{..} = do
+    mapM_ (\widget -> set widget [ widgetSensitive := False ])
+          [wDXCC, wGrid, wState]
+    mapM_ (\cont -> containerForeach cont (removeImage cont))
+          [wNewQSOGrid, wDXCCGrid, wGridGrid, wStateGrid]
+ where
+    removeImage container widget =
+        when (isA widget gTypeImage) $ containerRemove container widget
 
 populateAllTables :: Widgets -> IO ()
 populateAllTables Widgets{..} = do
