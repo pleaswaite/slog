@@ -1,4 +1,5 @@
 {-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE MultiWayIf #-}
 -- | The LOTW module interfaces with the ARRL's LOTW website and provides a way
 -- to sign ADIF files, upload signed files to the website, and download verified
 -- QSLs from the website.
@@ -47,7 +48,8 @@ sign qth file = do
 
     if exists then do
         (exitcode, _, stderr) <- readProcessWithExitCode "tqsl" ["-u", "-d", "-l", qth, file, "-x"] ""
-        if exitcode == ExitSuccess || "Final Status: Success(0)" `isInfixOf` stderr then return $ replaceExtension file ".tq8"
-        else fail $ "Signing failed: " ++ stderr
+        if | exitcode == ExitSuccess                        -> return $ replaceExtension file ".tq8"
+           | "Final Status: Success (0)" `isInfixOf` stderr -> return $ replaceExtension file ".tq8"
+           | otherwise                                      -> fail $ "Signing failed: " ++ stderr
     else
         fail "File does not exist."
