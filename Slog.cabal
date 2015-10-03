@@ -108,6 +108,7 @@ executable qsoupload
   hs-source-dirs:  tools
 
   build-depends:   base,
+                   cond,
                    directory,
                    Slog
 
