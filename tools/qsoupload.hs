@@ -3,22 +3,23 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import Control.Applicative((<$>))
+import Control.Conditional(whenM)
 import Control.Exception(IOException, catch, finally)
 import Data.List(intercalate)
 import System.Console.GetOpt
-import System.Directory(getTemporaryDirectory, removeFile)
+import System.Directory(doesFileExist, getTemporaryDirectory, removeFile)
 import System.Environment(getArgs)
 import System.IO
 
 import Slog.Backups(backup, expire)
 import Slog.DB(getUnsentQSOsQ, initDB, markQSOsAsSent)
 import Slog.Formats.ADIF.Writer(renderRecord)
-import Slog.LOTW(sign)
+import Slog.LOTW(signAndUpload)
 import Slog.QSO(qsoToADIF)
 
 import ToolLib.Config
 
-type SignFuncTy = FilePath -> IO FilePath
+type SignFuncTy = FilePath -> IO ()
 
 --
 -- OPTION PROCESSING CODE
@@ -56,19 +57,21 @@ processArgs conf argsFunc = do
 -- THE MAIN PROGRAM
 --
 
-withTempFile :: String -> (FilePath -> Handle -> IO a) -> IO a
+removeFileIfExists :: FilePath -> IO ()
+removeFileIfExists fp = whenM (doesFileExist fp) $ removeFile fp
+
+withTempFile :: String -> (FilePath -> Handle -> IO ()) -> IO ()
 withTempFile pattern func = do
     tempdir <- catch getTemporaryDirectory (\(_ :: IOException) -> return ".")
     (tempfile, temph) <- openTempFile tempdir pattern
     finally (func tempfile temph)
-            (removeFile tempfile)
+            (removeFileIfExists tempfile)
 
 writeAndUpload :: String -> SignFuncTy -> FilePath -> Handle -> IO ()
 writeAndUpload adifs signFunc tempname temph = do
     hPutStrLn temph adifs
     hClose temph
-    signedFile <- signFunc tempname
-    removeFile signedFile
+    signFunc tempname
 
 main :: IO ()
 main = do
@@ -90,7 +93,7 @@ main = do
     let adifs = intercalate "\r\n" $ map (renderRecord . qsoToADIF) qsos
 
     -- Then write out the temporary file, sign it, and upload it.
-    withTempFile "new.adi" (writeAndUpload adifs (sign $ optQTH cmdline))
+    withTempFile "new.adi" (writeAndUpload adifs (signAndUpload $ optQTH cmdline))
 
     -- Finally, update the database to reflect everything that's been uploaded.
     markQSOsAsSent fp ids
