@@ -25,7 +25,7 @@ import           System.Locale(defaultTimeLocale)
 import           Slog.DB
 import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
 import           Slog.Formats.ADIF.Types(Mode)
-import           Slog.Formats.ADIF.Utils(freqToBand)
+import           Slog.Formats.ADIF.Utils(freqToBand, freqToBandAndMode)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
 import qualified Slog.Rigctl.Commands.Ask as Ask
 import qualified Slog.Rigctl.Commands.Tell as Tell
@@ -165,9 +165,12 @@ antennaForFreq qthName Config{..} text = let
 
 modeForFreq :: Config -> String -> String
 modeForFreq Config{..} text =
-    case stringToDouble text >>= freqToBand of
+    case stringToDouble text of
         Nothing -> confDefaultMode
-        Just b  -> fromMaybe confDefaultMode (lookup b confModeMap)
+        Just d  -> case freqToBandAndMode d of
+                       (_, Just m)         -> show m
+                       (Nothing, _)        -> confDefaultMode
+                       (Just b, Nothing)   -> fromMaybe confDefaultMode (lookup b confModeMap)
 
 -- Create the columns and renderers for a given TreeView, leaving it ready to be filled
 -- with data.  This function should only be called once or each column will appear
