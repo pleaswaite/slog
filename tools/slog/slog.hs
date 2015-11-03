@@ -213,10 +213,10 @@ initTreeView store view = do
     treeViewAppendColumn view stateCol
 
     -- EXCHANGE
-    xcOutCol <- newTextColumn store "XC" (possiblyEmpty dXcOut)
+    xcOutCol <- newTextColumn store "My XC" (possiblyEmpty dXcOut)
     treeViewAppendColumn view xcOutCol
 
-    xcInCol <- newTextColumn store "Rcvd XC" (possiblyEmpty dXcIn)
+    xcInCol <- newTextColumn store "Their XC" (possiblyEmpty dXcIn)
     treeViewAppendColumn view xcInCol
 
     -- ANTENNA
