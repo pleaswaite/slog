@@ -2,7 +2,6 @@
 - add quit menu option
 - add support for printing cluster spots
 - add support for reporting spots
-- collapse "Rcvd Frequency" columns into Frequency columns
 - contest reporting
 - disable hamqth lookups if no network (--no-network option?)
 - display QTH in previous contacts list

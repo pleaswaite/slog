@@ -192,10 +192,8 @@ initTreeView store view = do
     treeViewAppendColumn view callCol
 
     -- FREQUENCY & RX FREQUENCY
-    freqCol <- newTextColumn store "Frequency" (show . dFreq)
+    freqCol <- newTextColumn store "Frequency" $ \row -> show (dFreq row) ++ maybe "" (\rx -> " : " ++ show rx) (dRxFreq row)
     treeViewAppendColumn view freqCol
-    rxFreqCol <- newTextColumn store "Rcvd Frequency" $ \row -> maybe "" show (dRxFreq row)
-    treeViewAppendColumn view rxFreqCol
 
     -- MODE
     modeCol <- newTextColumn store "Mode" dMode
