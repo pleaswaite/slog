@@ -6,6 +6,7 @@
 - disable hamqth lookups if no network (--no-network option?)
 - display QTH in previous contacts list
 - fix all keyboard accelerators
+- fix hang when radio is turned off before the program exits
 - make it easier to see if a call is a LOTW user/ANTO/new band/etc.
 - move QTH selection to a menu option
 - sanity check config file
