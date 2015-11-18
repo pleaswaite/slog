@@ -14,7 +14,6 @@ import Graphics.UI.Gtk
 import Slog.Formats.ADIF.Types(Band(..), Mode, digitalMode)
 
 import Types
-import UI(addCheckToTable)
 
 populateTable :: Table -> [String] -> [String] -> IO ()
 populateTable table modes bands = do
@@ -102,3 +101,14 @@ addStateCheck Widgets{..} (band, mode)
     | band == Just Band1Point25M = addCheckToTable wStateGrid 13 (rowForMode mode)
     | band == Just Band70CM      = addCheckToTable wStateGrid 14 (rowForMode mode)
     | otherwise                  = return ()
+
+-- | Display a check mark in a table, at a given location.
+addCheckToTable :: Table -> Int -> Int -> IO ()
+addCheckToTable tbl col row = do
+    img <- imageNewFromStock stockApply IconSizeSmallToolbar
+    tableAttach tbl img
+                col (col+1) row (row+1)
+                [] []
+                0 0
+    widgetShowAll tbl
+    return ()

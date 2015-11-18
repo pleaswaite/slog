@@ -42,7 +42,7 @@ import Dialogs.QTH(loadQTHWidgets, runQTHDialog)
 import Progress(addEntityCheck, addGridCheck, addStateCheck, clearChecks, populateAllTables)
 import State
 import Types
-import UI(addCheckToTable, comboBoxSetActiveText)
+import UI(comboBoxSetActiveText)
 
 {-# ANN loadWidgets "HLint: ignore Eta reduce" #-}
 {-# ANN initTreeView "HLint: ignore Use fromMaybe" #-}
@@ -488,9 +488,6 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
         -- previous contacts may have been made, and then do another lookup without first having
         -- to hit the clear button.
         clearChecks widgets
-
-        -- If they're a LOTW user, put a nice big check mark image in there.
-        when (raLOTW ra' == Just Yes) $ addCheckToTable wNewQSOGrid 1 8
 
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
