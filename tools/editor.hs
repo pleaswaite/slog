@@ -175,7 +175,7 @@ addColumns store view = do
     treeViewAppendColumn view myCallCol
 
     -- MY QTH
-    (myQTHCol, myQTHCell) <- newTextColumn store "Antenna" rMyQTH
+    (myQTHCol, myQTHCell) <- newTextColumn store "My QTH" rMyQTH
     on myQTHCell edited $ editedCell store (\row text -> row { rMyQTH=text, rEdited=True })
     treeViewAppendColumn view myQTHCol
 
