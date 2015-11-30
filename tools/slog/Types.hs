@@ -24,6 +24,11 @@ data Widgets = Widgets {
     wXCRcvd :: Entry,               -- ^ entry for exchange given by remote station (optional)
     wXCSent :: Entry,               -- ^ entry for exchange sent to remote station (optional)
 
+    wLOTW :: Label,                 -- ^ label to display if the remote station is an LOTW user
+    wATNO :: Label,                 -- ^ label to display if the remote station would be an ATNO
+    wNewBand :: Label,              -- ^ label to display if the QSO would be new for the current band
+    wNewGrid :: Label,              -- ^ label to display if the QSO would be new for their grid
+
     wCurrent :: CheckButton,        -- ^ use current date and time?
     wRigctl :: CheckButton,         -- ^ get frequency info from rigctl?
 

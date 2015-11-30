@@ -13,7 +13,8 @@ import           Data.Char(isAlphaNum)
 import           Data.Foldable(forM_)
 import           Data.IORef(IORef)
 import           Data.List(isSuffixOf)
-import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing)
+import           Data.Maybe(fromJust, fromMaybe, isJust, isNothing, mapMaybe)
+import           Data.Tuple.Extra(snd3, thd3)
 import           Control.Monad.Trans(liftIO)
 import           Data.Monoid(First(..), getFirst, mconcat)
 import qualified Data.Text as T
@@ -268,6 +269,32 @@ populateTreeView store results = do
     listStoreClear store
     mapM_ (listStoreAppend store . dbToDR) results
 
+-- Set the ATNO box back to its initial state.
+resetATNOBox :: Widgets -> IO ()
+resetATNOBox Widgets{..} = do
+    labelSetMarkup wLOTW    $ markup "LOTW User"
+    labelSetMarkup wATNO    $ markup "ATNO"
+    labelSetMarkup wNewBand $ markup "Band New"
+    labelSetMarkup wNewGrid $ markup "Grid New"
+ where
+    markup s = "<span foreground='light grey'>" ++ s ++ "</span>"
+
+-- Highlight whether various conditions regarding the user and this potential QSO are met.
+setIsLOTWUser :: Widgets -> IO ()
+setIsLOTWUser Widgets{..} = labelSetMarkup wLOTW $ importantMarkup "LOTW User"
+
+setIsATNO :: Widgets -> IO ()
+setIsATNO Widgets{..} = labelSetMarkup wATNO $ importantMarkup "ATNO"
+
+setIsNewBand :: Widgets -> IO ()
+setIsNewBand Widgets{..} = labelSetMarkup wNewBand $ importantMarkup "Band New"
+
+setIsNewGrid :: Widgets -> IO ()
+setIsNewGrid Widgets{..} = labelSetMarkup wNewGrid $ importantMarkup "Grid New"
+
+importantMarkup :: String -> String
+importantMarkup s = "<span foreground='green' weight='bold'>" ++ s ++ "</span>"
+
 --
 -- INPUT CHECKS
 --
@@ -488,6 +515,10 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
         -- previous contacts may have been made, and then do another lookup without first having
         -- to hit the clear button.
         clearChecks widgets
+        resetATNOBox widgets
+
+        -- Is the remote station an LOTW user?
+        when (raLOTW ra' == Just Yes) $ setIsLOTWUser widgets
 
         -- Put their call in the label, and then populate the list of previous QSOs we've
         -- had with this station.
@@ -497,45 +528,77 @@ lookupCallsign widgets@Widgets{..} store Config{..} = do
 
         -- Put their call in the label, and then add check marks in for DXCC entity
         -- and grid confirmations.
-        when (isJust $ raCountry ra') $ do
+        whenJust (raCountry ra') $ do
             set wDXCC [ widgetSensitive := True, frameLabel := (fromJust . raCountry) ra' ++ " status" ]
 
             let dxcc = raADIF ra'
-            when (isJust dxcc) $ do
+            whenJust dxcc $ do
                 -- Get a list of all QSOs we've had with this entity, narrow it down to just what's
                 -- been confirmed, and then put checkmarks in where appropriate.
-                results <- filter confirmed <$> getQSOsByDXCC fp (fromInteger $ fromJust dxcc)
-                let confirmations = map (getBand &&& getMode) results
+                confirmations <- getConfirmations (`getQSOsByDXCC` (fromInteger $ fromJust dxcc)) fp
                 mapM_ (addEntityCheck widgets) confirmations
+
+                -- If there are no confirmations with this DXCC entity, it's an ATNO.  Show that in the UI.
+                -- Otherwise, there might not be confirmations with this entity on this band (assuming
+                -- we can know the band).  If that's the case, show that in the UI too.
+                doHighlight confirmations setIsATNO widgets
+                doBandHighlight confirmations widgets
 
         -- FIXME: This is not necessarily the right grid.  We really need to know the grid they're
         -- in first, since a station could be in a different grid than their QTH.  We won't know that
         -- until asking them personally or looking at the cluster, though.  For now this will have
         -- to do.
-        when (isJust $ raGrid ra') $ do
-            set wGrid [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
+        whenJust (raGrid ra') $ do
+            confirmations <- getConfirmations (`getQSOsByGrid` shortGrid) fp
 
-            results <- filter confirmed <$> getQSOsByGrid fp shortGrid
-            let confirmations = map (getBand &&& getMode) results
+            set wGrid [ widgetSensitive := True, frameLabel := shortGrid ++ " status" ]
             mapM_ (addGridCheck widgets) confirmations
 
+            -- See if this would be a new grid and show that in the UI.
+            doHighlight confirmations setIsNewGrid widgets
+
         -- And then put their state and checkmarks into that table, too.
-        when (isJust $ raUSState ra') $ do
+        whenJust (raUSState ra') $ do
             let state = (fromJust . raUSState) ra'
+            confirmations <- getConfirmations (`getQSOsByState` state) fp
 
             set wState [ widgetSensitive := True, frameLabel := state ++ " status" ]
-
-            results <- filter confirmed <$> getQSOsByState fp state
-            let confirmations = map (getBand &&& getMode) results
             mapM_ (addStateCheck widgets) confirmations
+
+            -- If there are no confirmations with this state, it's similar to an ATNO.  It's a WAS
+            -- ATNO at least.  Show that in the UI.  Otherwise, there might not be confirmations
+            -- with this state on this band (assuming we can know the band).  If that's the case,
+            -- show that in the UI too.
+            doHighlight confirmations setIsATNO widgets
+            doBandHighlight confirmations widgets
      where
-        confirmed (_, _, c) = isJust $ qLOTW_RDate c
+        -- Get a list of all confirmed QSOs in the database via an accessor function, and return
+        -- them as a list of (band, mode) tuples.  That's what everything else in updateUI wants.
+        getConfirmations fn database = do
+            results <- filter confirmed <$> fn database
+            return $ map (getBand &&& getMode) results
+         where
+            confirmed = isJust . qLOTW_RDate . thd3
 
-        getBand (_, q, _) = freqToBand $ qFreq q
+        -- Given a list of confirmations as returned by getConfirmations and a function to highlight
+        -- a specific label in the UI, do it.
+        doHighlight confList setFn w =
+            when (null confList) $ setFn w
 
-        getMode (_, q, _) = qMode q
+        doBandHighlight confList w = do
+            s <- get wFreq entryText
+            case stringToDouble (T.unpack s) >>= freqToBand of
+                Nothing -> return ()
+                Just b  -> let confBands = mapMaybe fst confList
+                           in  when (b `notElem` confBands) $ setIsNewBand w
+
+        getBand = freqToBand . qFreq . snd3
+
+        getMode = qMode . snd3
 
         shortGrid = uppercase $ take 4 $ fromJust $ raGrid ra'
+
+        whenJust cond body = when (isJust cond) body
 
 -- When a message is pushed into the status bar, check it to see if it's the message that'd be
 -- written when a new QSO has been added to the database.  If so, grab that QSO and add it to the
@@ -614,6 +677,9 @@ loadWidgets builder = do
                                                       "rstRcvdEntry", "rstSentEntry", "xcRcvdEntry",
                                                       "xcSentEntry", "dateEntry", "timeEntry"]
 
+    [lotw, atno, newBand, newGrid] <- mapM (builderGetObject builder castToLabel)
+                                           ["lotwLabel", "atnoLabel", "newBandLabel", "newGridLabel"]
+
     [current, rigctl] <- mapM (builderGetObject builder castToCheckButton) ["useCurrentDateButton", "useRigctlButton"]
     [dateLabel, timeLabel, freqLabel, rxFreqLabel] <- mapM (builderGetObject builder castToLabel)
                                                            ["dateLabel", "timeLabel", "freqLabel", "rxFreqLabel"]
@@ -638,6 +704,7 @@ loadWidgets builder = do
 
     return $ Widgets call freqLabel freq rxFreqLabel rxFreq
                      rst_rcvd rst_sent xc_rcvd xc_sent
+                     lotw atno newBand newGrid
                      current rigctl
                      dateLabel date timeLabel time
                      previous dxcc grid state
@@ -693,6 +760,9 @@ clearUI state = do
 
     -- Remove any status bar message.
     statusbarRemoveAll (wStatus widgets) 0
+
+    -- Clear out the ATNO box.
+    resetATNOBox widgets
 
     -- Remove all checkmarks images found in the various tables.
     clearChecks widgets
