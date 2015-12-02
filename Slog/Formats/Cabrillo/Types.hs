@@ -1,8 +1,23 @@
-module Slog.Formats.Cabrillo.Types
+{-# LANGUAGE ExistentialQuantification #-}
+
+module Slog.Formats.Cabrillo.Types(Assistance(..),
+                                   Band(..),
+                                   CabrilloFile(..),
+                                   Date,
+                                   Mode(..),
+                                   Operator(..),
+                                   Overlay(..),
+                                   Power(..),
+                                   Station(..),
+                                   Tag(..),
+                                   Time,
+                                   TimeOperated(..),
+                                   Transmitter(..))
  where
 
 import Data.Maybe(fromMaybe)
 
+import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO)
 import Slog.Utils(invert, uppercase)
 
 readsError :: a -> [(a, String)]
@@ -29,12 +44,6 @@ type Time = String
 -- Converting a 'String' into a 'CabrilloFile' is accomplished via the 'Parser' module,
 -- while converting a 'CabrilloFile' into a 'String' is accomplished via the 'Writer' module.
 data CabrilloFile = CabrilloFile [Tag]
- deriving (Read, Show)
-
-data CabrilloQSO = BACQSO { bacBand :: Band, bacMode :: Mode, bacDate :: Date, bacTime :: Time,
-                            bacCall :: String, bacRST :: String, bacTheirCall :: String,
-                            bacTheirRST :: String, bacXC :: String, bacTheirXC :: String }
- deriving (Eq, Read, Show)
 
 --
 -- TAGS
@@ -69,9 +78,8 @@ data Tag = StartOfLog             String
          | Soapbox                [String]
          | XLine                  String String
          | Debug                  Integer
-         | QSO                    CabrilloQSO
-         | XQSO                   CabrilloQSO
- deriving (Eq, Read, Show)
+         | forall a. (CabrilloQSO a) => QSO a
+         | forall a. (CabrilloQSO a) => XQSO a
 
 -- | Was the operated assisted in some way?
 data Assistance = Assisted | NonAssisted

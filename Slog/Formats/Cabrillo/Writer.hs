@@ -2,7 +2,8 @@ module Slog.Formats.Cabrillo.Writer(renderFile,
                                     renderTag)
  where
 
-import Slog.Formats.Cabrillo.Types
+import Slog.Formats.Cabrillo.Types(CabrilloFile(..), Tag(..))
+import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO(toString))
 
 renderFile :: CabrilloFile -> String
 renderFile (CabrilloFile tags) = concatMap renderTag tags
@@ -40,5 +41,5 @@ renderTag t = case t of
     Soapbox s               -> unlines $ map ("SOAPBOX: " ++) s
     Debug d                 -> "DEBUG: " ++ show d
     XLine key value         -> "X-" ++ key ++ ": " ++ value
-    QSO q                   -> "QSO: " ++ show q
-    XQSO x                  -> "XQSO: " ++ show x
+    QSO q                   -> maybe "" ("QSO: " ++) (toString q)
+    XQSO x                  -> maybe "" ("XQSO: " ++) (toString x)
