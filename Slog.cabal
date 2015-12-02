@@ -35,6 +35,7 @@ library
                    Slog.Formats.Cabrillo.Parser,
                    Slog.Formats.Cabrillo.Types,
                    Slog.Formats.Cabrillo.Writer,
+                   Slog.Formats.Utils,
                    Slog.Lookup.Lookup,
                    Slog.Rigctl.Rigctl,
                    Slog.Rigctl.Commands.Class,
