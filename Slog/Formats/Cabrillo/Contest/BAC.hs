@@ -17,17 +17,15 @@ data BACQSO = BACQSO { bacBand :: C.Band, bacMode :: C.Mode, bacDate :: C.Date, 
                        bacTheirRST :: String, bacXC :: String, bacTheirXC :: String }
 
 instance CabrilloQSO BACQSO where
-    toADIF BACQSO{..} = case cabrilloBandToADIF bacBand of
-        Nothing -> []
-        Just a  -> [a,
-                    A.Mode (cabrilloModeToADIFMode bacMode),
-                    A.QSO_Date (undashifyDate bacDate),
-                    A.TimeOn bacTime,
-                    A.StationCall bacCall,
-                    A.RST_Sent bacRST,
-                    A.Call bacTheirCall,
-                    A.RST_Received bacTheirRST
-                   ]
+    toADIF BACQSO{..} = cabrilloBandToADIF bacBand >>= \a ->
+        Just [a,
+              A.Mode (cabrilloModeToADIFMode bacMode),
+              A.QSO_Date (undashifyDate bacDate),
+              A.TimeOn bacTime,
+              A.StationCall bacCall,
+              A.RST_Sent bacRST,
+              A.Call bacTheirCall,
+              A.RST_Received bacTheirRST]
 
     toString BACQSO{..} =
         Just $ printf "%.5s %s %s %s %-13s %-4s %-13s %-4s %.10s %.10s"

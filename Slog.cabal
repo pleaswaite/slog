@@ -29,6 +29,7 @@ library
                    Slog.Formats.ADIF.Types,
                    Slog.Formats.ADIF.Utils,
                    Slog.Formats.ADIF.Writer,
+                   Slog.Formats.Cabrillo.ADIF,
                    Slog.Formats.Cabrillo.Contest.BAC,
                    Slog.Formats.Cabrillo.Contest.Class,
                    Slog.Formats.Cabrillo.Contest.Convert,

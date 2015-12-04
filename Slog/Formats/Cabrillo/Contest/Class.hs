@@ -4,5 +4,5 @@ module Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO(..))
 import Slog.Formats.ADIF.Types(Field)
 
 class CabrilloQSO c where
-    toADIF   :: c -> [Field]
+    toADIF   :: c -> Maybe [Field]
     toString :: c -> Maybe String
