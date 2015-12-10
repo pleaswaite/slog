@@ -30,6 +30,7 @@ library
                    Slog.Formats.ADIF.Utils,
                    Slog.Formats.ADIF.Writer,
                    Slog.Formats.Cabrillo.ADIF,
+                   Slog.Formats.Cabrillo.Contest.ARRL,
                    Slog.Formats.Cabrillo.Contest.BAC,
                    Slog.Formats.Cabrillo.Contest.CQWW,
                    Slog.Formats.Cabrillo.Contest.Class,

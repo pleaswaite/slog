@@ -1,6 +1,7 @@
 module Slog.Formats.Cabrillo.Contest.Convert(toQSO)
  where
 
+import Slog.Formats.Cabrillo.Contest.ARRL(TenMeterQSO, mkTenMeterQSO)
 import Slog.Formats.Cabrillo.Contest.BAC(BACQSO, mkBACQSO)
 import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSOBox(..))
 import Slog.Formats.Cabrillo.Contest.CQWW(CQ_WW_SSB_QSO, mkCQ_WW_SSB_QSO)
@@ -15,6 +16,7 @@ import Slog.Formats.Cabrillo.Contest.CQWW(CQ_WW_SSB_QSO, mkCQ_WW_SSB_QSO)
 -- string so we know what went wrong.
 toQSO :: String -> String -> Either String CabrilloQSOBox
 toQSO contestName s = case contestName of
+    "ARRL-10"   -> mkTenMeterQSO s   >>= Right . CabrilloQSOBox
     "BAC"       -> mkBACQSO s        >>= Right . CabrilloQSOBox
     "CQ-WW-SSB" -> mkCQ_WW_SSB_QSO s >>= Right . CabrilloQSOBox
     _           -> Left $ "Unsupported contest: " ++ contestName
