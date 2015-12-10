@@ -9,7 +9,7 @@ module Slog.Formats.Cabrillo.Parser(parseString) where
 
 import Control.Applicative((<$>))
 import Data.List(partition)
-import Data.Maybe(catMaybes, mapMaybe)
+import Data.Maybe(mapMaybe)
 import Data.String.Utils(split)
 import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
@@ -18,47 +18,51 @@ import Slog.Formats.Cabrillo.Contest.Convert(toQSO)
 import Slog.Formats.Cabrillo.Types
 import Slog.Utils(uppercase)
 
-stringToTag :: String -> String -> String -> Maybe Tag
+stringToTag :: String -> String -> String -> Either String Tag
 stringToTag contestName name datum = case name of
-    "START-OF-LOG"              -> Just $ StartOfLog datum
-    "END-OF-LOG"                -> Just EndOfLog
-    "CALLSIGN"                  -> Just $ Callsign datum
-    "CONTEST"                   -> Just $ Contest datum
-    "CATEGORY-ASSISTED"         -> Just $ CategoryAssisted (read datum :: Assistance)
-    "CATEGORY-BAND"             -> Just $ CategoryBand (read datum :: Band)
-    "CATEGORY-MODE"             -> Just $ CategoryMode (read datum :: Mode)
-    "CATEGORY-OPERATOR"         -> Just $ CategoryOperator (read datum :: Operator)
-    "CATEGORY-POWER"            -> Just $ CategoryPower (read datum :: Power)
-    "CATEGORY-STATION"          -> Just $ CategoryStation (read datum :: Station)
-    "CATEGORY-TIME"             -> Just $ CategoryTime (read datum :: TimeOperated)
-    "CATEGORY-TRANSMITTER"      -> Just $ CategoryTransmitter (read datum :: Transmitter)
-    "CATEGORY-OVERLAY"          -> Just $ CategoryOverlay (read datum :: Overlay)
-    "CERTIFICATE"               -> Just $ Certificate (datum == "YES")
-    "CLAIMED-SCORE"             -> Just $ ClaimedScore (read datum :: Integer)
-    "CLUB"                      -> Just $ Club datum
-    "CREATED-BY"                -> Just $ CreatedBy datum
-    "EMAIL"                     -> Just $ Email datum
-    "LOCATION"                  -> Just $ Location datum
-    "NAME"                      -> Just $ Name datum
-    "ADDRESS"                   -> Just $ Address $ split "\n" datum
-    "ADDRESS-CITY"              -> Just $ AddressCity datum
-    "ADDRESS-STATE-PROVINCE"    -> Just $ AddressStateProvince datum
-    "ADDRESS-POSTALCODE"        -> Just $ AddressPostalCode datum
-    "ADDRESS-COUNTRY"           -> Just $ AddressCountry datum
-    "OPERATORS"                 -> Just $ Operators $ split " " datum
+    "START-OF-LOG"              -> Right $ StartOfLog datum
+    "END-OF-LOG"                -> Right EndOfLog
+    "CALLSIGN"                  -> Right $ Callsign datum
+    "CONTEST"                   -> Right $ Contest datum
+    "CATEGORY-ASSISTED"         -> Right $ CategoryAssisted (read datum :: Assistance)
+    "CATEGORY-BAND"             -> Right $ CategoryBand (read datum :: Band)
+    "CATEGORY-MODE"             -> Right $ CategoryMode (read datum :: Mode)
+    "CATEGORY-OPERATOR"         -> Right $ CategoryOperator (read datum :: Operator)
+    "CATEGORY-POWER"            -> Right $ CategoryPower (read datum :: Power)
+    "CATEGORY-STATION"          -> Right $ CategoryStation (read datum :: Station)
+    "CATEGORY-TIME"             -> Right $ CategoryTime (read datum :: TimeOperated)
+    "CATEGORY-TRANSMITTER"      -> Right $ CategoryTransmitter (read datum :: Transmitter)
+    "CATEGORY-OVERLAY"          -> Right $ CategoryOverlay (read datum :: Overlay)
+    "CERTIFICATE"               -> Right $ Certificate (datum == "YES")
+    "CLAIMED-SCORE"             -> Right $ ClaimedScore (read datum :: Integer)
+    "CLUB"                      -> Right $ Club datum
+    "CREATED-BY"                -> Right $ CreatedBy datum
+    "EMAIL"                     -> Right $ Email datum
+    "LOCATION"                  -> Right $ Location datum
+    "NAME"                      -> Right $ Name datum
+    "ADDRESS"                   -> Right $ Address $ split "\n" datum
+    "ADDRESS-CITY"              -> Right $ AddressCity datum
+    "ADDRESS-STATE-PROVINCE"    -> Right $ AddressStateProvince datum
+    "ADDRESS-POSTALCODE"        -> Right $ AddressPostalCode datum
+    "ADDRESS-COUNTRY"           -> Right $ AddressCountry datum
+    "OPERATORS"                 -> Right $ Operators $ split " " datum
     "OFFTIME"                   -> let [dateA, timeA, dateB, timeB] = words datum
-                                   in Just $ OffTime (unwords [dateA, timeA]) (unwords [dateB, timeB])
-    "SOAPBOX"                   -> Just $ Soapbox $ split "\n" datum
-    "DEBUG"                     -> Just $ Debug (read datum :: Integer)
-    "QSO"                       -> toQSO contestName datum >>= \q -> Just $ QSO q
-    "X-QSO"                     -> toQSO contestName datum >>= \q -> Just $ XQSO q
+                                   in Right $ OffTime (unwords [dateA, timeA]) (unwords [dateB, timeB])
+    "SOAPBOX"                   -> Right $ Soapbox $ split "\n" datum
+    "DEBUG"                     -> Right $ Debug (read datum :: Integer)
+    "QSO"                       -> case toQSO contestName datum of
+                                       Just q  -> Right $ QSO q
+                                       Nothing -> Left $ "Unsupported contest: " ++ contestName
+    "X-QSO"                     -> case toQSO contestName datum of
+                                       Just q  -> Right $ XQSO q
+                                       Nothing -> Left $ "Unsupported contest: " ++ contestName
 
     -- These are deprecated - convert them to the new format.
-    "ARRL-SECTION"              -> Just $ Location datum
-    "CATEGORY"                  -> Just $ XLine name datum
+    "ARRL-SECTION"              -> Right $ Location datum
+    "CATEGORY"                  -> Right $ XLine name datum
 
     -- And finally, just catch anything else as an XLine.
-    _                           -> Just $ XLine name datum
+    _                           -> Right $ XLine name datum
 
 --
 -- THE CABRILLO PARSER
@@ -71,7 +75,7 @@ stringToTag contestName name datum = case name of
 -- After we do all the parsing into a list of tags, we have some post-processing work to do.  We
 -- need to batch all the QSOs up into their own list.  We need to put all the ADDRESS and SOAPBOX
 -- lines into one value.  Stuff like that.
-file contestName = do body <- catMaybes <$> tagList contestName
+file contestName = do body <- tagList contestName
                       return $ CabrilloFile (doMerge body)
  where
     doMerge = mergeAddressTags .  mergeOperatorsTags .  mergeSoapboxTags
@@ -118,7 +122,9 @@ file contestName = do body <- catMaybes <$> tagList contestName
 -- together in no real order.
 tagList contestName = tag contestName `sepEndBy` newline
 tag contestName     = do (tagName, tagValue) <- tagSpec
-                         return $ stringToTag contestName tagName tagValue
+                         case stringToTag contestName tagName tagValue of
+                             Left err  -> fail err
+                             Right tag -> return tag
 tagSpec             = do name <- many1 $ noneOf ":"
                          value <- skipMany (oneOf ": ") >> manyTill anyChar (lookAhead $ try newline)
                          return (uppercase name, value)
