@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Slog.Formats.Cabrillo.Contest.BAC(BACQSO(..),
+module Slog.Formats.Cabrillo.Contest.BAC(BACQSO,
                                          mkBACQSO)
  where
 
