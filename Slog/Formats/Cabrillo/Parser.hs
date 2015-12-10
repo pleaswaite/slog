@@ -15,7 +15,7 @@ import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
 
 import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSOBox(..))
-import Slog.Formats.Cabrillo.Contest.Convert(toQSO)
+import Slog.Formats.Cabrillo.Contest.Convert(toCabrilloQSO)
 import Slog.Formats.Cabrillo.Types
 import Slog.Utils(uppercase)
 
@@ -51,8 +51,8 @@ stringToTag contestName name datum = case name of
                                    in Right $ OffTime (unwords [dateA, timeA]) (unwords [dateB, timeB])
     "SOAPBOX"                   -> Right $ Soapbox $ split "\n" datum
     "DEBUG"                     -> Right $ Debug (read datum :: Integer)
-    "QSO"                       -> toQSO contestName datum >>= \q -> Right $ QSO $ CabrilloQSOBox q
-    "X-QSO"                     -> toQSO contestName datum >>= \q -> Right $ XQSO $ CabrilloQSOBox q
+    "QSO"                       -> toCabrilloQSO contestName datum >>= \q -> Right $ QSO $ CabrilloQSOBox q
+    "X-QSO"                     -> toCabrilloQSO contestName datum >>= \q -> Right $ XQSO $ CabrilloQSOBox q
 
     -- These are deprecated - convert them to the new format.
     "ARRL-SECTION"              -> Right $ Location datum

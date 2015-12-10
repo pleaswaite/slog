@@ -1,4 +1,4 @@
-module Slog.Formats.Cabrillo.Contest.Convert(toQSO)
+module Slog.Formats.Cabrillo.Contest.Convert(toCabrilloQSO)
  where
 
 import Slog.Formats.Cabrillo.Contest.ARRL(TenMeterQSO, mkTenMeterQSO)
@@ -14,8 +14,8 @@ import Slog.Formats.Cabrillo.Contest.CQWW(CQ_WW_SSB_QSO, mkCQ_WW_SSB_QSO)
 -- Many failures are possible - the given contest name could be invalid, or there could
 -- be failures when converting to the requested contest.  In those cases, return an error
 -- string so we know what went wrong.
-toQSO :: String -> String -> Either String CabrilloQSOBox
-toQSO contestName s = case contestName of
+toCabrilloQSO :: String -> String -> Either String CabrilloQSOBox
+toCabrilloQSO contestName s = case contestName of
     "ARRL-10"   -> mkTenMeterQSO s   >>= Right . CabrilloQSOBox
     "BAC"       -> mkBACQSO s        >>= Right . CabrilloQSOBox
     "CQ-WW-SSB" -> mkCQ_WW_SSB_QSO s >>= Right . CabrilloQSOBox
