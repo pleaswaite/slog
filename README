@@ -1,19 +1,27 @@
 How to use all this crud:
 
-(1) Install a bunch of stuff with cabal:
+(1) You need a recent enough cabal that supports sandboxes.  If your distribution does not
+    provide that, you can install it:
+
+    $ cabal update
+    $ cabal install cabal-install
+
+    Then just add ~/.cabal/bin to your $PATH.
+
+(2) Install a bunch of stuff with cabal:
 
     $ cabal sandbox init
     $ cabal install --dependencies-only
 
-(2) Set up an account at http://www.hamqth.com.  You will need this to do call sign lookups.
+(3) Set up an account at http://www.hamqth.com.  You will need this to do call sign lookups.
     It's easy.
 
-(3) Set up a LOTW account.  Instructions are at http://www.arrl.org/logbook-of-the-world.
+(4) Set up a LOTW account.  Instructions are at http://www.arrl.org/logbook-of-the-world.
     This is the world's worst process and takes a week or two (they mail you a postcard)
     but the good news is you can log QSOs without the LOTW account.  You just can't
     run qsoconfirm or qsoupload.
 
-(4) Set up your system to use rigctl, if you want it.  rigctl is a multiplexer that allows
+(5) Set up your system to use rigctl, if you want it.  rigctl is a multiplexer that allows
     multiple programs to control the radio at the same time.  You can use it to have a logging
     program get data from the radio at the same time as you are using a digital mode program
     to change frequency.  However, this doesn't work on all radios because support varies.
@@ -39,7 +47,7 @@ How to use all this crud:
 
     It's also suggested you add yourself to the dialout group.
 
-(5) Create a ~/.slog config file.  Mine looks like this (simplified):
+(6) Create a ~/.slog config file.  Mine looks like this (simplified):
 
     -------------------------------------------------------------
 
@@ -112,7 +120,7 @@ How to use all this crud:
     to "rigctl -l".  device is the device node used for access.  Please see the other
     notes under (5) above.
 
-(6) Build everything:
+(7) Build everything:
 
     $ cabal build
     $ cabal run slog
