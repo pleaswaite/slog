@@ -32,16 +32,16 @@ instance CabrilloQSO BACQSO where
                       (show bacBand) (show bacMode) bacDate bacTime
                       bacCall bacRST bacTheirCall bacTheirRST bacXC bacTheirXC
 
-mkBACQSO :: String -> Maybe BACQSO
+mkBACQSO :: String -> Either String BACQSO
 mkBACQSO s = let splitup = words s
-             in if length splitup < 10 then Nothing
-                else Just BACQSO { bacBand=read (head splitup) :: C.Band,
-                                   bacMode=read (splitup !! 1) :: C.Mode,
-                                   bacDate=splitup !! 2,
-                                   bacTime=splitup !! 3,
-                                   bacCall=splitup !! 4,
-                                   bacRST=splitup !! 5,
-                                   bacTheirCall=splitup !! 6,
-                                   bacTheirRST=splitup !! 7,
-                                   bacXC="",
-                                   bacTheirXC="" }
+             in if length splitup < 10 then Left $ "Not enough fields in QSO line: " ++ s
+                else Right BACQSO { bacBand=read (head splitup) :: C.Band,
+                                    bacMode=read (splitup !! 1) :: C.Mode,
+                                    bacDate=splitup !! 2,
+                                    bacTime=splitup !! 3,
+                                    bacCall=splitup !! 4,
+                                    bacRST=splitup !! 5,
+                                    bacTheirCall=splitup !! 6,
+                                    bacTheirRST=splitup !! 7,
+                                    bacXC="",
+                                    bacTheirXC="" }

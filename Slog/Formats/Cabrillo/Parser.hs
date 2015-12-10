@@ -51,12 +51,8 @@ stringToTag contestName name datum = case name of
                                    in Right $ OffTime (unwords [dateA, timeA]) (unwords [dateB, timeB])
     "SOAPBOX"                   -> Right $ Soapbox $ split "\n" datum
     "DEBUG"                     -> Right $ Debug (read datum :: Integer)
-    "QSO"                       -> case toQSO contestName datum of
-                                       Just q  -> Right $ QSO $ CabrilloQSOBox q
-                                       Nothing -> Left $ "Unsupported contest: " ++ contestName
-    "X-QSO"                     -> case toQSO contestName datum of
-                                       Just q  -> Right $ XQSO $ CabrilloQSOBox q
-                                       Nothing -> Left $ "Unsupported contest: " ++ contestName
+    "QSO"                       -> toQSO contestName datum >>= \q -> Right $ QSO $ CabrilloQSOBox q
+    "X-QSO"                     -> toQSO contestName datum >>= \q -> Right $ XQSO $ CabrilloQSOBox q
 
     -- These are deprecated - convert them to the new format.
     "ARRL-SECTION"              -> Right $ Location datum

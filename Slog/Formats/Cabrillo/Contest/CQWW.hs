@@ -12,6 +12,8 @@ import qualified Slog.Formats.Cabrillo.Types as C
 import           Slog.Formats.Utils(cabrilloBandToADIF, cabrilloModeToADIFMode)
 import           Slog.Utils(undashifyDate)
 
+{-# ANN module "HLint: ignore Use camelCase" #-}
+
 data CQ_WW_SSB_QSO = CQ_WW_SSB_QSO { wwSSBBand :: C.Band, wwSSBMode :: C.Mode, wwSSBDate :: C.Date, wwSSBTime :: C.Time,
                                      wwSSBCall :: String, wwSSBRST :: String, wwSSBXC :: String,
                                      wwSSBTheirCall :: String, wwSSBTheirRST :: String, wwSSBTheirXC :: String,
@@ -35,17 +37,17 @@ instance CabrilloQSO CQ_WW_SSB_QSO where
                       wwSSBTheirCall wwSSBTheirRST wwSSBTheirXC
                       (if wwSSBMulti then "1" else "0")
 
-mkCQ_WW_SSB_QSO:: String -> Maybe CQ_WW_SSB_QSO
+mkCQ_WW_SSB_QSO:: String -> Either String CQ_WW_SSB_QSO
 mkCQ_WW_SSB_QSO s = let splitup = words s
-                    in if length splitup < 11 then Nothing
-                       else Just CQ_WW_SSB_QSO { wwSSBBand=read (head splitup) :: C.Band,
-                                                 wwSSBMode=read (splitup !! 1) :: C.Mode,
-                                                 wwSSBDate=splitup !! 2,
-                                                 wwSSBTime=splitup !! 3,
-                                                 wwSSBCall=splitup !! 4,
-                                                 wwSSBRST=splitup !! 5,
-                                                 wwSSBXC=splitup !! 6,
-                                                 wwSSBTheirCall=splitup !! 7,
-                                                 wwSSBTheirRST=splitup !! 8,
-                                                 wwSSBTheirXC=splitup !! 9,
-                                                 wwSSBMulti=splitup !! 10 == "1" }
+                    in if length splitup < 11 then Left $ "Not enough fields in QSO line: " ++ s 
+                       else Right CQ_WW_SSB_QSO { wwSSBBand=read (head splitup) :: C.Band,
+                                                  wwSSBMode=read (splitup !! 1) :: C.Mode,
+                                                  wwSSBDate=splitup !! 2,
+                                                  wwSSBTime=splitup !! 3,
+                                                  wwSSBCall=splitup !! 4,
+                                                  wwSSBRST=splitup !! 5,
+                                                  wwSSBXC=splitup !! 6,
+                                                  wwSSBTheirCall=splitup !! 7,
+                                                  wwSSBTheirRST=splitup !! 8,
+                                                  wwSSBTheirXC=splitup !! 9,
+                                                  wwSSBMulti=splitup !! 10 == "1" }
