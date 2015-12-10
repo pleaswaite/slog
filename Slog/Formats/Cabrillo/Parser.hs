@@ -14,6 +14,7 @@ import Data.String.Utils(split)
 import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
 
+import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSOBox(..))
 import Slog.Formats.Cabrillo.Contest.Convert(toQSO)
 import Slog.Formats.Cabrillo.Types
 import Slog.Utils(uppercase)
@@ -51,10 +52,10 @@ stringToTag contestName name datum = case name of
     "SOAPBOX"                   -> Right $ Soapbox $ split "\n" datum
     "DEBUG"                     -> Right $ Debug (read datum :: Integer)
     "QSO"                       -> case toQSO contestName datum of
-                                       Just q  -> Right $ QSO q
+                                       Just q  -> Right $ QSO $ CabrilloQSOBox q
                                        Nothing -> Left $ "Unsupported contest: " ++ contestName
     "X-QSO"                     -> case toQSO contestName datum of
-                                       Just q  -> Right $ XQSO q
+                                       Just q  -> Right $ XQSO $ CabrilloQSOBox q
                                        Nothing -> Left $ "Unsupported contest: " ++ contestName
 
     -- These are deprecated - convert them to the new format.

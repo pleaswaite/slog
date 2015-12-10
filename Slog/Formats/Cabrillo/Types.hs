@@ -1,5 +1,3 @@
-{-# LANGUAGE ExistentialQuantification #-}
-
 module Slog.Formats.Cabrillo.Types(Assistance(..),
                                    Band(..),
                                    CabrilloFile(..),
@@ -17,7 +15,7 @@ module Slog.Formats.Cabrillo.Types(Assistance(..),
 
 import Data.Maybe(fromMaybe)
 
-import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO)
+import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO, CabrilloQSOBox)
 import Slog.Utils(invert, uppercase)
 
 readsError :: a -> [(a, String)]
@@ -78,8 +76,8 @@ data Tag = StartOfLog             String
          | Soapbox                [String]
          | XLine                  String String
          | Debug                  Integer
-         | forall a. (CabrilloQSO a) => QSO a
-         | forall a. (CabrilloQSO a) => XQSO a
+         | QSO                    CabrilloQSOBox
+         | XQSO                   CabrilloQSOBox
 
 -- | Was the operated assisted in some way?
 data Assistance = Assisted | NonAssisted
