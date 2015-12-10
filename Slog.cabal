@@ -67,6 +67,13 @@ library
                    HTTP,
                    MissingH
 
+executable cabrillo2adif
+  main-is:         cabrillo2adif.hs
+  hs-source-dirs:  tools
+
+  build-depends:   base,
+                   Slog
+
 executable editor
   main-is:         editor.hs
   hs-source-dirs:  tools
