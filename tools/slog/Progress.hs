@@ -11,7 +11,8 @@ module Progress(addEntityCheck,
 import Control.Monad(when)
 import Graphics.UI.Gtk
 
-import Slog.Formats.ADIF.Types(Band(..), Mode, digitalMode)
+import Slog.Formats.ADIF.Types(Band(..))
+import Slog.Mode(Mode, digitalMode)
 
 import Types
 

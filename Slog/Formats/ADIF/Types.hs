@@ -18,14 +18,10 @@ module Slog.Formats.ADIF.Types(Date, Time,
                                Band(..),
                                Complete(..),
                                Continent(..),
-                               Mode(..),
                                Propagation(..),
                                ReceivedStatus(..),
                                SentStatus(..),
-                               SentVia(..),
-                               digitalMode,
-                               imageMode,
-                               phoneMode)
+                               SentVia(..))
  where
 
 import Data.Convertible
@@ -34,6 +30,7 @@ import Data.Typeable
 import Database.HDBC.SqlValue(SqlValue(SqlString))
 import Text.Printf(printf)
 
+import Slog.Mode(Mode)
 import Slog.Utils(invert, uppercase)
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
@@ -317,27 +314,6 @@ instance Read Complete where
 -- | Which continent is the remote station on?
 data Continent = NA | SA | EU | AF | OC | AS | AN
  deriving (Eq, Read, Show)
-
--- | What mode was used?
-data Mode = AM | AMTORFEC | ASCI | ATV | CHIP64 | CHIP128 | CLO | CONTESTI |
-            CW | DSTAR | DOMINO | DOMINOF | FAX | FM | FMHELL | FSK31 | FSK441 |
-            GTOR | HELL | HELL80 | HFSK | JT44 | JT4A | JT4B | JT4C | JT4D |
-            JT4E | JT4F | JT4G | JT65 | JT65A | JT65B | JT65C | JT6M | JT9 | MFSK8 |
-            MFSK16 | MT63 | OLIVIA | PAC | PAC2 | PAC3 | PAX | PAX2 | PCW |
-            PSK10 | PSK31 | PSK63 | PSK63F | PSK125 | PSKAM10 | PSKAM31 |
-            PSKAM50 | PSKFEC31 | PSKHELL | Q15 | QPSK31 | QPSK63 | QPSK125 |
-            ROS | RTTY | RTTYM | SSB | SSTV | THRB | THOR | THRBX | TOR | VOI |
-            WINMOR | WSPR
- deriving (Eq, Read, Show)
-
-digitalMode :: Mode -> Bool
-digitalMode mode = mode `notElem` [AM, ATV, CW, FAX, FM, SSB, SSTV]
-
-imageMode :: Mode -> Bool
-imageMode mode = mode `elem` [ATV, FAX, SSTV]
-
-phoneMode :: Mode -> Bool
-phoneMode mode = mode `elem` [AM, FM, SSB]
 
 -- | What was the observed propagation method?
 data Propagation = AUR | AUE | BS | ECH | EME | ES | FAI | F2 | INTERNET |

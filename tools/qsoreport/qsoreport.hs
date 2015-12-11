@@ -7,6 +7,7 @@ import Text.XHtml.Strict(Html, showHtml)
 
 import Slog.DB(DBResult, getAllQSOs, initDB)
 import qualified Slog.Formats.ADIF.Types as ADIF
+import Slog.Mode(Mode)
 
 import ToolLib.Config
 
@@ -51,7 +52,7 @@ opts = [
            "show only image QSOs",
     Option [] ["filter-itu"]            (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byITU (read arg :: Integer))) "ITU")
            "filter by ITU zone",
-    Option [] ["filter-mode"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byMode (read arg :: ADIF.Mode))) "MODE")
+    Option [] ["filter-mode"]           (ReqArg (\arg opt -> return $ mkFilterAction opt (F.byMode (read arg :: Mode))) "MODE")
            "filter by mode",
     Option [] ["filter-phone"]          (NoArg (\opt -> return $ mkFilterAction opt F.byPhone))
            "show only phone QSOs",

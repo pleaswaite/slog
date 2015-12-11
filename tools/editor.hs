@@ -13,8 +13,8 @@ import Paths_Slog(getDataFileName)
 
 import Slog.DB(DBResult, QsosId, getAllQSOs, initDB, updateQSO)
 import Slog.DXCC(DXCC(dxccEntity), entityIDs, entityFromID, idFromName)
-import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Formats.ADIF.Utils(freqToBand)
+import Slog.Mode(Mode)
 import Slog.Utils(stringToDouble, stringToInteger, uppercase)
 import Slog.QSO
 
@@ -60,7 +60,7 @@ updateEdited db store = do
             rTime
             rFreq
             rRxFreq
-            (read rMode :: ADIF.Mode)
+            (read rMode :: Mode)
             (toInteger <$> rDXCC)
             rGrid
             rState

@@ -23,6 +23,7 @@ library
                    Slog.DB,
                    Slog.DXCC,
                    Slog.LOTW,
+                   Slog.Mode,
                    Slog.QSO,
                    Slog.Utils,
                    Slog.Formats.ADIF.Parser,

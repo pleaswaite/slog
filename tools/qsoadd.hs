@@ -11,6 +11,7 @@ import System.Environment(getArgs)
 import Slog.DB(QsosId, addQSO, initDB)
 import qualified Slog.Formats.ADIF.Types as ADIF
 import Slog.Lookup.Lookup
+import Slog.Mode(Mode)
 import Slog.QSO
 import Slog.Utils(stringToDouble, stringToInteger, uncolonifyTime, undashifyDate, uppercase)
 
@@ -25,7 +26,7 @@ data Options = Options {
     optTime :: Maybe String,
     optFreq :: Maybe Double,
     optRxFreq :: Maybe Double,
-    optMode :: Maybe ADIF.Mode,
+    optMode :: Maybe Mode,
     optDXCC :: Maybe Integer,
     optGrid :: Maybe String,
     optState :: Maybe String,
@@ -101,7 +102,7 @@ opts = [
            "their ITU zone",
     Option "l" ["call"]       (ReqArg (\arg opt -> return opt { optCall = Just arg }) "CALL")
            "their call sign (REQUIRED)",
-    Option "m" ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just (read (uppercase arg) :: ADIF.Mode) }) "MODE")
+    Option "m" ["mode"]       (ReqArg (\arg opt -> return opt { optMode = Just (read (uppercase arg) :: Mode) }) "MODE")
            "mode used (REQUIRED)",
     Option "n" ["name"]       (ReqArg (\arg opt -> return opt { optName = Just arg }) "NAME")
            "their name",

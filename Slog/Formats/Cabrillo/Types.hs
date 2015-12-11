@@ -2,7 +2,6 @@ module Slog.Formats.Cabrillo.Types(Assistance(..),
                                    Band(..),
                                    CabrilloFile(..),
                                    Date,
-                                   Mode(..),
                                    Operator(..),
                                    Overlay(..),
                                    Power(..),
@@ -16,6 +15,7 @@ module Slog.Formats.Cabrillo.Types(Assistance(..),
 import Data.Maybe(fromMaybe)
 
 import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO, CabrilloQSOBox)
+import Slog.Mode(Mode)
 import Slog.Utils(invert, uppercase)
 
 readsError :: a -> [(a, String)]
@@ -121,9 +121,6 @@ instance Read Band where
     readsPrec _ t = case lookup (uppercase t) bandMap' of
                         Just b  -> [(b, "")]
                         Nothing -> [(BandFreq (read t :: Integer), "")]
-
-data Mode = FM | CW | PH | RY
- deriving (Eq, Read, Show)
 
 data Operator = SingleOp | MultiOp | Checklog
  deriving (Eq)

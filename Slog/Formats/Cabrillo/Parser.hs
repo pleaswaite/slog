@@ -17,6 +17,7 @@ import Text.ParserCombinators.Parsec
 import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSOBox(..))
 import Slog.Formats.Cabrillo.Contest.Convert(toCabrilloQSO)
 import Slog.Formats.Cabrillo.Types
+import Slog.Mode(Mode, cabrilloStringToMode)
 import Slog.Utils(uppercase)
 
 stringToTag :: String -> String -> String -> Either String Tag
@@ -27,7 +28,9 @@ stringToTag contestName name datum = case name of
     "CONTEST"                   -> Right $ Contest datum
     "CATEGORY-ASSISTED"         -> Right $ CategoryAssisted (read datum :: Assistance)
     "CATEGORY-BAND"             -> Right $ CategoryBand (read datum :: Band)
-    "CATEGORY-MODE"             -> Right $ CategoryMode (read datum :: Mode)
+    "CATEGORY-MODE"             -> case cabrilloStringToMode datum of
+                                       Just m  -> Right $ CategoryMode m
+                                       Nothing -> Left $ "Unknown Cabrillo mode: " ++ datum
     "CATEGORY-OPERATOR"         -> Right $ CategoryOperator (read datum :: Operator)
     "CATEGORY-POWER"            -> Right $ CategoryPower (read datum :: Power)
     "CATEGORY-STATION"          -> Right $ CategoryStation (read datum :: Station)

@@ -4,6 +4,7 @@ module Slog.Formats.Cabrillo.Writer(renderFile,
 
 import Slog.Formats.Cabrillo.Types(CabrilloFile(..), Tag(..))
 import Slog.Formats.Cabrillo.Contest.Class(CabrilloQSO(toString))
+import Slog.Mode(modeToCabrilloString)
 
 renderFile :: CabrilloFile -> String
 renderFile (CabrilloFile tags) = concatMap renderTag tags
@@ -16,7 +17,9 @@ renderTag t = case t of
     Contest c               -> "CONTEST: " ++ c
     CategoryAssisted c      -> "CATEGORY-ASSISTED: " ++ show c
     CategoryBand c          -> "CATEGORY-BAND: " ++ show c
-    CategoryMode c          -> "CATEGORY-MODE: " ++ show c
+    CategoryMode c          -> case modeToCabrilloString c of
+                                   Just s  -> "CATEGORY-MODE: " ++ s
+                                   Nothing -> ""
     CategoryOperator c      -> "CATEGORY-OPERATOR: " ++ show c
     CategoryPower c         -> "CATEGORY-POWER: " ++ show c
     CategoryStation c       -> "CATEGORY-STATION: " ++ show c

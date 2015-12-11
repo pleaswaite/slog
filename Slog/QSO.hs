@@ -13,7 +13,8 @@ import Data.Maybe(catMaybes, fromJust, isJust, isNothing)
 -- Some of these types are pretty useful everywhere.  Perhaps they should move
 -- up into a non-ADIF specific module.
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.Formats.ADIF.Utils(freqToBand)
+import           Slog.Formats.ADIF.Utils(freqToBand)
+import           Slog.Mode(Mode)
 
 {-# ANN module "HLint: ignore Use camelCase" #-}
 
@@ -31,7 +32,7 @@ data QSO = QSO {
     qTime      :: ADIF.Time,
     qFreq      :: Double,
     qRxFreq    :: Maybe Double,
-    qMode      :: ADIF.Mode,
+    qMode      :: Mode,
     qDXCC      :: Maybe Integer,
     qGrid      :: Maybe String,
     qState     :: Maybe String,

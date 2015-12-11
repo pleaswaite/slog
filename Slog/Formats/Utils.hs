@@ -1,5 +1,4 @@
-module Slog.Formats.Utils(cabrilloBandToADIF,
-                          cabrilloModeToADIFMode)
+module Slog.Formats.Utils(cabrilloBandToADIF)
  where
 
 import qualified Slog.Formats.ADIF.Types as A
@@ -31,10 +30,3 @@ cabrilloBandToADIF m = case m of
     C.Band241G      -> Just $ A.Band A.Band1MM
     C.BandFreq f    -> Just $ A.Freq (fromIntegral f)
     _               -> Nothing
-
-cabrilloModeToADIFMode :: C.Mode -> A.Mode
-cabrilloModeToADIFMode m = case m of
-    C.FM -> A.FM
-    C.CW -> A.CW
-    C.PH -> A.SSB
-    C.RY -> A.RTTY

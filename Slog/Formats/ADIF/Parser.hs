@@ -12,6 +12,7 @@ import qualified Data.Text as T hiding(toUpper)
 import Text.ParserCombinators.Parsec
 
 import Slog.Formats.ADIF.Types
+import Slog.Mode(Mode(..))
 import Slog.Utils(uppercase)
 
 stringToInt :: String -> Int

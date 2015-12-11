@@ -1,9 +1,9 @@
 -- | A loose collection of utility functions for working with ADIF.
 module Slog.Formats.ADIF.Utils(freqToBand,
-                               freqToMode,
                                freqToBandAndMode)
  where
 
+import           Slog.Mode(Mode, freqToMode)
 import qualified Slog.Formats.ADIF.Types as ADIF
 
 -- | Determine the 'ADIF.Band' that a given frequency falls in.
@@ -37,48 +37,6 @@ freqToBand f | 0.1357 <= f && f <= 0.1378       = Just ADIF.Band2190M
              | 241000.0 <= f && f <= 250000.0   = Just ADIF.Band1MM
              | otherwise                        = Nothing
 
--- | Determine the likely 'ADIF.Mode' in use given a frequency.  This
--- encodes an awful lot of information about band plans, and we're certainly
--- not going to cover all the digital mode possibilities, but it's good
--- enough.  We will cover the main ones plus the SSB, CW, and FM segments
--- of these bands.
-freqToMode :: Double -> Maybe ADIF.Mode
-freqToMode f
-    -- 160M
-    | f == 1.807 = Just ADIF.PSK31
-    -- 80M
-    | f == 3.576 = Just ADIF.JT65
-    | f == 3.580 = Just ADIF.PSK31
-    -- 40M
-    | f == 7.035 = Just ADIF.PSK31
-    | f == 7.070 = Just ADIF.PSK31
-    | f == 7.076 = Just ADIF.JT65
-    | f == 7.039 = Just ADIF.JT65
-    -- 30M
-    | f == 10.138 = Just ADIF.JT65
-    | 10.139 <= f && f <= 10.142 = Just ADIF.PSK31
-    -- 20M
-    | f == 14.070 = Just ADIF.PSK31
-    | f == 14.076 = Just ADIF.JT65
-    -- 17M
-    | f == 18.100 = Just ADIF.PSK31
-    | f == 18.102 = Just ADIF.JT65
-    -- 15M
-    | f == 21.070 = Just ADIF.JT65
-    | f == 21.076 = Just ADIF.JT65
-    -- 12M
-    | f == 24.917 = Just ADIF.JT65
-    | f == 24.920 = Just ADIF.PSK31
-    -- 10M
-    | f == 28.076 = Just ADIF.JT65
-    | f == 28.120 = Just ADIF.PSK31
-    | f == 29.600 = Just ADIF.FM
-    -- 6M
-    | f == 50.276 = Just ADIF.JT65
-    | f == 50.290 = Just ADIF.PSK31
-    -- and the rest
-    | otherwise = Nothing
-
 -- | Call both 'freqToBand' and 'freqToMode' at once.
-freqToBandAndMode :: Double -> (Maybe ADIF.Band, Maybe ADIF.Mode)
+freqToBandAndMode :: Double -> (Maybe ADIF.Band, Maybe Mode)
 freqToBandAndMode f = (freqToBand f, freqToMode f)

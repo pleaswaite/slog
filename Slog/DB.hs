@@ -47,8 +47,9 @@ import Database.Persist.Sqlite(runSqlite)
 import Database.Persist.TH
 
 import qualified Slog.Formats.ADIF.Types as ADIF
-import Slog.QSO
-import Slog.Utils(undashifyDate, uppercase)
+import           Slog.Mode(Mode)
+import           Slog.QSO
+import           Slog.Utils(undashifyDate, uppercase)
 
 -- A template haskell description of the database format.
 share [mkPersist sqlSettings, mkMigrate "migrateAll"] [persistLowerCase|
@@ -308,7 +309,7 @@ sqlToQSO Qsos{..} =
         qsosTime
         qsosFreq
         qsosRx_freq
-        (read qsosMode :: ADIF.Mode)
+        (read qsosMode :: Mode)
         (toInteger <$> qsosDxcc)
         qsosGrid
         qsosState

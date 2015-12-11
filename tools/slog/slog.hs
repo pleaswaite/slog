@@ -25,9 +25,9 @@ import           System.Locale(defaultTimeLocale)
 
 import           Slog.DB
 import           Slog.DXCC(DXCC(dxccEntity), entityFromID)
-import           Slog.Formats.ADIF.Types(Mode)
 import           Slog.Formats.ADIF.Utils(freqToBand, freqToBandAndMode)
 import           Slog.Lookup.Lookup(RadioAmateur(..), RAUses(Yes), login, lookupCall, lookupCallD)
+import           Slog.Mode(Mode)
 import qualified Slog.Rigctl.Commands.Ask as Ask
 import qualified Slog.Rigctl.Commands.Tell as Tell
 import           Slog.Rigctl.Rigctl(RigctlSupport(..), ask, isRigctldRunning, killRigctld, rigctlSupportForModel, runRigctld)
